@@ -1,0 +1,14 @@
+[
+  {
+    "timestamp": "2025-06-07T17:36:02.967037",
+    "seccion": "Sistema",
+    "tipo_cambio": "Inicialización",
+    "descripcion": "Sistema inicializado con archivos base"
+  },
+  {
+    "timestamp": "2025-06-07T17:36:02.985286",
+    "seccion": "Sistema",
+    "tipo_cambio": "Actualización Masiva",
+    "descripcion": "Cargados datos reales: 21 años mantenimiento, 32 comidas"
+  }
+]
