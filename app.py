@@ -97,30 +97,32 @@ login_layout = html.Div([
 
 # Layout principal
 main_layout = html.Div([
-    # Header con logo
+    # Header
     html.Div([
-        html.Img(src=app.get_asset_url('logo.png'), 
-                style={'height': '60px', 'margin-right': '20px'}),
         html.H1(f"{config.APP_NAME} - Sistema de Gestión", 
-                style={'margin': '0', 'textAlign': 'center', 'flex-grow': '1'}),
+                style={'margin': '0', 'textAlign': 'center'}),
         html.Button('Cerrar Sesión', id='logout-button',
-                   style={'padding': '10px 20px',
+                   style={'position': 'absolute', 'right': '20px', 'top': '50%',
+                         'transform': 'translateY(-50%)', 'padding': '10px 20px',
                          'backgroundColor': config.COLORS['accent'], 'color': 'white',
                          'border': 'none', 'borderRadius': '5px', 'cursor': 'pointer'})
-    ], style={'display': 'flex', 'alignItems': 'center', 'padding': '15px 20px',
-             'background': f'linear-gradient(135deg, {config.COLORS["primary"]} 0%, {config.COLORS["secondary"]} 100%)',
-             'color': 'white', 'position': 'relative'}),
+    ], className='header'),
     
-    # Navegación (tabs)
+    # Navegación
     html.Div([
-        dcc.Tabs(id='main-tabs', value='inicio', children=[
-            dcc.Tab(label='🏠 Inicio', value='inicio',
-                   style={'backgroundColor': config.COLORS['background']},
-                   selected_style={'backgroundColor': config.COLORS['primary'], 'color': 'white'}),
+        dcc.Tabs(id='main-tabs', value='comidas', children=[
             dcc.Tab(label='📅 Comidas', value='comidas',
                    style={'backgroundColor': config.COLORS['background']},
                    selected_style={'backgroundColor': config.COLORS['primary'], 'color': 'white'}),
-            # Resto de tabs igual...
+            dcc.Tab(label='🛒 Lista de Compra', value='lista_compra',
+                   style={'backgroundColor': config.COLORS['background']},
+                   selected_style={'backgroundColor': config.COLORS['primary'], 'color': 'white'}),
+            dcc.Tab(label='🔧 Mantenimiento', value='mantenimiento',
+                   style={'backgroundColor': config.COLORS['background']},
+                   selected_style={'backgroundColor': config.COLORS['primary'], 'color': 'white'}),
+            dcc.Tab(label='🎉 Fiestas', value='fiestas',
+                   style={'backgroundColor': config.COLORS['background']},
+                   selected_style={'backgroundColor': config.COLORS['primary'], 'color': 'white'})
         ])
     ], style={'margin': '20px'}),
     
