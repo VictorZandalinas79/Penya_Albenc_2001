@@ -3,3 +3,4 @@ pandas==2.1.4
 plotly==5.17.0
 pyarrow==14.0.1
 python-dateutil==2.8.2
+gunicorn
