@@ -1,10 +1,11 @@
 import dash
 from dash import dcc, html, Input, Output, State, callback_context, dash_table
+import dash.dependencies
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 
 # Inicializar la app
@@ -155,6 +156,220 @@ def load_initial_data():
     
     conn.commit()
     conn.close()
+    
+    # Inicializar cocineros únicos desde las comidas cargadas
+    inicializar_cocineros_desde_comidas()
+
+def load_eventos_completos():
+    """Cargar todos los eventos de la tabla completa 2025-2045"""
+    import calendar
+    from datetime import datetime, timedelta
+    
+    def get_tercer_sabado_enero(año):
+        """Obtener el tercer sábado de enero"""
+        primer_dia = datetime(año, 1, 1)
+        dias_hasta_sabado = (5 - primer_dia.weekday()) % 7  # 5 = sábado
+        primer_sabado = primer_dia + timedelta(days=dias_hasta_sabado)
+        tercer_sabado = primer_sabado + timedelta(days=14)  # +2 semanas
+        return tercer_sabado.strftime('%Y-%m-%d')
+    
+    def get_sabado_cercano_28_abril(año):
+        """Obtener el sábado más cercano al 28 de abril"""
+        abril_28 = datetime(año, 4, 28)
+        dias_hasta_sabado = (5 - abril_28.weekday()) % 7
+        if dias_hasta_sabado <= 3:  # Si está a 3 días o menos, usar ese sábado
+            sabado = abril_28 + timedelta(days=dias_hasta_sabado)
+        else:  # Si no, usar el sábado anterior
+            sabado = abril_28 - timedelta(days=abril_28.weekday() + 2)
+        return sabado.strftime('%Y-%m-%d')
+    
+    def get_tercer_sabado_julio(año):
+        """Obtener el tercer sábado de julio"""
+        primer_dia = datetime(año, 7, 1)
+        dias_hasta_sabado = (5 - primer_dia.weekday()) % 7
+        primer_sabado = primer_dia + timedelta(days=dias_hasta_sabado)
+        tercer_sabado = primer_sabado + timedelta(days=14)
+        return tercer_sabado.strftime('%Y-%m-%d')
+    
+    def get_ultimo_sabado_mayo(año):
+        """Obtener el último sábado de mayo"""
+        # Último día de mayo
+        ultimo_dia = datetime(año, 5, 31)
+        # Encontrar el último sábado
+        dias_desde_sabado = (ultimo_dia.weekday() + 2) % 7  # +2 porque sábado es 5
+        ultimo_sabado = ultimo_dia - timedelta(days=dias_desde_sabado)
+        return ultimo_sabado.strftime('%Y-%m-%d')
+    
+    # Datos completos de la tabla
+    eventos_data = {
+        2025: {
+            'sant_antoni': 'Lluis, Alonso, Raul A., David',
+            'brena_st_vicent': 'Xisco, Serafin, Alfonso, Raul M.',
+            'fira_magdalena': 'Juan Ramon, Victor Z., Miguel A., Oscar',
+            'penya_taurina': 'Juan Fernando, Victor M., Diego'
+        },
+        2026: {
+            'sant_antoni': 'Serafin, Juan Fernando, Oscar, Alfonso',
+            'brena_st_vicent': 'Alonso, Victor M., Juan Ramon, Miguel A.',
+            'fira_magdalena': 'Xisco, David, Diego, Raul A.',
+            'penya_taurina': 'Victor Z., Lluis, Raul M.'
+        },
+        2027: {
+            'sant_antoni': 'Raul A., Diego, Alonso, Victor Z.',
+            'brena_st_vicent': 'Lluis, David, Oscar, Serafin',
+            'fira_magdalena': 'Juan Fernando, Victor M., Alfonso, Juan Ramon',
+            'penya_taurina': 'Xisco, Miguel A., Raul M.'
+        },
+        2028: {
+            'sant_antoni': 'Juan Fernando, Serafin, Alfonso, David',
+            'brena_st_vicent': 'Xisco, Diego, Victor Z., Juan Ramon',
+            'fira_magdalena': 'Raul M., Oscar, Miguel A., Raul A.',
+            'penya_taurina': 'Victor M., Alonso, Lluis'
+        },
+        2029: {
+            'sant_antoni': 'Victor M., Raul A., Xisco, Miguel A.',
+            'brena_st_vicent': 'Alonso, Lluis, Juan Fernando, Serafin',
+            'fira_magdalena': 'Victor Z., Diego, Juan Ramon, David',
+            'penya_taurina': 'Oscar, Raul M., Alfonso'
+        },
+        2030: {
+            'sant_antoni': 'Juan Fernando, Alonso, Diego, Victor Z.',
+            'brena_st_vicent': 'Raul A., Oscar, David, Alfonso',
+            'fira_magdalena': 'Serafin, Miguel A., Victor M., Lluis',
+            'penya_taurina': 'Xisco, Juan Ramon, Raul M.'
+        },
+        2031: {
+            'sant_antoni': 'Victor M., Juan Ramon, Oscar, David',
+            'brena_st_vicent': 'Raul M., Alonso, Lluis, Xisco',
+            'fira_magdalena': 'Diego, Raul A., Juan Fernando, Victor Z.',
+            'penya_taurina': 'Alfonso, Serafin, Miguel A.'
+        },
+        2032: {
+            'sant_antoni': 'Victor Z., Raul M., Serafin, Juan Fernando',
+            'brena_st_vicent': 'Victor M., Raul A., Diego, Alfonso',
+            'fira_magdalena': 'Juan Ramon, Oscar, Lluis, Miguel A.',
+            'penya_taurina': 'David, Xisco, Alonso'
+        },
+        2033: {
+            'sant_antoni': 'Alfonso, Miguel A., Victor M., David',
+            'brena_st_vicent': 'Xisco, Lluis, Alonso, Victor Z.',
+            'fira_magdalena': 'Raul M., Juan Fernando, Serafin, Raul A.',
+            'penya_taurina': 'Diego, Juan Ramon, Oscar'
+        },
+        2034: {
+            'sant_antoni': 'Raul A., Lluis, Diego, Juan Fernando',
+            'brena_st_vicent': 'Alfonso, Victor M., David, Serafin',
+            'fira_magdalena': 'Juan Ramon, Oscar, Xisco, Victor Z.',
+            'penya_taurina': 'Raul M., Miguel A., Alonso'
+        },
+        2035: {
+            'sant_antoni': 'Juan Ramon, Alonso, Xisco, David',
+            'brena_st_vicent': 'Raul A., Lluis, Diego, Victor Z.',
+            'fira_magdalena': 'Victor M., Alfonso, Juan Fernando, Miguel A.',
+            'penya_taurina': 'Raul M., Oscar, Serafin'
+        },
+        2036: {
+            'sant_antoni': 'Victor Z., Diego, Raul A., Raul M.',
+            'brena_st_vicent': 'Juan Fernando, Alfonso, David, Oscar',
+            'fira_magdalena': 'Serafin, Lluis, Xisco, Juan Ramon',
+            'penya_taurina': 'Alonso, Victor M., Miguel A.'
+        },
+        2037: {
+            'sant_antoni': 'Alfonso, Victor M., Miguel A., Xisco',
+            'brena_st_vicent': 'Alonso, Raul M., Raul A., Lluis',
+            'fira_magdalena': 'Diego, Victor Z., David, Juan Fernando',
+            'penya_taurina': 'Oscar, Serafin, Juan Ramon'
+        },
+        2038: {
+            'sant_antoni': 'Raul A., Raul M., Juan Fernando, David',
+            'brena_st_vicent': 'Victor Z., Juan Ramon, Diego, Victor M.',
+            'fira_magdalena': 'Alonso, Oscar, Xisco, Alfonso',
+            'penya_taurina': 'Miguel A., Serafin, Lluis'
+        },
+        2039: {
+            'sant_antoni': 'Oscar, Serafin, Juan Ramon, Alfonso',
+            'brena_st_vicent': 'Raul M., Lluis, Alonso, Juan Fernando',
+            'fira_magdalena': 'Victor M., Raul A., Diego, Miguel A.',
+            'penya_taurina': 'Victor Z., David, Xisco'
+        },
+        2040: {
+            'sant_antoni': 'Xisco, Raul M., David, Victor Z.',
+            'brena_st_vicent': 'Alfonso, Victor M., Diego, Oscar',
+            'fira_magdalena': 'Serafin, Lluis, Alonso, Juan Fernando',
+            'penya_taurina': 'Miguel A., Raul A., Juan Ramon'
+        },
+        2041: {
+            'sant_antoni': 'Serafin, Miguel A., Alonso, Raul A.',
+            'brena_st_vicent': 'Lluis, Raul M., Juan Ramon, David',
+            'fira_magdalena': 'Diego, Xisco, Victor Z., Victor M.',
+            'penya_taurina': 'Oscar, Juan Fernando, Alfonso'
+        },
+        2042: {
+            'sant_antoni': 'Lluis, Raul M., Juan Ramon, Oscar',
+            'brena_st_vicent': 'Alonso, Miguel A., Raul A., Xisco',
+            'fira_magdalena': 'Alfonso, Juan Fernando, Serafin, David',
+            'penya_taurina': 'Victor M., Victor Z., Diego'
+        },
+        2043: {
+            'sant_antoni': 'Alfonso, Xisco, Victor M., Juan Fernando',
+            'brena_st_vicent': 'Victor Z., Diego, Juan Ramon, David',
+            'fira_magdalena': 'Raul M., Alonso, Lluis, Miguel A.',
+            'penya_taurina': 'Serafin, Raul A., Oscar'
+        },
+        2044: {
+            'sant_antoni': 'Diego, Miguel A., Serafin, Oscar',
+            'brena_st_vicent': 'Juan Fernando, Alfonso, Alonso, Raul A.',
+            'fira_magdalena': 'Victor M., Xisco, Victor Z., David',
+            'penya_taurina': 'Lluis, Juan Ramon, Raul M.'
+        },
+        2045: {
+            'sant_antoni': 'Victor M., Alonso, Alfonso, Raul A.',
+            'brena_st_vicent': 'Xisco, Diego, Raul M., Serafin',
+            'fira_magdalena': 'Oscar, Miguel A., Juan Ramon, Juan Fernando',
+            'penya_taurina': 'Lluis, David, Victor Z.'
+        }
+    }
+    
+    conn = sqlite3.connect('penya_albenc.db')
+    cursor = conn.cursor()
+    
+    # BORRAR todos los datos existentes
+    cursor.execute("DELETE FROM comidas")
+    cursor.execute("DELETE FROM eventos")
+    
+    # Insertar nuevos datos
+    for año, eventos in eventos_data.items():
+        # Sant Antoni - tercer sábado de enero
+        fecha_sant_antoni = get_tercer_sabado_enero(año)
+        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                      (fecha_sant_antoni, 'Cena', 'Sant Antoni', eventos['sant_antoni']))
+        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                      (fecha_sant_antoni, 'Sant Antoni', 'Cena'))
+        
+        # Brena St Vicent - sábado cercano al 28 de abril
+        fecha_brena = get_sabado_cercano_28_abril(año)
+        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                      (fecha_brena, 'Comida y Cena', 'Brena St Vicent', eventos['brena_st_vicent']))
+        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                      (fecha_brena, 'Brena St Vicent', 'Comida y Cena'))
+        
+        # Fira Magdalena - tercer sábado de julio
+        fecha_fira = get_tercer_sabado_julio(año)
+        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                      (fecha_fira, 'Comida y Cena', 'Fira Magdalena', eventos['fira_magdalena']))
+        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                      (fecha_fira, 'Fira Magdalena', 'Comida y Cena'))
+        
+        # Penya Taurina - último sábado de mayo
+        fecha_penya = get_ultimo_sabado_mayo(año)
+        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                      (fecha_penya, 'Comida', 'Penya Taurina', eventos['penya_taurina']))
+        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                      (fecha_penya, 'Penya Taurina', 'Comida'))
+    
+    conn.commit()
+    conn.close()
+    print("✅ Eventos completos 2025-2045 cargados exitosamente!")
 
 def update_mantenimiento_data():
     """Función para actualizar solo los datos de mantenimiento (útil para actualizaciones)"""
@@ -197,21 +412,21 @@ def update_mantenimiento_data():
     conn.close()
     print("✅ Datos de mantenimiento actualizados correctamente!")
 
-# Funciones auxiliares para filtros
-def buscar_comidas_por_filtros(fecha=None, tipo_comida=None):
-    """Buscar comidas por fecha y/o tipo de comida"""
+# Funciones auxiliares para filtros (restauradas)
+def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
+    """Buscar comidas por año y/o tipo de comida"""
     conn = sqlite3.connect('penya_albenc.db')
     
     query = "SELECT * FROM comidas WHERE 1=1"
     params = []
     
-    if fecha:
-        query += " AND fecha = ?"
-        params.append(fecha)
+    if año:
+        query += " AND strftime('%Y', fecha) = ?"
+        params.append(str(año))
     
     if tipo_comida:
-        query += " AND tipo_comida LIKE ?"
-        params.append(f"%{tipo_comida}%")
+        query += " AND tipo_comida = ?"
+        params.append(tipo_comida)
     
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
@@ -225,142 +440,240 @@ def get_tipos_comida():
         return [{'label': tipo, 'value': tipo} for tipo in tipos]
     return []
 
-# Funciones avanzadas para gestión de cocineros (actualizada)
-def get_comida_cocineros(comida_id):
-    """Obtener la lista de cocineros de una comida específica"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT cocineros FROM comidas WHERE id = ?", (comida_id,))
-    result = cursor.fetchone()
-    conn.close()
-    if result:
-        return [nombre.strip() for nombre in result[0].split(',')]
+def get_años_disponibles():
+    """Obtener lista de años disponibles en comidas"""
+    comidas_df = get_data('comidas')
+    if len(comidas_df) > 0:
+        años = sorted(list(set([int(fecha.split('-')[0]) for fecha in comidas_df['fecha']])))
+        return [{'label': str(año), 'value': año} for año in años]
     return []
 
-def intercambiar_cocineros(id1, cocinero1, id2, cocinero2):
-    """Intercambiar cocineros entre dos comidas usando IDs"""
+def get_cocineros_options():
+    """Obtener lista única de cocineros desde las comidas existentes"""
     try:
-        # Obtener las listas actuales de cocineros
-        cocineros1 = get_comida_cocineros(id1)
-        cocineros2 = get_comida_cocineros(id2)
+        comidas_df = get_data('comidas')
+        if len(comidas_df) == 0:
+            return []
         
-        # Verificar que los cocineros existen en sus respectivas listas
-        if cocinero1 not in cocineros1:
-            return f"❌ {cocinero1} no está en la comida ID {id1}"
-        if cocinero2 not in cocineros2:
-            return f"❌ {cocinero2} no está en la comida ID {id2}"
+        # Extraer todos los cocineros únicos
+        cocineros_set = set()
+        for cocineros_str in comidas_df['cocineros'].dropna():
+            # Separar por comas y limpiar espacios
+            cocineros = [c.strip() for c in str(cocineros_str).split(',')]
+            cocineros_set.update(cocineros)
         
-        # Realizar el intercambio
-        cocineros1[cocineros1.index(cocinero1)] = cocinero2
-        cocineros2[cocineros2.index(cocinero2)] = cocinero1
+        # Remover strings vacíos
+        cocineros_list = sorted([c for c in cocineros_set if c])
         
-        # Actualizar en la base de datos
-        update_data('comidas', id1, 'cocineros', ', '.join(cocineros1))
-        update_data('comidas', id2, 'cocineros', ', '.join(cocineros2))
-        
-        return f"✅ Intercambio exitoso: {cocinero1} ↔ {cocinero2}"
+        return [{'label': cocinero, 'value': cocinero} for cocinero in cocineros_list]
     except Exception as e:
-        return f"❌ Error en el intercambio: {str(e)}"
+        print(f"Error obteniendo cocineros: {e}")
+        return []
 
-def agregar_cocinero(comida_id, nuevo_cocinero):
-    """Agregar un cocinero a una comida existente usando ID"""
-    try:
-        cocineros = get_comida_cocineros(comida_id)
-        
-        if nuevo_cocinero in cocineros:
-            return f"⚠️ {nuevo_cocinero} ya está en esta comida"
-        
-        cocineros.append(nuevo_cocinero)
-        update_data('comidas', comida_id, 'cocineros', ', '.join(cocineros))
-        
-        return f"✅ {nuevo_cocinero} agregado a la comida ID {comida_id}"
-    except Exception as e:
-        return f"❌ Error al agregar cocinero: {str(e)}"
+def inicializar_cocineros_desde_comidas():
+    """Función auxiliar para inicializar cocineros (ya no es necesaria con get_cocineros_options)"""
+    pass
 
-def eliminar_cocinero(comida_id, cocinero_eliminar):
-    """Eliminar un cocinero específico de una comida usando ID"""
-    try:
-        cocineros = get_comida_cocineros(comida_id)
-        
-        if cocinero_eliminar not in cocineros:
-            return f"⚠️ {cocinero_eliminar} no está en esta comida"
-        
-        cocineros.remove(cocinero_eliminar)
-        
-        if not cocineros:
-            return f"⚠️ No se puede eliminar el último cocinero de la comida"
-        
-        update_data('comidas', comida_id, 'cocineros', ', '.join(cocineros))
-        
-        return f"✅ {cocinero_eliminar} eliminado de la comida ID {comida_id}"
-    except Exception as e:
-        return f"❌ Error al eliminar cocinero: {str(e)}"
-
-def buscar_comida_por_filtros(fecha, tipo_comida):
-    """Buscar una comida específica por fecha y tipo"""
+def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
+    """Buscar todas las comidas de un año y tipo específico"""
     conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, cocineros FROM comidas WHERE fecha = ? AND tipo_comida = ?", (fecha, tipo_comida))
-    result = cursor.fetchone()
+    cursor.execute("""
+        SELECT id, fecha, cocineros FROM comidas 
+        WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
+        ORDER BY fecha
+    """, (str(año), tipo_comida))
+    results = cursor.fetchall()
     conn.close()
-    return result
-
-def intercambiar_cocineros_por_filtros(fecha1, tipo1, cocinero1, fecha2, tipo2, cocinero2):
-    """Intercambiar cocineros usando filtros de fecha y tipo"""
+    return results
+def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
+    """Intercambiar cocineros específicos entre diferentes año/tipo"""
     try:
-        # Buscar las comidas
-        comida1 = buscar_comida_por_filtros(fecha1, tipo1)
-        comida2 = buscar_comida_por_filtros(fecha2, tipo2)
+        # Buscar comidas del primer grupo
+        comidas1 = buscar_comidas_por_año_tipo_completas(año1, tipo1)
+        if not comidas1:
+            return f"❌ No se encontraron comidas en {año1} de tipo '{tipo1}'"
         
-        if not comida1:
-            return f"❌ No se encontró comida el {fecha1} de tipo '{tipo1}'"
-        if not comida2:
-            return f"❌ No se encontró comida el {fecha2} de tipo '{tipo2}'"
+        # Buscar comidas del segundo grupo
+        comidas2 = buscar_comidas_por_año_tipo_completas(año2, tipo2)
+        if not comidas2:
+            return f"❌ No se encontraron comidas en {año2} de tipo '{tipo2}'"
         
-        id1, _ = comida1
-        id2, _ = comida2
+        cambios_realizados = 0
         
-        # Realizar el intercambio usando las IDs encontradas
-        return intercambiar_cocineros(id1, cocinero1, id2, cocinero2)
+        # Intercambiar en el primer grupo: cocinero1 → cocinero2
+        for comida_id, fecha, cocineros_str in comidas1:
+            cocineros = [c.strip() for c in cocineros_str.split(',')]
+            if cocinero1 in cocineros:
+                cocineros[cocineros.index(cocinero1)] = cocinero2
+                nueva_lista = ', '.join(cocineros)
+                update_data('comidas', comida_id, 'cocineros', nueva_lista)
+                cambios_realizados += 1
+        
+        # Intercambiar en el segundo grupo: cocinero2 → cocinero1
+        for comida_id, fecha, cocineros_str in comidas2:
+            cocineros = [c.strip() for c in cocineros_str.split(',')]
+            if cocinero2 in cocineros:
+                cocineros[cocineros.index(cocinero2)] = cocinero1
+                nueva_lista = ', '.join(cocineros)
+                update_data('comidas', comida_id, 'cocineros', nueva_lista)
+                cambios_realizados += 1
+        
+        if cambios_realizados > 0:
+            return f"✅ Intercambio exitoso: {cocinero1} ({tipo1} {año1}) ↔ {cocinero2} ({tipo2} {año2}) en {cambios_realizados} comidas"
+        else:
+            return f"⚠️ No se encontraron los cocineros especificados en sus respectivos grupos"
     except Exception as e:
         return f"❌ Error en el intercambio: {str(e)}"
 
-def agregar_cocinero_por_filtros(fecha, tipo_comida, nuevo_cocinero):
-    """Agregar cocinero usando filtros"""
+def cambiar_cocinero_en_año_tipo(año, tipo_comida, cocinero_antiguo, cocinero_nuevo):
+    """Cambiar un cocinero por otro en todas las comidas de un año y tipo"""
     try:
-        comida = buscar_comida_por_filtros(fecha, tipo_comida)
-        if not comida:
-            return f"❌ No se encontró comida el {fecha} de tipo '{tipo_comida}'"
+        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
+        if not comidas:
+            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
         
-        comida_id, _ = comida
-        return agregar_cocinero(comida_id, nuevo_cocinero)
+        cambios_realizados = 0
+        for comida_id, fecha, cocineros_str in comidas:
+            cocineros = [c.strip() for c in cocineros_str.split(',')]
+            if cocinero_antiguo in cocineros:
+                cocineros[cocineros.index(cocinero_antiguo)] = cocinero_nuevo
+                nueva_lista = ', '.join(cocineros)
+                update_data('comidas', comida_id, 'cocineros', nueva_lista)
+                cambios_realizados += 1
+        
+        if cambios_realizados > 0:
+            return f"✅ {cocinero_antiguo} → {cocinero_nuevo} en {cambios_realizados} comidas de {tipo_comida} ({año})"
+        else:
+            return f"⚠️ {cocinero_antiguo} no encontrado en comidas de {tipo_comida} ({año})"
     except Exception as e:
-        return f"❌ Error al agregar cocinero: {str(e)}"
+        return f"❌ Error en el cambio: {str(e)}"
 
-def eliminar_cocinero_por_filtros(fecha, tipo_comida, cocinero_eliminar):
-    """Eliminar cocinero usando filtros"""
+def agregar_cocinero_en_año_tipo(año, tipo_comida, nuevo_cocinero):
+    """Agregar un cocinero a todas las comidas de un año y tipo"""
     try:
-        comida = buscar_comida_por_filtros(fecha, tipo_comida)
-        if not comida:
-            return f"❌ No se encontró comida el {fecha} de tipo '{tipo_comida}'"
+        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
+        if not comidas:
+            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
         
-        comida_id, _ = comida
-        return eliminar_cocinero(comida_id, cocinero_eliminar)
+        cambios_realizados = 0
+        for comida_id, fecha, cocineros_str in comidas:
+            cocineros = [c.strip() for c in cocineros_str.split(',')]
+            if nuevo_cocinero not in cocineros:
+                cocineros.append(nuevo_cocinero)
+                nueva_lista = ', '.join(cocineros)
+                update_data('comidas', comida_id, 'cocineros', nueva_lista)
+                cambios_realizados += 1
+        
+        if cambios_realizados > 0:
+            return f"✅ {nuevo_cocinero} agregado a {cambios_realizados} comidas de {tipo_comida} ({año})"
+        else:
+            return f"⚠️ {nuevo_cocinero} ya está en todas las comidas de {tipo_comida} ({año})"
     except Exception as e:
-        return f"❌ Error al eliminar cocinero: {str(e)}"
+        return f"❌ Error al agregar: {str(e)}"
 
-def actualizar_cocineros_por_filtros(fecha, tipo_comida, nuevos_cocineros):
-    """Actualizar cocineros usando filtros"""
+def eliminar_cocinero_en_año_tipo(año, tipo_comida, cocinero_eliminar):
+    """Eliminar un cocinero de todas las comidas de un año y tipo"""
     try:
-        comida = buscar_comida_por_filtros(fecha, tipo_comida)
-        if not comida:
-            return f"❌ No se encontró comida el {fecha} de tipo '{tipo_comida}'"
+        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
+        if not comidas:
+            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
         
-        comida_id, _ = comida
-        update_data('comidas', comida_id, 'cocineros', nuevos_cocineros)
-        return f"✅ Cocineros actualizados para {tipo_comida} del {fecha}! 👨‍🍳"
+        cambios_realizados = 0
+        for comida_id, fecha, cocineros_str in comidas:
+            cocineros = [c.strip() for c in cocineros_str.split(',')]
+            if cocinero_eliminar in cocineros and len(cocineros) > 1:
+                cocineros.remove(cocinero_eliminar)
+                nueva_lista = ', '.join(cocineros)
+                update_data('comidas', comida_id, 'cocineros', nueva_lista)
+                cambios_realizados += 1
+        
+        if cambios_realizados > 0:
+            return f"✅ {cocinero_eliminar} eliminado de {cambios_realizados} comidas de {tipo_comida} ({año})"
+        else:
+            return f"⚠️ No se pudo eliminar {cocinero_eliminar} (no encontrado o es el único cocinero)"
     except Exception as e:
-        return f"❌ Error al actualizar: {str(e)}"
+        return f"❌ Error al eliminar: {str(e)}"
+
+def limpiar_eventos_antiguos():
+    """Eliminar eventos que tengan más de un mes de antigüedad"""
+    try:
+        conn = sqlite3.connect('penya_albenc.db')
+        cursor = conn.cursor()
+        
+        # Fecha límite: hace un mes
+        fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        # Eliminar comidas antiguas
+        cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
+        comidas_eliminadas = cursor.rowcount
+        
+        # Eliminar eventos antiguos
+        cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
+        eventos_eliminados = cursor.rowcount
+        
+        # No eliminamos mantenimiento porque son tareas anuales
+        
+        conn.commit()
+        conn.close()
+        
+        if comidas_eliminadas > 0 or eventos_eliminados > 0:
+            print(f"🧹 Limpieza automática: {comidas_eliminadas} comidas y {eventos_eliminados} eventos eliminados")
+        
+        return f"✅ Limpieza completada: {comidas_eliminadas} comidas y {eventos_eliminados} eventos eliminados"
+    except Exception as e:
+        return f"❌ Error en limpieza: {str(e)}"
+
+def get_eventos_calendario():
+    """Obtener todos los eventos para el calendario desde comidas y mantenimiento"""
+    try:
+        conn = sqlite3.connect('penya_albenc.db')
+        
+        # Obtener comidas
+        comidas_query = """
+        SELECT fecha, tipo_comida as evento, tipo_servicio as tipo, 'comida' as categoria
+        FROM comidas 
+        WHERE fecha >= date('now', '-30 days')
+        ORDER BY fecha
+        """
+        
+        # Obtener mantenimiento (convertir año a fecha aproximada)
+        mantenimiento_query = """
+        SELECT (año || '-01-01') as fecha, mantenimiento as evento, 'Anual' as tipo, 'mantenimiento' as categoria
+        FROM mantenimiento 
+        WHERE año >= strftime('%Y', 'now')
+        ORDER BY año
+        """
+        
+        eventos_comidas = pd.read_sql_query(comidas_query, conn)
+        eventos_mantenimiento = pd.read_sql_query(mantenimiento_query, conn)
+        
+        # Combinar todos los eventos
+        eventos = pd.concat([eventos_comidas, eventos_mantenimiento], ignore_index=True)
+        
+        conn.close()
+        return eventos
+    except Exception as e:
+        print(f"Error obteniendo eventos: {e}")
+        return pd.DataFrame()
+
+def get_proximos_eventos(limit=5):
+    """Obtener los próximos eventos ordenados por fecha"""
+    try:
+        conn = sqlite3.connect('penya_albenc.db')
+        query = """
+        SELECT fecha, tipo_comida, tipo_servicio, cocineros
+        FROM comidas 
+        WHERE fecha >= date('now')
+        ORDER BY fecha ASC
+        LIMIT ?
+        """
+        df = pd.read_sql_query(query, conn, params=[limit])
+        conn.close()
+        return df
+    except Exception as e:
+        print(f"Error obteniendo próximos eventos: {e}")
+        return pd.DataFrame()
 
 # Estilos CSS
 # Estilos CSS
@@ -470,10 +783,21 @@ app.index_string = '''
 # Layout del sidebar mejorado
 sidebar = html.Div([
     html.Div([
-        html.H2("🏠 Penya L'Albenc", 
-               style={"font-size": "1.8rem", "margin-bottom": "10px", "text-align": "center"}),
+        html.Img(
+            src="/assets/logo.png",
+            style={
+                "width": "80px", 
+                "height": "80px", 
+                "margin": "0 auto 15px auto", 
+                "display": "block",
+                "border-radius": "10px",
+                "object-fit": "contain"
+            }
+        ),
+        html.H2("Penya L'Albenc", 
+            style={"font-size": "1.6rem", "margin-bottom": "10px", "text-align": "center"}),
         html.P("📍 Gestión de grupo", 
-               style={"font-size": "0.9rem", "opacity": "0.8", "text-align": "center", "margin-bottom": "20px"})
+            style={"font-size": "0.9rem", "opacity": "0.8", "text-align": "center", "margin-bottom": "20px"})
     ]),
     html.Hr(style={"border-color": "rgba(255,255,255,0.3)", "margin": "20px 0"}),
     dcc.Location(id="url"),
@@ -681,23 +1005,14 @@ def create_home_page():
             ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
         ]),
         
-        # Últimas actividades
+        # Próximos eventos (en lugar de últimas actividades)
         html.Div([
-            html.H3("🔥 Últimas Actividades", style={"color": "#1976D2", "margin": "30px 0 20px 0"}),
+            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "30px 0 20px 0"}),
             html.Div([
-                # Última comida
-                html.Div([
-                    html.H5("🍽️ Última Comida", style={"color": "#4CAF50", "margin-bottom": "10px"}),
-                    html.P(f"📅 {ultima_comida.iloc[0]['fecha'] if len(ultima_comida) > 0 else 'Ninguna'}", 
-                           style={"margin": "5px 0"}),
-                    html.P(f"🥘 {ultima_comida.iloc[0]['tipo_comida'] if len(ultima_comida) > 0 else 'N/A'}", 
-                           style={"margin": "5px 0"}),
-                    html.P(f"👨‍🍳 {ultima_comida.iloc[0]['cocineros'] if len(ultima_comida) > 0 else 'N/A'}", 
-                           style={"margin": "5px 0", "font-size": "0.9rem"})
-                ], style={
-                    "background": "#F1F8E9", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #4CAF50"
-                }),
+                # Mostrar próximos eventos dinámicamente
+                html.Div(id="proximos-eventos-container")
+            ])
+        ], style={"margin-top": "30px"}),
                 
                 # Último item lista
                 html.Div([
@@ -711,32 +1026,24 @@ def create_home_page():
                     "border-radius": "8px", "border-left": "4px solid #2196F3"
                 }),
                 
-                # Último mantenimiento
+                # Referencia rápida al mantenimiento
                 html.Div([
-                    html.H5("🔧 Último Mantenimiento", style={"color": "#FF9800", "margin-bottom": "10px"}),
-                    html.P(f"📅 {ultimo_mantenimiento.iloc[0]['año'] if len(ultimo_mantenimiento) > 0 else 'Ninguno'}", 
-                           style={"margin": "5px 0"}),
-                    html.P(f"🔨 {ultimo_mantenimiento.iloc[0]['mantenimiento'] if len(ultimo_mantenimiento) > 0 else 'N/A'}", 
-                           style={"margin": "5px 0", "font-size": "0.9rem"})
+                    html.H5("🔧 Mantenimiento Actual", style={"color": "#FF9800", "margin-bottom": "10px"}),
+                    html.P(f"📅 Año {datetime.now().year}", style={"margin": "5px 0"}),
+                    html.P("👀 Ver detalles abajo", style={"margin": "5px 0", "font-size": "0.9rem", "font-style": "italic"})
                 ], style={
                     "background": "#FFF8E1", "padding": "20px", "margin": "10px", 
                     "border-radius": "8px", "border-left": "4px solid #FF9800"
                 }),
-            ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"})
-        ]),
-        
-        # Calendario mejorado
-        html.Div([
-            html.H3("📅 Calendario de Eventos", style={"color": "#1976D2", "margin": "30px 0 15px 0"}),
-            html.P("🔴 Días con comidas/cenas | 🔵 Hoy", style={"color": "#666", "margin-bottom": "15px"}),
-            calendar_table
-        ], style={"margin-top": "30px"})
-    ])
+                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
+          
 
-# Página de comidas
+# Página de comidas (actualizada con selectores de cocineros únicos)
 def create_comidas_page():
     comidas_df = get_data('comidas')
     tipos_comida = get_tipos_comida()
+    años_disponibles = get_años_disponibles()
+    cocineros_options = get_cocineros_options()
     
     return html.Div([
         html.H1("🍽️ Gestión de Comidas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
@@ -748,7 +1055,8 @@ def create_comidas_page():
             data=comidas_df.to_dict('records'),
             columns=[
                 {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
-                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True,
+                "format": {"specifier": "%d-%m-%Y"}},
                 {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
                 {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
                 {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True}
@@ -782,7 +1090,27 @@ def create_comidas_page():
             page_size=15
         ),
         
-        # Formulario para agregar DESPUÉS de la tabla
+        # Gestión de cocineros únicos
+        html.Div([
+            html.H3("👨‍🍳 Gestión de Cocineros", style={"color": "#1976D2", "margin-bottom": "15px"}),
+            html.Div([
+                dcc.Input(
+                    id='nuevo-cocinero-nombre',
+                    placeholder="Nombre del nuevo cocinero",
+                    type='text',
+                    style={"padding": "8px", "width": "250px", "margin": "5px"}
+                ),
+                html.Button('➕ Agregar Cocinero', id='btn-add-nuevo-cocinero', n_clicks=0,
+                           style={
+                               "background": "#9C27B0", "color": "white", "border": "none",
+                               "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
+                           })
+            ], style={"display": "flex", "align-items": "center", "gap": "5px"}),
+            html.P("💡 Agrega nuevos cocineros a la lista maestra para usarlos en los selectores", 
+                   style={"color": "#666", "font-style": "italic", "margin": "10px 0"})
+        ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
+        
+        # Formulario para agregar comida (CON SELECTORES)
         html.Div([
             html.H3("➕ Agregar Nueva Comida", style={"color": "#4CAF50"}),
             html.Div([
@@ -822,11 +1150,12 @@ def create_comidas_page():
                 
                 html.Div([
                     html.Label("👨‍🍳 Cocineros:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='comida-cocineros', 
-                        placeholder="Separados por comas: Juan, María, Pedro", 
-                        type='text',
-                        style={"width": "100%", "padding": "8px"}
+                    dcc.Dropdown(
+                        id='comida-cocineros-selector',
+                        options=cocineros_options,
+                        placeholder="Selecciona cocineros (múltiple)",
+                        multi=True,
+                        style={"width": "100%"}
                     )
                 ], style={"margin": "10px"}),
                 
@@ -840,61 +1169,113 @@ def create_comidas_page():
             ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"})
         ]),
         
-        # Panel avanzado de gestión de cocineros (actualizado con filtros de fecha y tipo)
+        # Panel avanzado de gestión de cocineros (MEJORADO CON SELECTORES)
         html.Div([
             html.H3("🔄 Gestión Avanzada de Cocineros", style={"color": "#1976D2", "margin-bottom": "20px"}),
-            html.P("💡 Tip: Usa la fecha y tipo de comida para identificar las comidas en lugar de ID", 
+            html.P("💡 Selecciona año y tipo de comida para modificar cocineros en TODAS las comidas de esa categoría", 
                    style={"color": "#666", "font-style": "italic", "margin-bottom": "20px"}),
             
-            # Herramientas de gestión
+            # Filtros principales
             html.Div([
-                # Editar cocineros por fecha y tipo
+                html.H5("🎯 Seleccionar Comidas a Modificar", style={"color": "#9C27B0", "margin-bottom": "15px"}),
                 html.Div([
-                    html.H5("✏️ Editar Cocineros", style={"color": "#2196F3", "margin-bottom": "10px"}),
                     html.Div([
-                        html.Div([
-                            dcc.DatePickerSingle(
-                                id='edit-fecha',
-                                placeholder="Fecha de la comida",
-                                display_format='DD/MM/YYYY',
-                                style={"width": "140px"}
-                            )
-                        ], style={"margin": "5px"}),
-                        html.Div([
-                            dcc.Dropdown(
-                                id='edit-tipo',
-                                options=tipos_comida,
-                                placeholder="Tipo de comida",
-                                style={"width": "180px"}
-                            )
-                        ], style={"margin": "5px"}),
-                        html.Div([
-                            dcc.Input(
-                                id='edit-cocineros-filtro',
-                                type='text',
-                                placeholder="Nuevos cocineros (separados por comas)",
-                                style={"padding": "8px", "width": "300px"}
-                            )
-                        ], style={"margin": "5px"}),
-                        html.Button('💾 Actualizar', id='btn-edit-cocineros-filtro', n_clicks=0,
+                        html.Label("📅 Año:", style={"font-weight": "bold", "color": "#9C27B0"}),
+                        dcc.Dropdown(
+                            id='filter-año',
+                            options=años_disponibles,
+                            placeholder="Selecciona el año",
+                            style={"width": "150px"}
+                        )
+                    ], style={"margin": "10px"}),
+                    
+                    html.Div([
+                        html.Label("🥘 Tipo de Comida:", style={"font-weight": "bold", "color": "#9C27B0"}),
+                        dcc.Dropdown(
+                            id='filter-tipo',
+                            options=tipos_comida,
+                            placeholder="Selecciona el tipo",
+                            style={"width": "200px"}
+                        )
+                    ], style={"margin": "10px"}),
+                ], style={"display": "flex", "align-items": "end", "gap": "10px"})
+            ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
+            
+            # Operaciones disponibles CON SELECTORES
+            html.Div([
+                # Cambiar cocinero por otro
+                html.Div([
+                    html.H5("🔄 Cambiar Cocinero", style={"color": "#FF9800", "margin-bottom": "10px"}),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='cambiar-cocinero-antiguo',
+                            options=cocineros_options,
+                            placeholder="Cocinero actual",
+                            style={"width": "150px", "margin": "5px"}
+                        ),
+                        html.Span("→", style={"margin": "0 10px", "font-size": "20px", "color": "#FF9800"}),
+                        dcc.Dropdown(
+                            id='cambiar-cocinero-nuevo',
+                            options=cocineros_options,
+                            placeholder="Cocinero nuevo",
+                            style={"width": "150px", "margin": "5px"}
+                        ),
+                        html.Button('🔄 Cambiar', id='btn-cambiar-cocinero', n_clicks=0,
                                    style={
-                                       "background": "#2196F3", "color": "white", "border": "none",
+                                       "background": "#FF9800", "color": "white", "border": "none",
                                        "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
                                    })
                     ], style={"display": "flex", "align-items": "center", "gap": "5px", "flex-wrap": "wrap"})
-                ], style={"background": "#E3F2FD", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                ], style={"background": "#FFF3E0", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
                 
-                # Intercambiar cocineros por fecha y tipo
+                # Agregar cocinero
                 html.Div([
-                    html.H5("🔄 Intercambiar Cocineros", style={"color": "#FF9800", "margin-bottom": "10px"}),
+                    html.H5("➕ Agregar Cocinero", style={"color": "#4CAF50", "margin-bottom": "10px"}),
                     html.Div([
-                        # Primera comida
+                        dcc.Dropdown(
+                            id='agregar-cocinero',
+                            options=cocineros_options,
+                            placeholder="Selecciona cocinero a agregar",
+                            style={"width": "250px", "margin": "5px"}
+                        ),
+                        html.Button('➕ Agregar', id='btn-agregar-cocinero', n_clicks=0,
+                                   style={
+                                       "background": "#4CAF50", "color": "white", "border": "none",
+                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
+                                   })
+                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
+                ], style={"background": "#E8F5E8", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                
+                # Eliminar cocinero
+                html.Div([
+                    html.H5("➖ Eliminar Cocinero", style={"color": "#F44336", "margin-bottom": "10px"}),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='eliminar-cocinero',
+                            options=cocineros_options,
+                            placeholder="Selecciona cocinero a eliminar",
+                            style={"width": "250px", "margin": "5px"}
+                        ),
+                        html.Button('➖ Eliminar', id='btn-eliminar-cocinero', n_clicks=0,
+                                   style={
+                                       "background": "#F44336", "color": "white", "border": "none",
+                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
+                                   })
+                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
+                ], style={"background": "#FFEBEE", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                
+                # NUEVO: Intercambio específico entre diferentes grupos
+                html.Div([
+                    html.H5("🔄 Intercambio Específico", style={"color": "#9C27B0", "margin-bottom": "10px"}),
+                    html.P("Intercambia cocineros entre diferentes años/tipos", style={"color": "#666", "font-size": "0.9rem", "margin-bottom": "10px"}),
+                    html.Div([
+                        # Grupo 1
                         html.Div([
-                            html.Label("Comida 1:", style={"font-weight": "bold", "color": "#FF9800"}),
-                            dcc.DatePickerSingle(
-                                id='intercambio-fecha1',
-                                placeholder="Fecha 1",
-                                display_format='DD/MM/YYYY',
+                            html.Label("Grupo 1:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
+                            dcc.Dropdown(
+                                id='intercambio-año1',
+                                options=años_disponibles,
+                                placeholder="Año 1",
                                 style={"width": "120px", "margin": "2px"}
                             ),
                             dcc.Dropdown(
@@ -903,23 +1284,23 @@ def create_comidas_page():
                                 placeholder="Tipo 1",
                                 style={"width": "140px", "margin": "2px"}
                             ),
-                            dcc.Input(
+                            dcc.Dropdown(
                                 id='intercambio-cocinero1',
-                                type='text',
+                                options=cocineros_options,
                                 placeholder="Cocinero 1",
-                                style={"padding": "6px", "width": "120px", "margin": "2px"}
+                                style={"width": "140px", "margin": "2px"}
                             )
                         ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
                         
-                        html.Span("↔️", style={"margin": "0 10px", "font-size": "24px", "align-self": "center"}),
+                        html.Span("↔️", style={"margin": "0 15px", "font-size": "24px", "align-self": "center"}),
                         
-                        # Segunda comida
+                        # Grupo 2
                         html.Div([
-                            html.Label("Comida 2:", style={"font-weight": "bold", "color": "#FF9800"}),
-                            dcc.DatePickerSingle(
-                                id='intercambio-fecha2',
-                                placeholder="Fecha 2",
-                                display_format='DD/MM/YYYY',
+                            html.Label("Grupo 2:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
+                            dcc.Dropdown(
+                                id='intercambio-año2',
+                                options=años_disponibles,
+                                placeholder="Año 2",
                                 style={"width": "120px", "margin": "2px"}
                             ),
                             dcc.Dropdown(
@@ -928,57 +1309,22 @@ def create_comidas_page():
                                 placeholder="Tipo 2",
                                 style={"width": "140px", "margin": "2px"}
                             ),
-                            dcc.Input(
+                            dcc.Dropdown(
                                 id='intercambio-cocinero2',
-                                type='text',
+                                options=cocineros_options,
                                 placeholder="Cocinero 2",
-                                style={"padding": "6px", "width": "120px", "margin": "2px"}
+                                style={"width": "140px", "margin": "2px"}
                             )
                         ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
                         
-                        html.Button('🔄 Intercambiar', id='btn-intercambiar-filtro', n_clicks=0,
+                        html.Button('🔄 Intercambiar', id='btn-intercambiar-especifico', n_clicks=0,
                                    style={
-                                       "background": "#FF9800", "color": "white", "border": "none",
+                                       "background": "#9C27B0", "color": "white", "border": "none",
                                        "padding": "12px 20px", "border-radius": "6px", "margin": "10px", 
                                        "cursor": "pointer", "align-self": "center"
                                    })
                     ], style={"display": "flex", "align-items": "start", "gap": "10px", "flex-wrap": "wrap"})
-                ], style={"background": "#FFF3E0", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
-                
-                # Agregar/Eliminar cocinero específico por fecha y tipo
-                html.Div([
-                    html.H5("➕➖ Agregar/Eliminar Cocinero", style={"color": "#4CAF50", "margin-bottom": "10px"}),
-                    html.Div([
-                        dcc.DatePickerSingle(
-                            id='manage-fecha',
-                            placeholder="Fecha de la comida",
-                            display_format='DD/MM/YYYY',
-                            style={"width": "140px"}
-                        ),
-                        dcc.Dropdown(
-                            id='manage-tipo',
-                            options=tipos_comida,
-                            placeholder="Tipo de comida",
-                            style={"width": "180px"}
-                        ),
-                        dcc.Input(
-                            id='manage-cocinero-filtro',
-                            type='text',
-                            placeholder="Nombre del cocinero",
-                            style={"padding": "8px", "width": "200px"}
-                        ),
-                        html.Button('➕ Agregar', id='btn-add-cocinero-filtro', n_clicks=0,
-                                   style={
-                                       "background": "#4CAF50", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   }),
-                        html.Button('➖ Eliminar', id='btn-remove-cocinero-filtro', n_clicks=0,
-                                   style={
-                                       "background": "#F44336", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px", "flex-wrap": "wrap"})
-                ], style={"background": "#E8F5E8", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
                 
             ], style={"margin": "20px 0"})
         ], style={"background": "#F5F5F5", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
@@ -1221,29 +1567,140 @@ def create_fiestas_page():
         ])
     ])
 
-# Callbacks para comidas (actualizado con filtros por fecha y tipo)
+# Callbacks para tablón de anuncios
+@app.callback(
+    Output('modal-anuncio', 'style'),
+    [Input('btn-nuevo-anuncio', 'n_clicks'),
+     Input('btn-cancelar-anuncio', 'n_clicks'),
+     Input('btn-publicar-anuncio', 'n_clicks')],
+    prevent_initial_call=True
+)
+def toggle_modal_anuncio(n_nuevo, n_cancelar, n_publicar):
+    ctx = callback_context
+    if not ctx.triggered:
+        return {"display": "none"}
+    
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if trigger_id == 'btn-nuevo-anuncio':
+        return {
+            "position": "fixed", "top": "0", "left": "0", "width": "100%", "height": "100%",
+            "background": "rgba(0,0,0,0.5)", "display": "flex", "align-items": "center",
+            "justify-content": "center", "z-index": "1000"
+        }
+    else:  # cancelar o publicar
+        return {"display": "none"}
+
+@app.callback(
+    [Output('lista-noticias', 'children'),
+     Output('anuncio-titulo', 'value'),
+     Output('anuncio-contenido', 'value')],
+    [Input('btn-publicar-anuncio', 'n_clicks'),
+     Input({'type': 'btn-delete-noticia', 'index': dash.dependencies.ALL}, 'n_clicks')],
+    [State('anuncio-titulo', 'value'),
+     State('anuncio-contenido', 'value'),
+     State('anuncio-autor', 'value')],
+    prevent_initial_call=True
+)
+def manage_noticias(n_publicar, n_delete_list, titulo, contenido, autor):
+    ctx = callback_context
+    
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update
+    
+    trigger_info = ctx.triggered[0]['prop_id']
+    
+    # Publicar nuevo anuncio
+    if 'btn-publicar-anuncio' in trigger_info and n_publicar > 0:
+        if titulo and contenido:
+            add_noticia(titulo, contenido, autor or 'Administrador')
+            # Limpiar campos y recargar lista
+            noticias_df = get_noticias()
+            nueva_lista = [
+                html.Div([
+                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
+                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
+                    html.Div([
+                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
+                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
+                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
+                                   style={"background": "#F44336", "color": "white", "border": "none",
+                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                                         "font-size": "0.8rem", "float": "right"})
+                    ])
+                ], style={
+                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
+                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
+                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
+                })
+                for noticia in noticias_df.to_dict('records')[:5]
+            ]
+            return nueva_lista, "", ""  # Limpiar campos
+    
+    # Eliminar anuncio
+    elif 'btn-delete-noticia' in trigger_info:
+        # Extraer el ID del anuncio a eliminar
+        import json
+        prop_id_dict = json.loads(trigger_info.split('.')[0])
+        noticia_id = prop_id_dict['index']
+        
+        # Verificar si realmente se hizo clic
+        if any(n_delete_list):
+            delete_noticia(noticia_id)
+            
+            # Recargar lista
+            noticias_df = get_noticias()
+            nueva_lista = [
+                html.Div([
+                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
+                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
+                    html.Div([
+                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
+                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
+                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
+                                   style={"background": "#F44336", "color": "white", "border": "none",
+                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                                         "font-size": "0.8rem", "float": "right"})
+                    ])
+                ], style={
+                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
+                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
+                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
+                })
+                for noticia in noticias_df.to_dict('records')[:5]
+            ] if len(noticias_df) > 0 else [
+                html.Div([
+                    html.P("No hay anuncios publicados", style={"text-align": "center", "color": "#666", "font-style": "italic"})
+                ], style={"padding": "20px"})
+            ]
+            return nueva_lista, dash.no_update, dash.no_update
+    
+    return dash.no_update, dash.no_update, dash.no_update
+
+# Callbacks para comidas (actualizado con selectores únicos)
 @app.callback(
     [Output('tabla-comidas', 'data'), Output('comida-output', 'children')],
     [Input('btn-add-comida', 'n_clicks'), 
-     Input('btn-edit-cocineros-filtro', 'n_clicks'),
-     Input('btn-intercambiar-filtro', 'n_clicks'),
-     Input('btn-add-cocinero-filtro', 'n_clicks'),
-     Input('btn-remove-cocinero-filtro', 'n_clicks'),
+     Input('btn-cambiar-cocinero', 'n_clicks'),
+     Input('btn-agregar-cocinero', 'n_clicks'),
+     Input('btn-eliminar-cocinero', 'n_clicks'),
+     Input('btn-intercambiar-especifico', 'n_clicks'),
      Input('tabla-comidas', 'data_previous'),
      Input('tabla-comidas', 'data')],
     [State('comida-fecha', 'date'), State('comida-servicio', 'value'),
-     State('comida-tipo', 'value'), State('comida-cocineros', 'value'),
-     State('edit-fecha', 'date'), State('edit-tipo', 'value'), State('edit-cocineros-filtro', 'value'),
-     State('intercambio-fecha1', 'date'), State('intercambio-tipo1', 'value'), State('intercambio-cocinero1', 'value'),
-     State('intercambio-fecha2', 'date'), State('intercambio-tipo2', 'value'), State('intercambio-cocinero2', 'value'),
-     State('manage-fecha', 'date'), State('manage-tipo', 'value'), State('manage-cocinero-filtro', 'value')],
+     State('comida-tipo', 'value'), State('comida-cocineros-selector', 'value'),
+     State('filter-año', 'value'), State('filter-tipo', 'value'),
+     State('cambiar-cocinero-antiguo', 'value'), State('cambiar-cocinero-nuevo', 'value'),
+     State('agregar-cocinero', 'value'), State('eliminar-cocinero', 'value'),
+     State('intercambio-año1', 'value'), State('intercambio-tipo1', 'value'), State('intercambio-cocinero1', 'value'),
+     State('intercambio-año2', 'value'), State('intercambio-tipo2', 'value'), State('intercambio-cocinero2', 'value')],
     prevent_initial_call=True
 )
-def update_comidas_con_filtros(n_add, n_edit, n_intercambio, n_add_cocinero, n_remove_cocinero,
-                               previous_data, current_data, fecha, servicio, tipo, cocineros, 
-                               edit_fecha, edit_tipo, edit_cocineros_nuevos,
-                               int_fecha1, int_tipo1, int_cocinero1, int_fecha2, int_tipo2, int_cocinero2,
-                               manage_fecha, manage_tipo, manage_cocinero):
+def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_intercambio,
+                                 previous_data, current_data, fecha, servicio, tipo, cocineros_lista, 
+                                 filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo,
+                                 nuevo_cocinero, cocinero_eliminar,
+                                 int_año1, int_tipo1, int_cocinero1, int_año2, int_tipo2, int_cocinero2):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1254,49 +1711,51 @@ def update_comidas_con_filtros(n_add, n_edit, n_intercambio, n_add_cocinero, n_r
     
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    # Agregar nueva comida
+    # Agregar nueva comida (CON SELECTOR)
     if trigger_id == 'btn-add-comida' and n_add > 0:
-        if fecha and servicio and tipo and cocineros:
-            add_data('comidas', (fecha, servicio, tipo, cocineros))
+        if fecha and servicio and tipo and cocineros_lista:
+            # Convertir lista de cocineros a string separado por comas
+            cocineros_str = ', '.join(cocineros_lista)
+            add_data('comidas', (fecha, servicio, tipo, cocineros_str))
             add_data('eventos', (fecha, tipo, servicio))
             return get_data('comidas').to_dict('records'), f"✅ Comida agregada exitosamente! 🎉"
         else:
             return get_data('comidas').to_dict('records'), "⚠️ Por favor completa todos los campos."
     
-    # Editar cocineros por fecha y tipo
-    elif trigger_id == 'btn-edit-cocineros-filtro' and n_edit > 0:
-        if edit_fecha and edit_tipo and edit_cocineros_nuevos:
-            resultado = actualizar_cocineros_por_filtros(edit_fecha, edit_tipo, edit_cocineros_nuevos)
-            return get_data('comidas').to_dict('records'), f"✏️ {resultado}"
+    # Cambiar cocinero en año + tipo (CON SELECTOR)
+    elif trigger_id == 'btn-cambiar-cocinero' and n_cambiar > 0:
+        if filter_año and filter_tipo and cocinero_antiguo and cocinero_nuevo:
+            resultado = cambiar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo)
+            return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Proporciona la fecha, tipo de comida y nuevos cocineros."
+            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y ambos cocineros."
     
-    # Intercambiar cocineros por fecha y tipo
-    elif trigger_id == 'btn-intercambiar-filtro' and n_intercambio > 0:
-        if int_fecha1 and int_tipo1 and int_cocinero1 and int_fecha2 and int_tipo2 and int_cocinero2:
-            resultado = intercambiar_cocineros_por_filtros(
-                int_fecha1, int_tipo1, int_cocinero1.strip(), 
-                int_fecha2, int_tipo2, int_cocinero2.strip()
+    # Agregar cocinero en año + tipo (CON SELECTOR)
+    elif trigger_id == 'btn-agregar-cocinero' and n_agregar > 0:
+        if filter_año and filter_tipo and nuevo_cocinero:
+            resultado = agregar_cocinero_en_año_tipo(filter_año, filter_tipo, nuevo_cocinero)
+            return get_data('comidas').to_dict('records'), f"➕ {resultado}"
+        else:
+            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
+    
+    # Eliminar cocinero en año + tipo (CON SELECTOR)
+    elif trigger_id == 'btn-eliminar-cocinero' and n_eliminar > 0:
+        if filter_año and filter_tipo and cocinero_eliminar:
+            resultado = eliminar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_eliminar)
+            return get_data('comidas').to_dict('records'), f"➖ {resultado}"
+        else:
+            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
+    
+    # NUEVO: Intercambio específico entre diferentes grupos
+    elif trigger_id == 'btn-intercambiar-especifico' and n_intercambio > 0:
+        if int_año1 and int_tipo1 and int_cocinero1 and int_año2 and int_tipo2 and int_cocinero2:
+            resultado = intercambiar_cocineros_especifico(
+                int_año1, int_tipo1, int_cocinero1,
+                int_año2, int_tipo2, int_cocinero2
             )
             return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Completa todos los campos para el intercambio."
-    
-    # Agregar cocinero por fecha y tipo
-    elif trigger_id == 'btn-add-cocinero-filtro' and n_add_cocinero > 0:
-        if manage_fecha and manage_tipo and manage_cocinero:
-            resultado = agregar_cocinero_por_filtros(manage_fecha, manage_tipo, manage_cocinero.strip())
-            return get_data('comidas').to_dict('records'), f"➕ {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Proporciona la fecha, tipo de comida y nombre del cocinero."
-    
-    # Eliminar cocinero por fecha y tipo
-    elif trigger_id == 'btn-remove-cocinero-filtro' and n_remove_cocinero > 0:
-        if manage_fecha and manage_tipo and manage_cocinero:
-            resultado = eliminar_cocinero_por_filtros(manage_fecha, manage_tipo, manage_cocinero.strip())
-            return get_data('comidas').to_dict('records'), f"➖ {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Proporciona la fecha, tipo de comida y nombre del cocinero."
+            return get_data('comidas').to_dict('records'), "⚠️ Completa todos los campos para el intercambio específico."
     
     # Detectar edición directa en la tabla
     elif trigger_id == 'tabla-comidas' and previous_data is not None and current_data is not None:
@@ -1326,20 +1785,19 @@ def update_comidas_con_filtros(n_add, n_edit, n_intercambio, n_add_cocinero, n_r
     except:
         return [], ""
 
-# Callback para actualizar opciones de tipo de comida dinámicamente
+# Callback para actualizar opciones dinámicamente
 @app.callback(
-    [Output('edit-tipo', 'options'),
+    [Output('filter-tipo', 'options'),
      Output('intercambio-tipo1', 'options'),
-     Output('intercambio-tipo2', 'options'),
-     Output('manage-tipo', 'options')],
+     Output('intercambio-tipo2', 'options')],
     [Input('tabla-comidas', 'data')],
     prevent_initial_call=True
 )
-def update_tipo_options(data):
+def update_filter_options(data):
     tipos = get_tipos_comida()
-    return tipos, tipos, tipos, tipos
+    return tipos, tipos, tipos
 
-# Callbacks para lista de compra (con protección)
+# Callbacks para lista de compra (sin cambios, solo protección)
 @app.callback(
     [Output('tabla-lista', 'data'), Output('lista-output', 'children')],
     [Input('btn-add-lista', 'n_clicks'), 
@@ -1348,7 +1806,7 @@ def update_tipo_options(data):
     [State('lista-fecha', 'date'), State('lista-objeto', 'value')],
     prevent_initial_call=True
 )
-def update_lista(n_clicks, previous_data, current_data, fecha, objeto):
+def update_lista_protegido(n_clicks, previous_data, current_data, fecha, objeto):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1368,7 +1826,6 @@ def update_lista(n_clicks, previous_data, current_data, fecha, objeto):
     
     elif trigger_id == 'tabla-lista' and previous_data is not None and current_data is not None:
         if len(current_data) < len(previous_data):
-            # Fila eliminada
             current_ids = [row['id'] for row in current_data]
             deleted_id = None
             for row in previous_data:
@@ -1381,7 +1838,6 @@ def update_lista(n_clicks, previous_data, current_data, fecha, objeto):
                 return get_data('lista_compra').to_dict('records'), f"🗑️ Item eliminado exitosamente!"
         
         elif len(current_data) == len(previous_data):
-            # Posible edición de celda
             for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
                 for key in prev_row.keys():
                     if prev_row[key] != curr_row[key]:
@@ -1393,7 +1849,7 @@ def update_lista(n_clicks, previous_data, current_data, fecha, objeto):
     except:
         return [], ""
 
-# Callbacks para mantenimiento (con protección)
+# Callbacks para mantenimiento (sin cambios, solo protección)
 @app.callback(
     [Output('tabla-mant', 'data'), Output('mant-output', 'children')],
     [Input('btn-add-mant', 'n_clicks'), 
@@ -1403,7 +1859,7 @@ def update_lista(n_clicks, previous_data, current_data, fecha, objeto):
      State('mant-cadafals', 'value')],
     prevent_initial_call=True
 )
-def update_mant(n_clicks, previous_data, current_data, año, mantenimiento, cadafals):
+def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimiento, cadafals):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1423,7 +1879,6 @@ def update_mant(n_clicks, previous_data, current_data, año, mantenimiento, cada
     
     elif trigger_id == 'tabla-mant' and previous_data is not None and current_data is not None:
         if len(current_data) < len(previous_data):
-            # Fila eliminada
             current_ids = [row['id'] for row in current_data]
             deleted_id = None
             for row in previous_data:
@@ -1436,7 +1891,6 @@ def update_mant(n_clicks, previous_data, current_data, año, mantenimiento, cada
                 return get_data('mantenimiento').to_dict('records'), f"🗑️ Tarea eliminada exitosamente!"
         
         elif len(current_data) == len(previous_data):
-            # Posible edición de celda
             for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
                 for key in prev_row.keys():
                     if prev_row[key] != curr_row[key]:
@@ -1448,9 +1902,52 @@ def update_mant(n_clicks, previous_data, current_data, año, mantenimiento, cada
     except:
         return [], ""
 
+@app.callback(
+    Output('proximos-eventos-container', 'children'),
+    [Input('url', 'pathname')]
+)
+def update_proximos_eventos(pathname):
+    if pathname != '/':
+        return []
+    
+    proximos_df = get_proximos_eventos(5)
+    
+    if len(proximos_df) == 0:
+        return [html.P("No hay eventos próximos", style={"text-align": "center", "color": "#666"})]
+    
+    eventos_cards = []
+    for _, evento in proximos_df.iterrows():
+        # Formatear fecha a D-M-A
+        try:
+            from datetime import datetime
+            fecha_obj = datetime.strptime(evento['fecha'], '%Y-%m-%d')
+            fecha_formateada = fecha_obj.strftime('%d-%m-%Y')
+        except:
+            fecha_formateada = evento['fecha']
+        
+        card = html.Div([
+            html.H5(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
+            html.P(f"📅 {fecha_formateada}", style={"margin": "5px 0", "font-weight": "bold"}),
+            html.P(f"🍽️ {evento['tipo_servicio']}", style={"margin": "5px 0"}),
+            html.P(f"👨‍🍳 {evento['cocineros']}", style={"margin": "5px 0", "font-size": "0.9rem", "color": "#666"})
+        ], style={
+            "background": "linear-gradient(135deg, #FFF3E0 0%, #FFCC80 100%)",
+            "padding": "15px", "margin": "10px", "border-radius": "8px",
+            "border-left": "4px solid #FF9800", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+            "flex": "1", "min-width": "280px"
+        })
+        eventos_cards.append(card)
+    
+    return html.Div(eventos_cards, style={"display": "flex", "flex-wrap": "wrap", "gap": "10px"})
+
 # Inicializar la base de datos y cargar datos
 init_db()
-load_initial_data()
+load_eventos_completos()
+
+# Ejecutar limpieza automática al iniciar
+print("🚀 Iniciando aplicación Penya L'Albenc...")
+resultado_limpieza = limpiar_eventos_antiguos()
+print(f"🧹 {resultado_limpieza}")
 
 # Si quieres actualizar solo los datos de mantenimiento, descomenta la siguiente línea:
 # update_mantenimiento_data()
@@ -1459,4 +1956,9 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 8050))
     debug = os.environ.get('DEBUG', 'True').lower() == 'true'
+    
+    print(f"🌐 Servidor iniciado en puerto {port}")
+    print("📊 Base de datos inicializada correctamente")
+    print("✨ ¡Aplicación lista para usar!")
+    
     app.run_server(debug=debug, host='0.0.0.0', port=port)
