@@ -486,6 +486,7 @@ def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
     results = cursor.fetchall()
     conn.close()
     return results
+
 def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
     """Intercambiar cocineros específicos entre diferentes año/tipo"""
     try:
@@ -675,64 +676,237 @@ def get_proximos_eventos(limit=5):
         print(f"Error obteniendo próximos eventos: {e}")
         return pd.DataFrame()
 
-# Estilos CSS
-# Estilos CSS
-SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 0,
-    "left": 0,
-    "bottom": 0,
-    "width": "18rem",
-    "padding": "2rem 1rem",
-    "background": "linear-gradient(180deg, #2E7D32 0%, #1976D2 100%)",
-    "color": "white",
-    "box-shadow": "2px 0 5px rgba(0,0,0,0.1)"
-}
-
-CONTENT_STYLE = {
-    "margin-left": "20rem",
-    "margin-right": "2rem",
-    "padding": "2rem 1rem",
-    "background": "#FAFAFA",
-    "min-height": "100vh"
-}
-
-# CSS adicional para mejorar la apariencia
+# CSS responsive y diseño mobile-first
 app.index_string = '''
 <!DOCTYPE html>
 <html>
     <head>
         {%metas%}
         <title>{%title%}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         {%favicon%}
         {%css%}
         <style>
+            * {
+                box-sizing: border-box;
+            }
+            
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 margin: 0;
+                padding: 0;
                 background: linear-gradient(135deg, #E8F5E8 0%, #E3F2FD 100%);
+                min-height: 100vh;
             }
             
-            .nav-link:hover {
-                background: rgba(255,255,255,0.2) !important;
-                transform: translateX(5px);
+            /* Header responsive */
+            .header-container {
+                background: linear-gradient(90deg, #2E7D32 0%, #1976D2 100%);
+                color: white;
+                padding: 1rem;
+                text-align: center;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .header-container h1 {
+                margin: 0;
+                font-size: 1.8rem;
+            }
+            
+            @media (max-width: 768px) {
+                .header-container h1 {
+                    font-size: 1.4rem;
+                }
+            }
+            
+            /* Contenedor principal responsive */
+            .main-container {
+                padding: 1rem;
+                max-width: 100%;
+                margin: 0 auto;
+            }
+            
+            @media (min-width: 1200px) {
+                .main-container {
+                    max-width: 1200px;
+                    padding: 2rem;
+                }
+            }
+            
+            /* Estilos para las pestañas */
+            .dash-tab-content {
+                padding: 1rem !important;
+                background: white !important;
+                border-radius: 0 0 8px 8px !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            }
+            
+            .tab-container .tab {
+                background: #f5f5f5 !important;
+                border: 1px solid #ddd !important;
+                color: #666 !important;
+                padding: 12px 16px !important;
+                font-weight: 500 !important;
+                border-radius: 8px 8px 0 0 !important;
+                margin-right: 2px !important;
+                transition: all 0.3s ease !important;
+            }
+            
+            .tab-container .tab:hover {
+                background: #e8f5e8 !important;
+                color: #2E7D32 !important;
+            }
+            
+            .tab-container .tab--selected {
+                background: linear-gradient(45deg, #4CAF50, #2E7D32) !important;
+                color: white !important;
+                border-bottom: none !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            }
+            
+            /* Responsive tabs en móvil */
+            @media (max-width: 768px) {
+                .tab-container {
+                    overflow-x: auto !important;
+                    white-space: nowrap !important;
+                }
+                
+                .tab-container .tab {
+                    display: inline-block !important;
+                    min-width: 120px !important;
+                    text-align: center !important;
+                    font-size: 0.9rem !important;
+                    padding: 10px 12px !important;
+                }
+            }
+            
+            /* Estilos para las tablas responsive */
+            .dash-table-container {
+                overflow-x: auto !important;
+                border-radius: 8px !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                background: white !important;
+                margin: 1rem 0 !important;
+            }
+            
+            @media (max-width: 768px) {
+                .dash-table-container {
+                    font-size: 0.85rem !important;
+                }
+                
+                .dash-table-container .dash-cell {
+                    min-width: 100px !important;
+                    padding: 8px !important;
+                }
+            }
+            
+            /* Cards responsive */
+            .summary-card {
+                transition: all 0.3s ease !important;
             }
             
             .summary-card:hover {
-                transform: translateY(-2px);
+                transform: translateY(-2px) !important;
                 box-shadow: 0 6px 12px rgba(0,0,0,0.15) !important;
-                transition: all 0.3s ease;
             }
             
-            /* Estilos para las tablas */
-            .dash-table-container {
-                border-radius: 12px;
-                overflow: hidden;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            /* Grid responsive */
+            .grid-container {
+                display: grid;
+                gap: 1rem;
+                grid-template-columns: 1fr;
+            }
+            
+            @media (min-width: 768px) {
+                .grid-container {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+            
+            @media (min-width: 1024px) {
+                .grid-container {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+            }
+            
+            @media (min-width: 1200px) {
+                .grid-container {
+                    grid-template-columns: repeat(4, 1fr);
+                }
+            }
+            
+            /* Formularios responsive */
+            .form-container {
                 background: white;
+                padding: 1.5rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin: 1rem 0;
             }
             
-            /* Animaciones suaves */
+            .form-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1rem;
+                margin: 1rem 0;
+            }
+            
+            .form-item {
+                flex: 1;
+                min-width: 200px;
+            }
+            
+            @media (max-width: 768px) {
+                .form-item {
+                    min-width: 100%;
+                }
+                
+                .form-container {
+                    padding: 1rem;
+                }
+            }
+            
+            /* Botones responsive */
+            .btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: inline-block;
+                text-align: center;
+                min-width: 120px;
+            }
+            
+            .btn:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            
+            @media (max-width: 768px) {
+                .btn {
+                    width: 100%;
+                    margin: 5px 0;
+                }
+            }
+            
+            /* Inputs y dropdowns responsive */
+            .Select-control, input[type="text"], input[type="number"], .DateInput_input {
+                border-radius: 6px !important;
+                border: 2px solid #E0E0E0 !important;
+                transition: border-color 0.3s ease !important;
+                padding: 8px 12px !important;
+                width: 100% !important;
+            }
+            
+            .Select-control:focus, input[type="text"]:focus, input[type="number"]:focus {
+                border-color: #4CAF50 !important;
+                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2) !important;
+                outline: none !important;
+            }
+            
+            /* Animaciones */
             .fade-in {
                 animation: fadeIn 0.5s ease-in;
             }
@@ -742,30 +916,24 @@ app.index_string = '''
                 to { opacity: 1; transform: translateY(0); }
             }
             
-            /* Estilos para botones */
-            button:hover {
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-                transition: all 0.2s ease !important;
+            /* Scrollbar personalizado */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
             }
             
-            /* Calendario personalizado */
-            table {
-                border-radius: 12px !important;
-                overflow: hidden !important;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+            ::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 4px;
             }
             
-            /* Inputs y dropdowns */
-            .Select-control, input[type="text"], input[type="number"] {
-                border-radius: 6px !important;
-                border: 2px solid #E0E0E0 !important;
-                transition: border-color 0.3s ease !important;
+            ::-webkit-scrollbar-thumb {
+                background: #4CAF50;
+                border-radius: 4px;
             }
             
-            .Select-control:focus, input[type="text"]:focus, input[type="number"]:focus {
-                border-color: #4CAF50 !important;
-                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2) !important;
+            ::-webkit-scrollbar-thumb:hover {
+                background: #2E7D32;
             }
         </style>
     </head>
@@ -780,133 +948,83 @@ app.index_string = '''
 </html>
 '''
 
-# Layout del sidebar mejorado
-sidebar = html.Div([
-    html.Div([
-        html.Img(
-            src="/assets/logo.png",
-            style={
-                "width": "80px", 
-                "height": "80px", 
-                "margin": "0 auto 15px auto", 
-                "display": "block",
-                "border-radius": "10px",
-                "object-fit": "contain"
-            }
-        ),
-        html.H2("Penya L'Albenc", 
-            style={"font-size": "1.6rem", "margin-bottom": "10px", "text-align": "center"}),
-        html.P("📍 Gestión de grupo", 
-            style={"font-size": "0.9rem", "opacity": "0.8", "text-align": "center", "margin-bottom": "20px"})
-    ]),
-    html.Hr(style={"border-color": "rgba(255,255,255,0.3)", "margin": "20px 0"}),
-    dcc.Location(id="url"),
-    html.Nav([
-        dcc.Link([
-            html.Div([
-                html.Span("🏠", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Inicio")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/", className="nav-link", 
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s", "background": "rgba(255,255,255,0.1)"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🍽️", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Comidas")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/comidas", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🛒", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Lista de Compra")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/lista-compra", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🔧", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Mantenimiento")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/mantenimiento", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🎉", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Fiestas")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/fiestas", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-    ], style={"margin-top": "20px"}),
-    
-    # Footer del sidebar
-    html.Div([
-        html.Hr(style={"border-color": "rgba(255,255,255,0.3)", "margin": "30px 0 20px 0"}),
-        html.P("💚 Versión 2.0", 
-               style={"font-size": "0.8rem", "opacity": "0.7", "text-align": "center", "margin": "0"})
-    ], style={"position": "absolute", "bottom": "20px", "left": "1rem", "right": "1rem"})
-], style=SIDEBAR_STYLE)
-
-# Layout principal
-content = html.Div(id="page-content", style=CONTENT_STYLE)
-
-# Layout de la app
+# Layout principal con pestañas
 app.layout = html.Div([
-    dcc.Store(id="confirm-action"),
-    sidebar,
-    content
+    # Header
+    html.Div([
+        html.H1("🏠 Penya L'Albenc", style={"margin": "0", "color": "white"}),
+        html.P("📍 Gestión de grupo", style={"margin": "5px 0 0 0", "opacity": "0.9"})
+    ], className="header-container"),
+    
+    # Contenido principal con pestañas
+    html.Div([
+        dcc.Tabs(
+            id="main-tabs",
+            value="inicio",
+            children=[
+                dcc.Tab(
+                    label="🏠 Inicio",
+                    value="inicio",
+                    className="tab",
+                    selected_className="tab--selected"
+                ),
+                dcc.Tab(
+                    label="🍽️ Comidas",
+                    value="comidas",
+                    className="tab",
+                    selected_className="tab--selected"
+                ),
+                dcc.Tab(
+                    label="🛒 Lista Compra",
+                    value="lista-compra",
+                    className="tab",
+                    selected_className="tab--selected"
+                ),
+                dcc.Tab(
+                    label="🔧 Mantenimiento",
+                    value="mantenimiento",
+                    className="tab",
+                    selected_className="tab--selected"
+                ),
+                dcc.Tab(
+                    label="🎉 Fiestas",
+                    value="fiestas",
+                    className="tab",
+                    selected_className="tab--selected"
+                )
+            ],
+            className="tab-container"
+        ),
+        
+        # Contenido de las pestañas
+        html.Div(id="tab-content")
+    ], className="main-container")
 ])
 
-# Callback para las páginas
-@app.callback(Output("page-content", "children"), [Input("url", "pathname")])
-def render_page_content(pathname):
-    if pathname == "/comidas":
-        return create_comidas_page()
-    elif pathname == "/lista-compra":
-        return create_lista_compra_page()
-    elif pathname == "/mantenimiento":
-        return create_mantenimiento_page()
-    elif pathname == "/fiestas":
-        return create_fiestas_page()
+# Callback para cambiar el contenido según la pestaña seleccionada
+@app.callback(
+    Output("tab-content", "children"),
+    Input("main-tabs", "value")
+)
+def render_tab_content(active_tab):
+    if active_tab == "comidas":
+        return create_comidas_tab()
+    elif active_tab == "lista-compra":
+        return create_lista_compra_tab()
+    elif active_tab == "mantenimiento":
+        return create_mantenimiento_tab()
+    elif active_tab == "fiestas":
+        return create_fiestas_tab()
     else:
-        return create_home_page()
+        return create_inicio_tab()
 
-# Página de inicio
-def create_home_page():
+# Contenido de la pestaña Inicio
+def create_inicio_tab():
     # Obtener datos para resumen
     comidas_df = get_data('comidas')
     lista_df = get_data('lista_compra')
     mantenimiento_df = get_data('mantenimiento')
     eventos_df = get_data('eventos')
-    
-    # Últimos elementos añadidos
-    ultima_comida = comidas_df.tail(1) if len(comidas_df) > 0 else pd.DataFrame()
-    ultima_lista = lista_df.tail(1) if len(lista_df) > 0 else pd.DataFrame()
-    ultimo_mantenimiento = mantenimiento_df.tail(1) if len(mantenimiento_df) > 0 else pd.DataFrame()
     
     # Crear calendario mejorado con eventos
     today = datetime.now()
@@ -961,11 +1079,11 @@ def create_home_page():
     ], style={"border-collapse": "collapse", "width": "100%", "margin": "20px 0"})
     
     return html.Div([
-        html.H1("Bienvenido a Penya L'Albenc", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H2("Bienvenido a Penya L'Albenc", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
         
         # Resumen con contadores
         html.Div([
-            html.H3("Resumen General", style={"color": "#1976D2", "margin-bottom": "20px"}),
+            html.H3("Resumen General", style={"color": "#1976D2", "margin-bottom": "20px", "text-align": "center"}),
             html.Div([
                 html.Div([
                     html.H4(f"{len(comidas_df)}", style={"color": "#4CAF50", "margin": "0", "font-size": "2rem"}),
@@ -1002,524 +1120,409 @@ def create_home_page():
                     "padding": "25px", "margin": "10px", "border-radius": "12px",
                     "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "text-align": "center"
                 }),
-            ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
+            ], className="grid-container"),
         ]),
         
-        # Próximos eventos (en lugar de últimas actividades)
+        # Próximos eventos
         html.Div([
-            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "30px 0 20px 0"}),
-            html.Div([
-                # Mostrar próximos eventos dinámicamente
-                html.Div(id="proximos-eventos-container")
-            ])
+            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "30px 0 20px 0", "text-align": "center"}),
+            html.Div(id="proximos-eventos-container-tabs")
         ], style={"margin-top": "30px"}),
-                
-                # Último item lista
-                html.Div([
-                    html.H5("🛒 Último Item Lista", style={"color": "#2196F3", "margin-bottom": "10px"}),
-                    html.P(f"📅 {ultima_lista.iloc[0]['fecha'] if len(ultima_lista) > 0 else 'Ninguna'}", 
-                           style={"margin": "5px 0"}),
-                    html.P(f"📦 {ultima_lista.iloc[0]['objeto'] if len(ultima_lista) > 0 else 'N/A'}", 
-                           style={"margin": "5px 0"})
-                ], style={
-                    "background": "#E8F4FD", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #2196F3"
-                }),
-                
-                # Referencia rápida al mantenimiento
-                html.Div([
-                    html.H5("🔧 Mantenimiento Actual", style={"color": "#FF9800", "margin-bottom": "10px"}),
-                    html.P(f"📅 Año {datetime.now().year}", style={"margin": "5px 0"}),
-                    html.P("👀 Ver detalles abajo", style={"margin": "5px 0", "font-size": "0.9rem", "font-style": "italic"})
-                ], style={
-                    "background": "#FFF8E1", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #FF9800"
-                }),
-                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
-          
+        
+        # Calendario
+        html.Div([
+            html.H3("📅 Calendario del Mes", style={"color": "#1976D2", "margin": "30px 0 20px 0", "text-align": "center"}),
+            html.Div([calendar_table], style={"overflow-x": "auto"})
+        ], style={"margin-top": "30px"})
+    ], className="fade-in")
 
-# Página de comidas (actualizada con selectores de cocineros únicos)
-def create_comidas_page():
+# Contenido de la pestaña Comidas
+def create_comidas_tab():
     comidas_df = get_data('comidas')
     tipos_comida = get_tipos_comida()
     años_disponibles = get_años_disponibles()
     cocineros_options = get_cocineros_options()
     
     return html.Div([
-        html.H1("🍽️ Gestión de Comidas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H2("🍽️ Gestión de Comidas", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
         
-        # Tabla de comidas PRIMERO
-        html.H3("📋 Lista de Comidas", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        dash_table.DataTable(
-            id='tabla-comidas',
-            data=comidas_df.to_dict('records'),
-            columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
-                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True,
-                "format": {"specifier": "%d-%m-%Y"}},
-                {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
-                {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
-                {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#4CAF50',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
+        # Tabla de comidas
+        html.Div([
+            html.H3("📋 Lista de Comidas", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
+            dash_table.DataTable(
+                id='tabla-comidas-tabs',
+                data=comidas_df.to_dict('records'),
+                columns=[
+                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
+                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                    {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
+                    {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
+                    {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '12px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'minWidth': '100px',
+                    'width': 'auto'
                 },
-                {
-                    'if': {'column_id': 'cocineros'},
-                    'backgroundColor': '#E8F5E8',
-                    'color': '#2E7D32'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
-        ),
+                style_header={
+                    'backgroundColor': '#4CAF50',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'cocineros'},
+                        'backgroundColor': '#E8F5E8',
+                        'color': '#2E7D32'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=10
+            )
+        ], className="form-container"),
         
-        # Gestión de cocineros únicos
+        # Formulario para agregar comida
         html.Div([
-            html.H3("👨‍🍳 Gestión de Cocineros", style={"color": "#1976D2", "margin-bottom": "15px"}),
-            html.Div([
-                dcc.Input(
-                    id='nuevo-cocinero-nombre',
-                    placeholder="Nombre del nuevo cocinero",
-                    type='text',
-                    style={"padding": "8px", "width": "250px", "margin": "5px"}
-                ),
-                html.Button('➕ Agregar Cocinero', id='btn-add-nuevo-cocinero', n_clicks=0,
-                           style={
-                               "background": "#9C27B0", "color": "white", "border": "none",
-                               "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                           })
-            ], style={"display": "flex", "align-items": "center", "gap": "5px"}),
-            html.P("💡 Agrega nuevos cocineros a la lista maestra para usarlos en los selectores", 
-                   style={"color": "#666", "font-style": "italic", "margin": "10px 0"})
-        ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
-        
-        # Formulario para agregar comida (CON SELECTORES)
-        html.Div([
-            html.H3("➕ Agregar Nueva Comida", style={"color": "#4CAF50"}),
+            html.H3("➕ Agregar Nueva Comida", style={"color": "#4CAF50", "text-align": "center"}),
             html.Div([
                 html.Div([
                     html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.DatePickerSingle(
-                        id='comida-fecha',
+                        id='comida-fecha-tabs',
                         date=date.today(),
                         display_format='DD/MM/YYYY',
                         style={"width": "100%"}
                     )
-                ], style={"margin": "10px"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("🍽️ Tipo de Servicio:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Dropdown(
-                        id='comida-servicio',
+                        id='comida-servicio-tabs',
                         options=[
                             {'label': '🌅 Comida', 'value': 'Comida'},
                             {'label': '🌙 Cena', 'value': 'Cena'},
                             {'label': '🌅🌙 Comida y Cena', 'value': 'Comida y Cena'}
                         ],
-                        placeholder="Selecciona tipo de servicio",
-                        style={"width": "100%"}
+                        placeholder="Selecciona tipo de servicio"
                     )
-                ], style={"margin": "10px"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("🥘 Tipo de Comida:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Input(
-                        id='comida-tipo', 
+                        id='comida-tipo-tabs', 
                         placeholder="Ej: Comida Normal, Sant Antoni, etc.", 
                         type='text',
                         style={"width": "100%", "padding": "8px"}
                     )
-                ], style={"margin": "10px"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("👨‍🍳 Cocineros:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Dropdown(
-                        id='comida-cocineros-selector',
+                        id='comida-cocineros-selector-tabs',
                         options=cocineros_options,
                         placeholder="Selecciona cocineros (múltiple)",
-                        multi=True,
-                        style={"width": "100%"}
+                        multi=True
                     )
-                ], style={"margin": "10px"}),
-                
-                html.Button('✅ Agregar Comida', id='btn-add-comida', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px"
-                           })
-            ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"})
-        ]),
+                ], className="form-item"),
+            ], className="form-row"),
+            
+            html.Button('✅ Agregar Comida', id='btn-add-comida-tabs', n_clicks=0,
+                       className="btn", style={
+                           "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
+                           "color": "white", "margin": "20px auto", "display": "block"
+                       })
+        ], className="form-container"),
         
-        # Panel avanzado de gestión de cocineros (MEJORADO CON SELECTORES)
+        # Panel avanzado de gestión de cocineros
         html.Div([
-            html.H3("🔄 Gestión Avanzada de Cocineros", style={"color": "#1976D2", "margin-bottom": "20px"}),
+            html.H3("🔄 Gestión Avanzada de Cocineros", style={"color": "#1976D2", "margin-bottom": "20px", "text-align": "center"}),
             html.P("💡 Selecciona año y tipo de comida para modificar cocineros en TODAS las comidas de esa categoría", 
-                   style={"color": "#666", "font-style": "italic", "margin-bottom": "20px"}),
+                   style={"color": "#666", "font-style": "italic", "margin-bottom": "20px", "text-align": "center"}),
             
             # Filtros principales
             html.Div([
-                html.H5("🎯 Seleccionar Comidas a Modificar", style={"color": "#9C27B0", "margin-bottom": "15px"}),
+                html.H4("🎯 Seleccionar Comidas a Modificar", style={"color": "#9C27B0", "margin-bottom": "15px", "text-align": "center"}),
                 html.Div([
                     html.Div([
                         html.Label("📅 Año:", style={"font-weight": "bold", "color": "#9C27B0"}),
                         dcc.Dropdown(
-                            id='filter-año',
+                            id='filter-año-tabs',
                             options=años_disponibles,
-                            placeholder="Selecciona el año",
-                            style={"width": "150px"}
+                            placeholder="Selecciona el año"
                         )
-                    ], style={"margin": "10px"}),
+                    ], className="form-item"),
                     
                     html.Div([
                         html.Label("🥘 Tipo de Comida:", style={"font-weight": "bold", "color": "#9C27B0"}),
                         dcc.Dropdown(
-                            id='filter-tipo',
+                            id='filter-tipo-tabs',
                             options=tipos_comida,
-                            placeholder="Selecciona el tipo",
-                            style={"width": "200px"}
+                            placeholder="Selecciona el tipo"
                         )
-                    ], style={"margin": "10px"}),
-                ], style={"display": "flex", "align-items": "end", "gap": "10px"})
+                    ], className="form-item"),
+                ], className="form-row")
             ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
             
-            # Operaciones disponibles CON SELECTORES
+            # Operaciones disponibles
             html.Div([
                 # Cambiar cocinero por otro
                 html.Div([
-                    html.H5("🔄 Cambiar Cocinero", style={"color": "#FF9800", "margin-bottom": "10px"}),
+                    html.H4("🔄 Cambiar Cocinero", style={"color": "#FF9800", "margin-bottom": "10px", "text-align": "center"}),
                     html.Div([
-                        dcc.Dropdown(
-                            id='cambiar-cocinero-antiguo',
-                            options=cocineros_options,
-                            placeholder="Cocinero actual",
-                            style={"width": "150px", "margin": "5px"}
-                        ),
-                        html.Span("→", style={"margin": "0 10px", "font-size": "20px", "color": "#FF9800"}),
-                        dcc.Dropdown(
-                            id='cambiar-cocinero-nuevo',
-                            options=cocineros_options,
-                            placeholder="Cocinero nuevo",
-                            style={"width": "150px", "margin": "5px"}
-                        ),
-                        html.Button('🔄 Cambiar', id='btn-cambiar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#FF9800", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px", "flex-wrap": "wrap"})
-                ], style={"background": "#FFF3E0", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                        html.Div([
+                            dcc.Dropdown(
+                                id='cambiar-cocinero-antiguo-tabs',
+                                options=cocineros_options,
+                                placeholder="Cocinero actual"
+                            )
+                        ], className="form-item"),
+                        html.Div([
+                            dcc.Dropdown(
+                                id='cambiar-cocinero-nuevo-tabs',
+                                options=cocineros_options,
+                                placeholder="Cocinero nuevo"
+                            )
+                        ], className="form-item"),
+                    ], className="form-row"),
+                    html.Button('🔄 Cambiar', id='btn-cambiar-cocinero-tabs', n_clicks=0,
+                               className="btn", style={"background": "#FF9800", "color": "white", "margin": "10px auto", "display": "block"})
+                ], style={"background": "#FFF3E0", "padding": "15px", "border-radius": "8px", "margin": "10px 0"}),
                 
                 # Agregar cocinero
                 html.Div([
-                    html.H5("➕ Agregar Cocinero", style={"color": "#4CAF50", "margin-bottom": "10px"}),
+                    html.H4("➕ Agregar Cocinero", style={"color": "#4CAF50", "margin-bottom": "10px", "text-align": "center"}),
                     html.Div([
                         dcc.Dropdown(
-                            id='agregar-cocinero',
+                            id='agregar-cocinero-tabs',
                             options=cocineros_options,
-                            placeholder="Selecciona cocinero a agregar",
-                            style={"width": "250px", "margin": "5px"}
-                        ),
-                        html.Button('➕ Agregar', id='btn-agregar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#4CAF50", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
-                ], style={"background": "#E8F5E8", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                            placeholder="Selecciona cocinero a agregar"
+                        )
+                    ], className="form-item"),
+                    html.Button('➕ Agregar', id='btn-agregar-cocinero-tabs', n_clicks=0,
+                               className="btn", style={"background": "#4CAF50", "color": "white", "margin": "10px auto", "display": "block"})
+                ], style={"background": "#E8F5E8", "padding": "15px", "border-radius": "8px", "margin": "10px 0"}),
                 
                 # Eliminar cocinero
                 html.Div([
-                    html.H5("➖ Eliminar Cocinero", style={"color": "#F44336", "margin-bottom": "10px"}),
+                    html.H4("➖ Eliminar Cocinero", style={"color": "#F44336", "margin-bottom": "10px", "text-align": "center"}),
                     html.Div([
                         dcc.Dropdown(
-                            id='eliminar-cocinero',
+                            id='eliminar-cocinero-tabs',
                             options=cocineros_options,
-                            placeholder="Selecciona cocinero a eliminar",
-                            style={"width": "250px", "margin": "5px"}
-                        ),
-                        html.Button('➖ Eliminar', id='btn-eliminar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#F44336", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
-                ], style={"background": "#FFEBEE", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
-                
-                # NUEVO: Intercambio específico entre diferentes grupos
-                html.Div([
-                    html.H5("🔄 Intercambio Específico", style={"color": "#9C27B0", "margin-bottom": "10px"}),
-                    html.P("Intercambia cocineros entre diferentes años/tipos", style={"color": "#666", "font-size": "0.9rem", "margin-bottom": "10px"}),
-                    html.Div([
-                        # Grupo 1
-                        html.Div([
-                            html.Label("Grupo 1:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
-                            dcc.Dropdown(
-                                id='intercambio-año1',
-                                options=años_disponibles,
-                                placeholder="Año 1",
-                                style={"width": "120px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-tipo1',
-                                options=tipos_comida,
-                                placeholder="Tipo 1",
-                                style={"width": "140px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-cocinero1',
-                                options=cocineros_options,
-                                placeholder="Cocinero 1",
-                                style={"width": "140px", "margin": "2px"}
-                            )
-                        ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
-                        
-                        html.Span("↔️", style={"margin": "0 15px", "font-size": "24px", "align-self": "center"}),
-                        
-                        # Grupo 2
-                        html.Div([
-                            html.Label("Grupo 2:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
-                            dcc.Dropdown(
-                                id='intercambio-año2',
-                                options=años_disponibles,
-                                placeholder="Año 2",
-                                style={"width": "120px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-tipo2',
-                                options=tipos_comida,
-                                placeholder="Tipo 2",
-                                style={"width": "140px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-cocinero2',
-                                options=cocineros_options,
-                                placeholder="Cocinero 2",
-                                style={"width": "140px", "margin": "2px"}
-                            )
-                        ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
-                        
-                        html.Button('🔄 Intercambiar', id='btn-intercambiar-especifico', n_clicks=0,
-                                   style={
-                                       "background": "#9C27B0", "color": "white", "border": "none",
-                                       "padding": "12px 20px", "border-radius": "6px", "margin": "10px", 
-                                       "cursor": "pointer", "align-self": "center"
-                                   })
-                    ], style={"display": "flex", "align-items": "start", "gap": "10px", "flex-wrap": "wrap"})
-                ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
-                
-            ], style={"margin": "20px 0"})
-        ], style={"background": "#F5F5F5", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
+                            placeholder="Selecciona cocinero a eliminar"
+                        )
+                    ], className="form-item"),
+                    html.Button('➖ Eliminar', id='btn-eliminar-cocinero-tabs', n_clicks=0,
+                               className="btn", style={"background": "#F44336", "color": "white", "margin": "10px auto", "display": "block"})
+                ], style={"background": "#FFEBEE", "padding": "15px", "border-radius": "8px", "margin": "10px 0"}),
+            ])
+        ], className="form-container"),
         
         # Mensajes y confirmaciones
-        html.Div(id='comida-output', style={"margin": "20px 0", "padding": "10px"})
-    ])
+        html.Div(id='comida-output-tabs', style={"margin": "20px 0", "padding": "10px", "text-align": "center"})
+    ], className="fade-in")
 
-# Página de lista de compra
-def create_lista_compra_page():
+# Contenido de la pestaña Lista de Compra
+def create_lista_compra_tab():
     lista_df = get_data('lista_compra')
     
     return html.Div([
-        html.H1("🛒 Lista de Compra", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H2("🛒 Lista de Compra", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
         
-        # Tabla de lista PRIMERO
-        html.H3("📋 Lista de Compras", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        dash_table.DataTable(
-            id='tabla-lista',
-            data=lista_df.to_dict('records'),
-            columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
-                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#2196F3',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
-                },
-                {
-                    'if': {'column_id': 'objeto'},
-                    'backgroundColor': '#E3F2FD',
-                    'color': '#1976D2'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
-        ),
-        
-        # Formulario para agregar DESPUÉS de la tabla
+        # Tabla de lista
         html.Div([
-            html.H3("➕ Agregar Nuevo Item", style={"color": "#2196F3"}),
+            html.H3("📋 Lista de Compras", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
+            dash_table.DataTable(
+                id='tabla-lista-tabs',
+                data=lista_df.to_dict('records'),
+                columns=[
+                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
+                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                    {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '12px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'minWidth': '100px'
+                },
+                style_header={
+                    'backgroundColor': '#2196F3',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'objeto'},
+                        'backgroundColor': '#E3F2FD',
+                        'color': '#1976D2'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=10
+            )
+        ], className="form-container"),
+        
+        # Formulario para agregar
+        html.Div([
+            html.H3("➕ Agregar Nuevo Item", style={"color": "#2196F3", "text-align": "center"}),
             html.Div([
                 html.Div([
                     html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.DatePickerSingle(
-                        id='lista-fecha',
+                        id='lista-fecha-tabs',
                         date=date.today(),
-                        display_format='DD/MM/YYYY',
-                        style={"width": "100%"}
+                        display_format='DD/MM/YYYY'
                     )
-                ], style={"margin": "10px", "flex": "1"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("📦 Objeto a Comprar:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Input(
-                        id='lista-objeto', 
+                        id='lista-objeto-tabs', 
                         placeholder="Ej: Tomates, Pan, Aceite...", 
                         type='text',
                         style={"width": "100%", "padding": "8px"}
                     )
-                ], style={"margin": "10px", "flex": "2"}),
-                
-                html.Button('✅ Agregar Item', id='btn-add-lista', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px", "align-self": "end"
-                           })
-            ], style={"display": "flex", "align-items": "end", "gap": "10px"})
-        ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
+                ], className="form-item"),
+            ], className="form-row"),
+            
+            html.Button('✅ Agregar Item', id='btn-add-lista-tabs', n_clicks=0,
+                       className="btn", style={
+                           "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
+                           "color": "white", "margin": "20px auto", "display": "block"
+                       })
+        ], className="form-container"),
         
-        html.Div(id='lista-output', style={"margin": "20px 0", "padding": "10px"})
-    ])
+        html.Div(id='lista-output-tabs', style={"margin": "20px 0", "padding": "10px", "text-align": "center"})
+    ], className="fade-in")
 
-# Página de mantenimiento
-def create_mantenimiento_page():
+# Contenido de la pestaña Mantenimiento
+def create_mantenimiento_tab():
     mant_df = get_data('mantenimiento')
     
     return html.Div([
-        html.H1("🔧 Mantenimiento", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H2("🔧 Mantenimiento", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
         
-        # Tabla de mantenimiento PRIMERO
-        html.H3("📋 Tareas de Mantenimiento", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        dash_table.DataTable(
-            id='tabla-mant',
-            data=mant_df.to_dict('records'),
-            columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
-                {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
-                {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
-                {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#FF9800',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
-                },
-                {
-                    'if': {'column_id': 'mantenimiento'},
-                    'backgroundColor': '#FFF3E0',
-                    'color': '#E65100'
-                },
-                {
-                    'if': {'column_id': 'cadafals'},
-                    'backgroundColor': '#FFF8E1',
-                    'color': '#F57C00'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
-        ),
-        
-        # Formulario para agregar DESPUÉS de la tabla
+        # Tabla de mantenimiento
         html.Div([
-            html.H3("➕ Agregar Tarea de Mantenimiento", style={"color": "#FF9800"}),
+            html.H3("📋 Tareas de Mantenimiento", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
+            dash_table.DataTable(
+                id='tabla-mant-tabs',
+                data=mant_df.to_dict('records'),
+                columns=[
+                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
+                    {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
+                    {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
+                    {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '12px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'minWidth': '100px'
+                },
+                style_header={
+                    'backgroundColor': '#FF9800',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'mantenimiento'},
+                        'backgroundColor': '#FFF3E0',
+                        'color': '#E65100'
+                    },
+                    {
+                        'if': {'column_id': 'cadafals'},
+                        'backgroundColor': '#FFF8E1',
+                        'color': '#F57C00'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=10
+            )
+        ], className="form-container"),
+        
+        # Formulario para agregar
+        html.Div([
+            html.H3("➕ Agregar Tarea de Mantenimiento", style={"color": "#FF9800", "text-align": "center"}),
             html.Div([
                 html.Div([
                     html.Label("📅 Año:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Input(
-                        id='mant-año', 
+                        id='mant-año-tabs', 
                         placeholder="2025", 
                         type='number', 
                         value=datetime.now().year,
                         style={"width": "100%", "padding": "8px"}
                     )
-                ], style={"margin": "10px", "flex": "1"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("🔨 Mantenimiento:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Input(
-                        id='mant-mantenimiento', 
+                        id='mant-mantenimiento-tabs', 
                         placeholder="Descripción del mantenimiento", 
                         type='text',
                         style={"width": "100%", "padding": "8px"}
                     )
-                ], style={"margin": "10px", "flex": "2"}),
+                ], className="form-item"),
                 
                 html.Div([
                     html.Label("🏗️ Cadafals:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Input(
-                        id='mant-cadafals', 
+                        id='mant-cadafals-tabs', 
                         placeholder="Responsables de cadafals", 
                         type='text',
                         style={"width": "100%", "padding": "8px"}
                     )
-                ], style={"margin": "10px", "flex": "2"}),
-                
-                html.Button('✅ Agregar Tarea', id='btn-add-mant', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #FF9800, #F57C00)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px", "align-self": "end"
-                           })
-            ], style={"display": "flex", "align-items": "end", "gap": "10px"})
-        ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
+                ], className="form-item"),
+            ], className="form-row"),
+            
+            html.Button('✅ Agregar Tarea', id='btn-add-mant-tabs', n_clicks=0,
+                       className="btn", style={
+                           "background": "linear-gradient(45deg, #FF9800, #F57C00)", 
+                           "color": "white", "margin": "20px auto", "display": "block"
+                       })
+        ], className="form-container"),
         
-        html.Div(id='mant-output', style={"margin": "20px 0", "padding": "10px"})
-    ])
+        html.Div(id='mant-output-tabs', style={"margin": "20px 0", "padding": "10px", "text-align": "center"})
+    ], className="fade-in")
 
-# Página de fiestas (mejorada)
-def create_fiestas_page():
+# Contenido de la pestaña Fiestas
+def create_fiestas_tab():
     return html.Div([
-        html.H1("🎉 Fiestas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H2("🎉 Fiestas", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
         
         # Contenido temporal
         html.Div([
@@ -1527,180 +1530,62 @@ def create_fiestas_page():
                 html.H3("🚧 En Construcción", style={"color": "#9C27B0", "text-align": "center"}),
                 html.P("Esta sección estará disponible en próximas actualizaciones.", 
                        style={"font-size": "18px", "color": "#666", "text-align": "center"}),
-                html.P("Aquí podrás gestionar:", style={"margin-top": "20px", "font-weight": "bold"}),
+                html.P("Aquí podrás gestionar:", style={"margin-top": "20px", "font-weight": "bold", "text-align": "center"}),
                 html.Ul([
                     html.Li("🎭 Eventos especiales y fiestas"),
                     html.Li("🎪 Organización de actividades"),
                     html.Li("🎨 Decoraciones y temáticas"),
                     html.Li("🎵 Música y entretenimiento"),
                     html.Li("📸 Galería de fotos"),
-                ], style={"color": "#555", "margin": "20px 0"})
-            ], style={
-                "background": "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)",
-                "padding": "40px", "border-radius": "15px", "text-align": "center",
-                "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "margin": "20px 0"
-            }),
+                ], style={"color": "#555", "margin": "20px 0", "text-align": "left", "max-width": "400px", "margin": "20px auto"})
+            ], className="form-container", style={"text-align": "center"}),
             
-            # Próximas fiestas (basadas en eventos existentes)
+            # Próximas fiestas
             html.Div([
-                html.H4("🎊 Próximos Eventos Especiales", style={"color": "#1976D2"}),
+                html.H4("🎊 Próximos Eventos Especiales", style={"color": "#1976D2", "text-align": "center"}),
                 html.Div([
                     html.Div([
                         html.H5("🎭 Sant Antoni", style={"color": "#FF5722"}),
                         html.P("📅 Enero - Cena especial"),
                         html.P("🍽️ Tradición gastronómica")
-                    ], style={"background": "#FFF3E0", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
+                    ], style={"background": "#FFF3E0", "padding": "15px", "margin": "10px", "border-radius": "8px", "text-align": "center"}),
                     
                     html.Div([
                         html.H5("🌸 Brena St Vicent", style={"color": "#4CAF50"}),
                         html.P("📅 Mayo - Comida y Cena"),
                         html.P("🌺 Celebración primaveral")
-                    ], style={"background": "#E8F5E8", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
+                    ], style={"background": "#E8F5E8", "padding": "15px", "margin": "10px", "border-radius": "8px", "text-align": "center"}),
                     
                     html.Div([
                         html.H5("🎪 Fira Magdalena", style={"color": "#9C27B0"}),
                         html.P("📅 Julio - Gran celebración"),
                         html.P("🎉 Evento principal del año")
-                    ], style={"background": "#F3E5F5", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
-                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"})
+                    ], style={"background": "#F3E5F5", "padding": "15px", "margin": "10px", "border-radius": "8px", "text-align": "center"}),
+                ], className="grid-container")
             ], style={"margin-top": "30px"})
         ])
-    ])
+    ], className="fade-in")
 
-# Callbacks para tablón de anuncios
+# Callbacks para comidas (versión tabs)
 @app.callback(
-    Output('modal-anuncio', 'style'),
-    [Input('btn-nuevo-anuncio', 'n_clicks'),
-     Input('btn-cancelar-anuncio', 'n_clicks'),
-     Input('btn-publicar-anuncio', 'n_clicks')],
+    [Output('tabla-comidas-tabs', 'data'), Output('comida-output-tabs', 'children')],
+    [Input('btn-add-comida-tabs', 'n_clicks'), 
+     Input('btn-cambiar-cocinero-tabs', 'n_clicks'),
+     Input('btn-agregar-cocinero-tabs', 'n_clicks'),
+     Input('btn-eliminar-cocinero-tabs', 'n_clicks'),
+     Input('tabla-comidas-tabs', 'data_previous'),
+     Input('tabla-comidas-tabs', 'data')],
+    [State('comida-fecha-tabs', 'date'), State('comida-servicio-tabs', 'value'),
+     State('comida-tipo-tabs', 'value'), State('comida-cocineros-selector-tabs', 'value'),
+     State('filter-año-tabs', 'value'), State('filter-tipo-tabs', 'value'),
+     State('cambiar-cocinero-antiguo-tabs', 'value'), State('cambiar-cocinero-nuevo-tabs', 'value'),
+     State('agregar-cocinero-tabs', 'value'), State('eliminar-cocinero-tabs', 'value')],
     prevent_initial_call=True
 )
-def toggle_modal_anuncio(n_nuevo, n_cancelar, n_publicar):
-    ctx = callback_context
-    if not ctx.triggered:
-        return {"display": "none"}
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if trigger_id == 'btn-nuevo-anuncio':
-        return {
-            "position": "fixed", "top": "0", "left": "0", "width": "100%", "height": "100%",
-            "background": "rgba(0,0,0,0.5)", "display": "flex", "align-items": "center",
-            "justify-content": "center", "z-index": "1000"
-        }
-    else:  # cancelar o publicar
-        return {"display": "none"}
-
-@app.callback(
-    [Output('lista-noticias', 'children'),
-     Output('anuncio-titulo', 'value'),
-     Output('anuncio-contenido', 'value')],
-    [Input('btn-publicar-anuncio', 'n_clicks'),
-     Input({'type': 'btn-delete-noticia', 'index': dash.dependencies.ALL}, 'n_clicks')],
-    [State('anuncio-titulo', 'value'),
-     State('anuncio-contenido', 'value'),
-     State('anuncio-autor', 'value')],
-    prevent_initial_call=True
-)
-def manage_noticias(n_publicar, n_delete_list, titulo, contenido, autor):
-    ctx = callback_context
-    
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update
-    
-    trigger_info = ctx.triggered[0]['prop_id']
-    
-    # Publicar nuevo anuncio
-    if 'btn-publicar-anuncio' in trigger_info and n_publicar > 0:
-        if titulo and contenido:
-            add_noticia(titulo, contenido, autor or 'Administrador')
-            # Limpiar campos y recargar lista
-            noticias_df = get_noticias()
-            nueva_lista = [
-                html.Div([
-                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
-                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
-                    html.Div([
-                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
-                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
-                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
-                                   style={"background": "#F44336", "color": "white", "border": "none",
-                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
-                                         "font-size": "0.8rem", "float": "right"})
-                    ])
-                ], style={
-                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
-                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
-                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
-                })
-                for noticia in noticias_df.to_dict('records')[:5]
-            ]
-            return nueva_lista, "", ""  # Limpiar campos
-    
-    # Eliminar anuncio
-    elif 'btn-delete-noticia' in trigger_info:
-        # Extraer el ID del anuncio a eliminar
-        import json
-        prop_id_dict = json.loads(trigger_info.split('.')[0])
-        noticia_id = prop_id_dict['index']
-        
-        # Verificar si realmente se hizo clic
-        if any(n_delete_list):
-            delete_noticia(noticia_id)
-            
-            # Recargar lista
-            noticias_df = get_noticias()
-            nueva_lista = [
-                html.Div([
-                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
-                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
-                    html.Div([
-                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
-                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
-                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
-                                   style={"background": "#F44336", "color": "white", "border": "none",
-                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
-                                         "font-size": "0.8rem", "float": "right"})
-                    ])
-                ], style={
-                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
-                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
-                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
-                })
-                for noticia in noticias_df.to_dict('records')[:5]
-            ] if len(noticias_df) > 0 else [
-                html.Div([
-                    html.P("No hay anuncios publicados", style={"text-align": "center", "color": "#666", "font-style": "italic"})
-                ], style={"padding": "20px"})
-            ]
-            return nueva_lista, dash.no_update, dash.no_update
-    
-    return dash.no_update, dash.no_update, dash.no_update
-
-# Callbacks para comidas (actualizado con selectores únicos)
-@app.callback(
-    [Output('tabla-comidas', 'data'), Output('comida-output', 'children')],
-    [Input('btn-add-comida', 'n_clicks'), 
-     Input('btn-cambiar-cocinero', 'n_clicks'),
-     Input('btn-agregar-cocinero', 'n_clicks'),
-     Input('btn-eliminar-cocinero', 'n_clicks'),
-     Input('btn-intercambiar-especifico', 'n_clicks'),
-     Input('tabla-comidas', 'data_previous'),
-     Input('tabla-comidas', 'data')],
-    [State('comida-fecha', 'date'), State('comida-servicio', 'value'),
-     State('comida-tipo', 'value'), State('comida-cocineros-selector', 'value'),
-     State('filter-año', 'value'), State('filter-tipo', 'value'),
-     State('cambiar-cocinero-antiguo', 'value'), State('cambiar-cocinero-nuevo', 'value'),
-     State('agregar-cocinero', 'value'), State('eliminar-cocinero', 'value'),
-     State('intercambio-año1', 'value'), State('intercambio-tipo1', 'value'), State('intercambio-cocinero1', 'value'),
-     State('intercambio-año2', 'value'), State('intercambio-tipo2', 'value'), State('intercambio-cocinero2', 'value')],
-    prevent_initial_call=True
-)
-def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_intercambio,
-                                 previous_data, current_data, fecha, servicio, tipo, cocineros_lista, 
-                                 filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo,
-                                 nuevo_cocinero, cocinero_eliminar,
-                                 int_año1, int_tipo1, int_cocinero1, int_año2, int_tipo2, int_cocinero2):
+def update_comidas_tabs(n_add, n_cambiar, n_agregar, n_eliminar,
+                       previous_data, current_data, fecha, servicio, tipo, cocineros_lista, 
+                       filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo,
+                       nuevo_cocinero, cocinero_eliminar):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1711,54 +1596,50 @@ def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_int
     
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    # Agregar nueva comida (CON SELECTOR)
-    if trigger_id == 'btn-add-comida' and n_add > 0:
+    # Agregar nueva comida
+    if trigger_id == 'btn-add-comida-tabs' and n_add > 0:
         if fecha and servicio and tipo and cocineros_lista:
-            # Convertir lista de cocineros a string separado por comas
             cocineros_str = ', '.join(cocineros_lista)
             add_data('comidas', (fecha, servicio, tipo, cocineros_str))
             add_data('eventos', (fecha, tipo, servicio))
-            return get_data('comidas').to_dict('records'), f"✅ Comida agregada exitosamente! 🎉"
+            return get_data('comidas').to_dict('records'), html.Div("✅ Comida agregada exitosamente! 🎉", 
+                                                                   style={"color": "green", "font-weight": "bold"})
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Por favor completa todos los campos."
+            return get_data('comidas').to_dict('records'), html.Div("⚠️ Por favor completa todos los campos.", 
+                                                                   style={"color": "orange", "font-weight": "bold"})
     
-    # Cambiar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-cambiar-cocinero' and n_cambiar > 0:
+    # Cambiar cocinero
+    elif trigger_id == 'btn-cambiar-cocinero-tabs' and n_cambiar > 0:
         if filter_año and filter_tipo and cocinero_antiguo and cocinero_nuevo:
             resultado = cambiar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo)
-            return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
+            return get_data('comidas').to_dict('records'), html.Div(f"🔄 {resultado}", 
+                                                                   style={"color": "blue", "font-weight": "bold"})
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y ambos cocineros."
+            return get_data('comidas').to_dict('records'), html.Div("⚠️ Selecciona año, tipo y ambos cocineros.", 
+                                                                   style={"color": "orange", "font-weight": "bold"})
     
-    # Agregar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-agregar-cocinero' and n_agregar > 0:
+    # Agregar cocinero
+    elif trigger_id == 'btn-agregar-cocinero-tabs' and n_agregar > 0:
         if filter_año and filter_tipo and nuevo_cocinero:
             resultado = agregar_cocinero_en_año_tipo(filter_año, filter_tipo, nuevo_cocinero)
-            return get_data('comidas').to_dict('records'), f"➕ {resultado}"
+            return get_data('comidas').to_dict('records'), html.Div(f"➕ {resultado}", 
+                                                                   style={"color": "green", "font-weight": "bold"})
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
+            return get_data('comidas').to_dict('records'), html.Div("⚠️ Selecciona año, tipo y cocinero.", 
+                                                                   style={"color": "orange", "font-weight": "bold"})
     
-    # Eliminar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-eliminar-cocinero' and n_eliminar > 0:
+    # Eliminar cocinero
+    elif trigger_id == 'btn-eliminar-cocinero-tabs' and n_eliminar > 0:
         if filter_año and filter_tipo and cocinero_eliminar:
             resultado = eliminar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_eliminar)
-            return get_data('comidas').to_dict('records'), f"➖ {resultado}"
+            return get_data('comidas').to_dict('records'), html.Div(f"➖ {resultado}", 
+                                                                   style={"color": "red", "font-weight": "bold"})
         else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
-    
-    # NUEVO: Intercambio específico entre diferentes grupos
-    elif trigger_id == 'btn-intercambiar-especifico' and n_intercambio > 0:
-        if int_año1 and int_tipo1 and int_cocinero1 and int_año2 and int_tipo2 and int_cocinero2:
-            resultado = intercambiar_cocineros_especifico(
-                int_año1, int_tipo1, int_cocinero1,
-                int_año2, int_tipo2, int_cocinero2
-            )
-            return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Completa todos los campos para el intercambio específico."
+            return get_data('comidas').to_dict('records'), html.Div("⚠️ Selecciona año, tipo y cocinero.", 
+                                                                   style={"color": "orange", "font-weight": "bold"})
     
     # Detectar edición directa en la tabla
-    elif trigger_id == 'tabla-comidas' and previous_data is not None and current_data is not None:
+    elif trigger_id == 'tabla-comidas-tabs' and previous_data is not None and current_data is not None:
         if len(current_data) < len(previous_data):
             # Fila eliminada
             current_ids = [row['id'] for row in current_data]
@@ -1770,7 +1651,8 @@ def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_int
             
             if deleted_id:
                 delete_data('comidas', deleted_id)
-                return get_data('comidas').to_dict('records'), f"🗑️ Comida eliminada exitosamente!"
+                return get_data('comidas').to_dict('records'), html.Div("🗑️ Comida eliminada exitosamente!", 
+                                                                       style={"color": "red", "font-weight": "bold"})
         
         elif len(current_data) == len(previous_data):
             # Posible edición de celda
@@ -1778,35 +1660,24 @@ def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_int
                 for key in prev_row.keys():
                     if prev_row[key] != curr_row[key]:
                         update_data('comidas', curr_row['id'], key, curr_row[key])
-                        return get_data('comidas').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
+                        return get_data('comidas').to_dict('records'), html.Div(f"✏️ Campo '{key}' actualizado!", 
+                                                                               style={"color": "blue", "font-weight": "bold"})
     
     try:
         return get_data('comidas').to_dict('records'), ""
     except:
         return [], ""
 
-# Callback para actualizar opciones dinámicamente
+# Callbacks para lista de compra (versión tabs)
 @app.callback(
-    [Output('filter-tipo', 'options'),
-     Output('intercambio-tipo1', 'options'),
-     Output('intercambio-tipo2', 'options')],
-    [Input('tabla-comidas', 'data')],
+    [Output('tabla-lista-tabs', 'data'), Output('lista-output-tabs', 'children')],
+    [Input('btn-add-lista-tabs', 'n_clicks'), 
+     Input('tabla-lista-tabs', 'data_previous'),
+     Input('tabla-lista-tabs', 'data')],
+    [State('lista-fecha-tabs', 'date'), State('lista-objeto-tabs', 'value')],
     prevent_initial_call=True
 )
-def update_filter_options(data):
-    tipos = get_tipos_comida()
-    return tipos, tipos, tipos
-
-# Callbacks para lista de compra (sin cambios, solo protección)
-@app.callback(
-    [Output('tabla-lista', 'data'), Output('lista-output', 'children')],
-    [Input('btn-add-lista', 'n_clicks'), 
-     Input('tabla-lista', 'data_previous'),
-     Input('tabla-lista', 'data')],
-    [State('lista-fecha', 'date'), State('lista-objeto', 'value')],
-    prevent_initial_call=True
-)
-def update_lista_protegido(n_clicks, previous_data, current_data, fecha, objeto):
+def update_lista_tabs(n_clicks, previous_data, current_data, fecha, objeto):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1817,14 +1688,16 @@ def update_lista_protegido(n_clicks, previous_data, current_data, fecha, objeto)
     
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    if trigger_id == 'btn-add-lista' and n_clicks > 0:
+    if trigger_id == 'btn-add-lista-tabs' and n_clicks > 0:
         if fecha and objeto:
             add_data('lista_compra', (fecha, objeto))
-            return get_data('lista_compra').to_dict('records'), f"✅ Item agregado exitosamente! 🛒"
+            return get_data('lista_compra').to_dict('records'), html.Div("✅ Item agregado exitosamente! 🛒", 
+                                                                        style={"color": "green", "font-weight": "bold"})
         else:
-            return get_data('lista_compra').to_dict('records'), "⚠️ Por favor completa todos los campos."
+            return get_data('lista_compra').to_dict('records'), html.Div("⚠️ Por favor completa todos los campos.", 
+                                                                        style={"color": "orange", "font-weight": "bold"})
     
-    elif trigger_id == 'tabla-lista' and previous_data is not None and current_data is not None:
+    elif trigger_id == 'tabla-lista-tabs' and previous_data is not None and current_data is not None:
         if len(current_data) < len(previous_data):
             current_ids = [row['id'] for row in current_data]
             deleted_id = None
@@ -1835,31 +1708,33 @@ def update_lista_protegido(n_clicks, previous_data, current_data, fecha, objeto)
             
             if deleted_id:
                 delete_data('lista_compra', deleted_id)
-                return get_data('lista_compra').to_dict('records'), f"🗑️ Item eliminado exitosamente!"
+                return get_data('lista_compra').to_dict('records'), html.Div("🗑️ Item eliminado exitosamente!", 
+                                                                            style={"color": "red", "font-weight": "bold"})
         
         elif len(current_data) == len(previous_data):
             for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
                 for key in prev_row.keys():
                     if prev_row[key] != curr_row[key]:
                         update_data('lista_compra', curr_row['id'], key, curr_row[key])
-                        return get_data('lista_compra').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
+                        return get_data('lista_compra').to_dict('records'), html.Div(f"✏️ Campo '{key}' actualizado!", 
+                                                                                    style={"color": "blue", "font-weight": "bold"})
     
     try:
         return get_data('lista_compra').to_dict('records'), ""
     except:
         return [], ""
 
-# Callbacks para mantenimiento (sin cambios, solo protección)
+# Callbacks para mantenimiento (versión tabs)
 @app.callback(
-    [Output('tabla-mant', 'data'), Output('mant-output', 'children')],
-    [Input('btn-add-mant', 'n_clicks'), 
-     Input('tabla-mant', 'data_previous'),
-     Input('tabla-mant', 'data')],
-    [State('mant-año', 'value'), State('mant-mantenimiento', 'value'),
-     State('mant-cadafals', 'value')],
+    [Output('tabla-mant-tabs', 'data'), Output('mant-output-tabs', 'children')],
+    [Input('btn-add-mant-tabs', 'n_clicks'), 
+     Input('tabla-mant-tabs', 'data_previous'),
+     Input('tabla-mant-tabs', 'data')],
+    [State('mant-año-tabs', 'value'), State('mant-mantenimiento-tabs', 'value'),
+     State('mant-cadafals-tabs', 'value')],
     prevent_initial_call=True
 )
-def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimiento, cadafals):
+def update_mant_tabs(n_clicks, previous_data, current_data, año, mantenimiento, cadafals):
     ctx = callback_context
     
     if not ctx.triggered:
@@ -1870,14 +1745,16 @@ def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimi
     
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
-    if trigger_id == 'btn-add-mant' and n_clicks > 0:
+    if trigger_id == 'btn-add-mant-tabs' and n_clicks > 0:
         if año and mantenimiento and cadafals:
             add_data('mantenimiento', (año, mantenimiento, cadafals))
-            return get_data('mantenimiento').to_dict('records'), f"✅ Tarea agregada exitosamente! 🔧"
+            return get_data('mantenimiento').to_dict('records'), html.Div("✅ Tarea agregada exitosamente! 🔧", 
+                                                                          style={"color": "green", "font-weight": "bold"})
         else:
-            return get_data('mantenimiento').to_dict('records'), "⚠️ Por favor completa todos los campos."
+            return get_data('mantenimiento').to_dict('records'), html.Div("⚠️ Por favor completa todos los campos.", 
+                                                                          style={"color": "orange", "font-weight": "bold"})
     
-    elif trigger_id == 'tabla-mant' and previous_data is not None and current_data is not None:
+    elif trigger_id == 'tabla-mant-tabs' and previous_data is not None and current_data is not None:
         if len(current_data) < len(previous_data):
             current_ids = [row['id'] for row in current_data]
             deleted_id = None
@@ -1888,26 +1765,45 @@ def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimi
             
             if deleted_id:
                 delete_data('mantenimiento', deleted_id)
-                return get_data('mantenimiento').to_dict('records'), f"🗑️ Tarea eliminada exitosamente!"
+                return get_data('mantenimiento').to_dict('records'), html.Div("🗑️ Tarea eliminada exitosamente!", 
+                                                                             style={"color": "red", "font-weight": "bold"})
         
         elif len(current_data) == len(previous_data):
             for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
                 for key in prev_row.keys():
                     if prev_row[key] != curr_row[key]:
                         update_data('mantenimiento', curr_row['id'], key, curr_row[key])
-                        return get_data('mantenimiento').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
+                        return get_data('mantenimiento').to_dict('records'), html.Div(f"✏️ Campo '{key}' actualizado!", 
+                                                                                     style={"color": "blue", "font-weight": "bold"})
     
     try:
         return get_data('mantenimiento').to_dict('records'), ""
     except:
         return [], ""
 
+# Callback para actualizar opciones dinámicamente (versión tabs)
 @app.callback(
-    Output('proximos-eventos-container', 'children'),
-    [Input('url', 'pathname')]
+    [Output('filter-tipo-tabs', 'options'),
+     Output('comida-cocineros-selector-tabs', 'options'),
+     Output('cambiar-cocinero-antiguo-tabs', 'options'),
+     Output('cambiar-cocinero-nuevo-tabs', 'options'),
+     Output('agregar-cocinero-tabs', 'options'),
+     Output('eliminar-cocinero-tabs', 'options')],
+    [Input('tabla-comidas-tabs', 'data')],
+    prevent_initial_call=True
 )
-def update_proximos_eventos(pathname):
-    if pathname != '/':
+def update_filter_options_tabs(data):
+    tipos = get_tipos_comida()
+    cocineros = get_cocineros_options()
+    return tipos, cocineros, cocineros, cocineros, cocineros, cocineros
+
+# Callback para próximos eventos en la pestaña inicio
+@app.callback(
+    Output('proximos-eventos-container-tabs', 'children'),
+    [Input('main-tabs', 'value')]
+)
+def update_proximos_eventos_tabs(active_tab):
+    if active_tab != 'inicio':
         return []
     
     proximos_df = get_proximos_eventos(5)
@@ -1919,14 +1815,13 @@ def update_proximos_eventos(pathname):
     for _, evento in proximos_df.iterrows():
         # Formatear fecha a D-M-A
         try:
-            from datetime import datetime
             fecha_obj = datetime.strptime(evento['fecha'], '%Y-%m-%d')
             fecha_formateada = fecha_obj.strftime('%d-%m-%Y')
         except:
             fecha_formateada = evento['fecha']
         
         card = html.Div([
-            html.H5(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
+            html.H4(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
             html.P(f"📅 {fecha_formateada}", style={"margin": "5px 0", "font-weight": "bold"}),
             html.P(f"🍽️ {evento['tipo_servicio']}", style={"margin": "5px 0"}),
             html.P(f"👨‍🍳 {evento['cocineros']}", style={"margin": "5px 0", "font-size": "0.9rem", "color": "#666"})
@@ -1949,9 +1844,6 @@ print("🚀 Iniciando aplicación Penya L'Albenc...")
 resultado_limpieza = limpiar_eventos_antiguos()
 print(f"🧹 {resultado_limpieza}")
 
-# Si quieres actualizar solo los datos de mantenimiento, descomenta la siguiente línea:
-# update_mantenimiento_data()
-
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 8050))
@@ -1959,6 +1851,7 @@ if __name__ == '__main__':
     
     print(f"🌐 Servidor iniciado en puerto {port}")
     print("📊 Base de datos inicializada correctamente")
+    print("📱 Diseño responsive activado - Compatible con móviles")
     print("✨ ¡Aplicación lista para usar!")
     
     app.run_server(debug=debug, host='0.0.0.0', port=port)
