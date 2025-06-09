@@ -1153,7 +1153,7 @@ def create_comidas_tab():
                 id='tabla-comidas-tabs',
                 data=comidas_df.to_dict('records'),
                 columns=[
-                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
+                    # Columna ID eliminada
                     {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
                     {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
                     {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
@@ -1186,8 +1186,9 @@ def create_comidas_tab():
                     }
                 ],
                 sort_action="native",
+                sort_by=[{"column_id": "fecha", "direction": "asc"}],  # ← AGREGAR ESTA LÍNEA
                 filter_action="native",
-                page_size=10
+                page_size=10  # ← CAMBIAR: tabla más grande (o eliminar completamente esta línea para ver todo)
             )
         ], className="form-container"),
         
@@ -1349,7 +1350,6 @@ def create_lista_compra_tab():
                 id='tabla-lista-tabs',
                 data=lista_df.to_dict('records'),
                 columns=[
-                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
                     {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
                     {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
                 ],
@@ -1432,7 +1432,6 @@ def create_mantenimiento_tab():
                 id='tabla-mant-tabs',
                 data=mant_df.to_dict('records'),
                 columns=[
-                    {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
                     {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
                     {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
                     {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
