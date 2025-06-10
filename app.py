@@ -787,19 +787,41 @@ app.index_string = '''
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
                 background: white !important;
                 margin: 1rem 0 !important;
+                -webkit-overflow-scrolling: touch !important;  /* Scroll suave en iOS */
             }
-            
+
             @media (max-width: 768px) {
                 .dash-table-container {
                     font-size: 0.85rem !important;
+                    width: 100% !important;
+                    display: block !important;
                 }
                 
                 .dash-table-container .dash-cell {
-                    min-width: 100px !important;
-                    padding: 8px !important;
+                    min-width: 80px !important;  /* Más estrecho para móviles */
+                    padding: 6px !important;     /* Menos padding */
+                    white-space: normal !important; /* Permite múltiples líneas */
+                    word-break: break-word !important; /* Rompe palabras largas */
+                }
+                .dash-header {
+                    font-size: 0.8rem !important;
+                    padding: 8px 6px !important;
+                }
+                
+                
+                /* Hacemos las celdas más compactas */
+                .dash-cell div.dash-cell-value {
+                    display: inline !important;
+                    line-height: 1.3 !important;
+                }
+                
+                /* Botones de acciones más pequeños */
+                .row-actions button {
+                    padding: 2px 4px !important;
+                    font-size: 0.7rem !important;
                 }
             }
-            
+
             /* Cards responsive */
             .summary-card {
                 transition: all 0.3s ease !important;
