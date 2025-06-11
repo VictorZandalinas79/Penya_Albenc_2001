@@ -7,6 +7,9 @@ import pandas as pd
 import sqlite3
 from datetime import datetime, date, timedelta
 import calendar
+import os
+import psycopg2
+from urllib.parse import urlparse
 
 # Inicializar la app
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
@@ -17,92 +20,164 @@ server = app.server
 
 # Configurar la base de datos
 def init_db():
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
+    """Inicializar la base de datos con las tablas necesarias"""
+    database_url = os.environ.get('DATABASE_URL')
     
-    # Tabla de comidas
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS comidas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            tipo_servicio TEXT,
-            tipo_comida TEXT,
-            cocineros TEXT
-        )
-    ''')
-    
-    # Tabla de lista de compra
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lista_compra (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            objeto TEXT
-        )
-    ''')
-    
-    # Tabla de mantenimiento
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS mantenimiento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            año INTEGER,
-            mantenimiento TEXT,
-            cadafals TEXT
-        )
-    ''')
-    
-    # Tabla de eventos para el calendario
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS eventos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            evento TEXT,
-            tipo TEXT
-        )
-    ''')
+    if database_url:
+        # PostgreSQL en producción
+        conn = psycopg2.connect(database_url)
+        cursor = conn.cursor()
+        
+        # Tabla de comidas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS comidas (
+                id SERIAL PRIMARY KEY,
+                fecha DATE,
+                tipo_servicio TEXT,
+                tipo_comida TEXT,
+                cocineros TEXT
+            )
+        ''')
+        
+        # Tabla de lista de compra
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lista_compra (
+                id SERIAL PRIMARY KEY,
+                fecha DATE,
+                objeto TEXT
+            )
+        ''')
+        
+        # Tabla de mantenimiento
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS mantenimiento (
+                id SERIAL PRIMARY KEY,
+                año INTEGER,
+                mantenimiento TEXT,
+                cadafals TEXT
+            )
+        ''')
+        
+        # Tabla de eventos para el calendario
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS eventos (
+                id SERIAL PRIMARY KEY,
+                fecha DATE,
+                evento TEXT,
+                tipo TEXT
+            )
+        ''')
+        
+    else:
+        # SQLite en desarrollo local (mantener código original)
+        conn = sqlite3.connect('penya_albenc.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS comidas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha DATE,
+                tipo_servicio TEXT,
+                tipo_comida TEXT,
+                cocineros TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lista_compra (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha DATE,
+                objeto TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS mantenimiento (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                año INTEGER,
+                mantenimiento TEXT,
+                cadafals TEXT
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS eventos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha DATE,
+                evento TEXT,
+                tipo TEXT
+            )
+        ''')
     
     conn.commit()
     conn.close()
 
+def get_db_connection():
+    """Obtener conexión a la base de datos (PostgreSQL o SQLite)"""
+    database_url = os.environ.get('DATABASE_URL')
+    
+    if database_url:
+        # Usar PostgreSQL en producción
+        return psycopg2.connect(database_url)
+    else:
+        # Usar SQLite en desarrollo local
+        return sqlite3.connect('penya_albenc.db')
+    
 # Funciones de base de datos
 def get_data(table):
-    conn = sqlite3.connect('penya_albenc.db')
-    df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
+    """Obtener datos de una tabla"""
+    conn = get_db_connection()
+    df = pd.read_sql_query(f"SELECT * FROM {table} ORDER BY id", conn)
     conn.close()
     return df
 
 def add_data(table, data):
-    conn = sqlite3.connect('penya_albenc.db')
+    """Agregar datos a una tabla"""
+    conn = get_db_connection()
     cursor = conn.cursor()
     
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'
+    
     if table == 'comidas':
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})", data)
     elif table == 'lista_compra':
-        cursor.execute("INSERT INTO lista_compra (fecha, objeto) VALUES (?, ?)", data)
+        cursor.execute(f"INSERT INTO lista_compra (fecha, objeto) VALUES ({placeholder}, {placeholder})", data)
     elif table == 'mantenimiento':
-        cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES ({placeholder}, {placeholder}, {placeholder})", data)
     elif table == 'eventos':
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})", data)
     
     conn.commit()
     conn.close()
 
 def update_data(table, id_record, field, new_value):
-    conn = sqlite3.connect('penya_albenc.db')
+    """Actualizar un registro"""
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(f"UPDATE {table} SET {field} = ? WHERE id = ?", (new_value, id_record))
+    
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'
+    
+    cursor.execute(f"UPDATE {table} SET {field} = {placeholder} WHERE id = {placeholder}", (new_value, id_record))
     conn.commit()
     conn.close()
 
 def delete_data(table, id_record):
-    conn = sqlite3.connect('penya_albenc.db')
+    """Eliminar un registro"""
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(f"DELETE FROM {table} WHERE id = ?", (id_record,))
+    
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'
+    
+    cursor.execute(f"DELETE FROM {table} WHERE id = {placeholder}", (id_record,))
     conn.commit()
     conn.close()
 
 def load_initial_data():
     """Cargar datos iniciales si la base de datos está vacía"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Verificar si ya hay datos
@@ -110,6 +185,9 @@ def load_initial_data():
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
+    
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'
     
     # Datos de comidas (muestra - puedes agregar más desde el archivo que subiste)
     comidas_data = [
@@ -147,12 +225,12 @@ def load_initial_data():
     
     # Insertar datos
     for data in comidas_data:
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})", data)
         # Crear evento en calendario
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", (data[0], data[2], data[1]))
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})", (data[0], data[2], data[1]))
     
     for data in mantenimiento_data:
-        cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
+        cursor.execute(f"INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES ({placeholder}, {placeholder}, {placeholder})", data)
     
     conn.commit()
     conn.close()
@@ -200,7 +278,7 @@ def load_eventos_completos():
         ultimo_sabado = ultimo_dia - timedelta(days=dias_desde_sabado)
         return ultimo_sabado.strftime('%Y-%m-%d')
     
-    # Datos completos de la tabla
+    # Datos completos de la tabla (mantener igual)
     eventos_data = {
         2025: {
             'sant_antoni': 'Lluis, Alonso, Raul A., David',
@@ -330,41 +408,44 @@ def load_eventos_completos():
         }
     }
     
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # BORRAR todos los datos existentes
     cursor.execute("DELETE FROM comidas")
     cursor.execute("DELETE FROM eventos")
     
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'
+    
     # Insertar nuevos datos
     for año, eventos in eventos_data.items():
         # Sant Antoni - tercer sábado de enero
         fecha_sant_antoni = get_tercer_sabado_enero(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
                       (fecha_sant_antoni, 'Cena', 'Sant Antoni', eventos['sant_antoni']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})",
                       (fecha_sant_antoni, 'Sant Antoni', 'Cena'))
         
         # Brena St Vicent - sábado cercano al 28 de abril
         fecha_brena = get_sabado_cercano_28_abril(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
                       (fecha_brena, 'Comida y Cena', 'Brena St Vicent', eventos['brena_st_vicent']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})",
                       (fecha_brena, 'Brena St Vicent', 'Comida y Cena'))
         
         # Fira Magdalena - tercer sábado de julio
         fecha_fira = get_tercer_sabado_julio(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
                       (fecha_fira, 'Comida y Cena', 'Fira Magdalena', eventos['fira_magdalena']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})",
                       (fecha_fira, 'Fira Magdalena', 'Comida y Cena'))
         
         # Penya Taurina - último sábado de mayo
         fecha_penya = get_ultimo_sabado_mayo(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+        cursor.execute(f"INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
                       (fecha_penya, 'Comida', 'Penya Taurina', eventos['penya_taurina']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+        cursor.execute(f"INSERT INTO eventos (fecha, evento, tipo) VALUES ({placeholder}, {placeholder}, {placeholder})",
                       (fecha_penya, 'Penya Taurina', 'Comida'))
     
     conn.commit()
@@ -373,8 +454,14 @@ def load_eventos_completos():
 
 def update_mantenimiento_data():
     """Función para actualizar solo los datos de mantenimiento (útil para actualizaciones)"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()  # ← USAR LA FUNCIÓN CORRECTA
     cursor = conn.cursor()
+    
+    # Limpiar datos existentes de mantenimiento
+    cursor.execute("DELETE FROM mantenimiento")
+    
+    database_url = os.environ.get('DATABASE_URL')
+    placeholder = '%s' if database_url else '?'  # ← AGREGAR ESTA LÍNEA
     
     # Limpiar datos existentes de mantenimiento
     cursor.execute("DELETE FROM mantenimiento")
@@ -413,24 +500,30 @@ def update_mantenimiento_data():
     print("✅ Datos de mantenimiento actualizados correctamente!")
 
 # Funciones auxiliares para filtros (restauradas)
-def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
-    """Buscar comidas por año y/o tipo de comida"""
-    conn = sqlite3.connect('penya_albenc.db')
+def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
+    """Buscar todas las comidas de un año y tipo específico"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    query = "SELECT * FROM comidas WHERE 1=1"
-    params = []
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # PostgreSQL
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE EXTRACT(YEAR FROM fecha) = %s AND tipo_comida = %s
+            ORDER BY fecha
+        """, (año, tipo_comida))
+    else:
+        # SQLite
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
+            ORDER BY fecha
+        """, (str(año), tipo_comida))
     
-    if año:
-        query += " AND strftime('%Y', fecha) = ?"
-        params.append(str(año))
-    
-    if tipo_comida:
-        query += " AND tipo_comida = ?"
-        params.append(tipo_comida)
-    
-    df = pd.read_sql_query(query, conn, params=params)
+    results = cursor.fetchall()
     conn.close()
-    return df
+    return results
 
 def get_tipos_comida():
     """Obtener lista única de tipos de comida"""
@@ -442,9 +535,21 @@ def get_tipos_comida():
 
 def get_años_disponibles():
     """Obtener lista de años disponibles en comidas"""
-    comidas_df = get_data('comidas')
-    if len(comidas_df) > 0:
-        años = sorted(list(set([int(fecha.split('-')[0]) for fecha in comidas_df['fecha']])))
+    conn = get_db_connection()
+    
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # PostgreSQL
+        query = "SELECT DISTINCT EXTRACT(YEAR FROM fecha) as año FROM comidas ORDER BY año"
+    else:
+        # SQLite
+        query = "SELECT DISTINCT strftime('%Y', fecha) as año FROM comidas ORDER BY año"
+    
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    
+    if len(df) > 0:
+        años = [int(año) for año in df['año'].tolist() if año]
         return [{'label': str(año), 'value': año} for año in años]
     return []
 
@@ -474,18 +579,43 @@ def inicializar_cocineros_desde_comidas():
     """Función auxiliar para inicializar cocineros (ya no es necesaria con get_cocineros_options)"""
     pass
 
-def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
-    """Buscar todas las comidas de un año y tipo específico"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, fecha, cocineros FROM comidas 
-        WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
-        ORDER BY fecha
-    """, (str(año), tipo_comida))
-    results = cursor.fetchall()
+def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
+    """Buscar comidas por año y/o tipo de comida"""
+    conn = get_db_connection()
+    
+    database_url = os.environ.get('DATABASE_URL')
+    
+    if database_url:
+        # PostgreSQL
+        query = "SELECT * FROM comidas WHERE 1=1"
+        params = []
+        
+        if año:
+            query += " AND EXTRACT(YEAR FROM fecha) = %s"
+            params.append(año)
+        
+        if tipo_comida:
+            query += " AND tipo_comida = %s"
+            params.append(tipo_comida)
+            
+        df = pd.read_sql_query(query, conn, params=params)
+    else:
+        # SQLite
+        query = "SELECT * FROM comidas WHERE 1=1"
+        params = []
+        
+        if año:
+            query += " AND strftime('%Y', fecha) = ?"
+            params.append(str(año))
+        
+        if tipo_comida:
+            query += " AND tipo_comida = ?"
+            params.append(tipo_comida)
+        
+        df = pd.read_sql_query(query, conn, params=params)
+    
     conn.close()
-    return results
+    return df
 
 def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
     """Intercambiar cocineros específicos entre diferentes año/tipo"""
@@ -599,18 +729,21 @@ def eliminar_cocinero_en_año_tipo(año, tipo_comida, cocinero_eliminar):
 def limpiar_eventos_antiguos():
     """Eliminar eventos que tengan más de un mes de antigüedad"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
+        
+        database_url = os.environ.get('DATABASE_URL')
+        placeholder = '%s' if database_url else '?'
         
         # Fecha límite: hace un mes
         fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         
         # Eliminar comidas antiguas
-        cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
+        cursor.execute(f"DELETE FROM comidas WHERE fecha < {placeholder}", (fecha_limite,))
         comidas_eliminadas = cursor.rowcount
         
         # Eliminar eventos antiguos
-        cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
+        cursor.execute(f"DELETE FROM eventos WHERE fecha < {placeholder}", (fecha_limite,))
         eventos_eliminados = cursor.rowcount
         
         # No eliminamos mantenimiento porque son tareas anuales
@@ -628,7 +761,40 @@ def limpiar_eventos_antiguos():
 def get_eventos_calendario():
     """Obtener todos los eventos para el calendario desde comidas y mantenimiento"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()  # ← USAR LA FUNCIÓN CORRECTA
+        
+        database_url = os.environ.get('DATABASE_URL')
+        
+        if database_url:
+            # PostgreSQL
+            comidas_query = """
+            SELECT fecha, tipo_comida as evento, tipo_servicio as tipo, 'comida' as categoria
+            FROM comidas 
+            WHERE fecha >= CURRENT_DATE - INTERVAL '30 days'
+            ORDER BY fecha
+            """
+            
+            mantenimiento_query = """
+            SELECT (año || '-01-01')::date as fecha, mantenimiento as evento, 'Anual' as tipo, 'mantenimiento' as categoria
+            FROM mantenimiento 
+            WHERE año >= EXTRACT(YEAR FROM CURRENT_DATE)
+            ORDER BY año
+            """
+        else:
+            # SQLite
+            comidas_query = """
+            SELECT fecha, tipo_comida as evento, tipo_servicio as tipo, 'comida' as categoria
+            FROM comidas 
+            WHERE fecha >= date('now', '-30 days')
+            ORDER BY fecha
+            """
+            
+            mantenimiento_query = """
+            SELECT (año || '-01-01') as fecha, mantenimiento as evento, 'Anual' as tipo, 'mantenimiento' as categoria
+            FROM mantenimiento 
+            WHERE año >= strftime('%Y', 'now')
+            ORDER BY año
+            """
         
         # Obtener comidas
         comidas_query = """
@@ -661,20 +827,37 @@ def get_eventos_calendario():
 def get_proximos_eventos(limit=5):
     """Obtener los próximos eventos ordenados por fecha"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
-        query = """
-        SELECT fecha, tipo_comida, tipo_servicio, cocineros
-        FROM comidas 
-        WHERE fecha >= date('now')
-        ORDER BY fecha ASC
-        LIMIT ?
-        """
+        conn = get_db_connection()
+        
+        database_url = os.environ.get('DATABASE_URL')
+        placeholder = '%s' if database_url else '?'
+        
+        if database_url:
+            # PostgreSQL
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= CURRENT_DATE
+            ORDER BY fecha ASC
+            LIMIT %s
+            """
+        else:
+            # SQLite
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= date('now')
+            ORDER BY fecha ASC
+            LIMIT ?
+            """
+        
         df = pd.read_sql_query(query, conn, params=[limit])
         conn.close()
         return df
     except Exception as e:
         print(f"Error obteniendo próximos eventos: {e}")
         return pd.DataFrame()
+
 
 # CSS responsive y diseño mobile-first
 app.index_string = '''
