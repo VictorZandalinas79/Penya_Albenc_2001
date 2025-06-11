@@ -952,7 +952,7 @@ app.index_string = '''
                     max-width: 120px !important;
                 }
             }
-
+            
             /* Header responsive */
             .header-container {
                 background: linear-gradient(90deg, #2E7D32 0%, #1976D2 100%);
