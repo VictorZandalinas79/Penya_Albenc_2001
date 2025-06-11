@@ -1236,11 +1236,16 @@ def create_inicio_tab():
     cal = calendar.monthcalendar(today.year, today.month)
     month_name = calendar.month_name[today.month]
     
-    # Obtener eventos del mes actual
-    eventos_mes = eventos_df[eventos_df['fecha'].str.contains(f"{today.year}-{today.month:02d}")] if len(eventos_df) > 0 else pd.DataFrame()
+    # Obtener eventos del mes actual - CORREGIDO para PostgreSQL
+    if len(eventos_df) > 0:
+        eventos_df['fecha_str'] = eventos_df['fecha'].astype(str)
+        eventos_mes = eventos_df[eventos_df['fecha_str'].str.contains(f"{today.year}-{today.month:02d}")]
+    else:
+        eventos_mes = pd.DataFrame()
+    
     dias_con_eventos = []
     if len(eventos_mes) > 0:
-        dias_con_eventos = [int(fecha.split('-')[2]) for fecha in eventos_mes['fecha'].tolist()]
+        dias_con_eventos = [int(str(fecha).split('-')[2]) for fecha in eventos_mes['fecha'].tolist()]
     
     # Crear calendario con eventos marcados
     calendar_rows = []
