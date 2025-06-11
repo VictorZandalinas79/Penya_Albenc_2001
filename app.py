@@ -1438,6 +1438,64 @@ def create_inicio_tab():
         ], style={"margin-top": "30px"})
     ], className="fade-in")
 
+def load_mantenimiento_inicial():
+    """Cargar datos de mantenimiento SOLO si la tabla está vacía"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar si ya hay datos de mantenimiento
+        cursor.execute("SELECT COUNT(*) FROM mantenimiento")
+        count_mant = cursor.fetchone()[0]
+        
+        if count_mant > 0:
+            print(f"✅ Ya hay {count_mant} tareas de mantenimiento - No se recargan")
+            conn.close()
+            return
+        
+        print("📝 Cargando datos iniciales de mantenimiento...")
+        
+        database_url = os.environ.get('DATABASE_URL')
+        placeholder = '%s' if database_url else '?'
+        
+        # Datos completos de mantenimiento (2025-2045)
+        mantenimiento_data = [
+            (2025, 'David, Juan Fernando', 'David, Juan Fernando, Diego, Miguel A.'),
+            (2026, 'Diego, Miguel A.', 'Diego, Miguel A., Xisco, Serafin'),
+            (2027, 'Xisco, Serafin', 'Xisco, Serafin, Juan Ramon, Oscar'),
+            (2028, 'Juan Ramon, Oscar', 'Juan Ramon, Oscar, Alfonso, Victor Z.'),
+            (2029, 'Alfonso, Victor Z.', 'Alfonso, Victor Z., David, Victor M.'),
+            (2030, 'David, Victor M.', 'David, Victor M., Xisco, Alonso'),
+            (2031, 'Xisco, Alonso', 'Xisco, Alonso, Serafin, Raul M.'),
+            (2032, 'Serafin, Raul M.', 'Serafin, Raul M., Alfonso, Raul A.'),
+            (2033, 'Alfonso, Raul A.', 'Alfonso, Raul A., Miguel A., Juan Fernando'),
+            (2034, 'Miguel A., Juan Fernando', 'Miguel A., Juan Fernando, Oscar, Diego'),
+            (2035, 'Oscar, Diego', 'Oscar, Diego, Juan Ramon, Victor M.'),
+            (2036, 'Juan Ramon, Victor M.', 'Juan Ramon, Victor M., David, Victor Z.'),
+            (2037, 'David, Victor Z.', 'David, Victor Z., Xisco, Raul M.'),
+            (2038, 'Xisco, Raul M.', 'Xisco, Raul M., Serafin, Alonso'),
+            (2039, 'Serafin, Alonso', 'Serafin, Alonso, Alfonso, Raul A.'),
+            (2040, 'Alfonso, Raul A.', 'Alfonso, Juan Fernando, Miguel A., Raul A.'),
+            (2041, 'Miguel A., Juan Fernando', 'Miguel A., Juan Fernando, Oscar, Victor M.'),
+            (2042, 'Oscar, Victor M.', 'Oscar, Victor M., Alfonso, Diego'),
+            (2043, 'Alfonso, Diego', 'Alfonso, Diego, Juan Ramon, Alonso'),
+            (2044, 'Juan Ramon, Alonso', 'Juan Ramon, Alonso, Miguel A., Victor Z.'),
+            (2045, 'Miguel A., Victor Z.', 'Miguel A., Victor Z., Serafin, Juan Fernando'),
+        ]
+        
+        # Insertar datos de mantenimiento
+        for data in mantenimiento_data:
+            cursor.execute(f"INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES ({placeholder}, {placeholder}, {placeholder})", data)
+        
+        conn.commit()
+        conn.close()
+        print("✅ Datos de mantenimiento cargados exitosamente!")
+        
+    except Exception as e:
+        print(f"❌ Error cargando mantenimiento: {e}")
+        if 'conn' in locals():
+            conn.close()
+
 # Contenido de la pestaña Comidas
 def create_comidas_tab():
     comidas_df = get_data('comidas')
@@ -2139,6 +2197,8 @@ def update_proximos_eventos_tabs(active_tab):
 # Inicializar la base de datos y cargar datos
 init_db()
 # load_eventos_completos()
+# load_eventos_completos()  # ← COMENTADO: No borrar datos existentes
+load_mantenimiento_inicial()  # ← NUEVA: Solo cargar mantenimiento si está vacío
 
 # Ejecutar limpieza automática al iniciar
 print("🚀 Iniciando aplicación Penya L'Albenc...")
