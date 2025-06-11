@@ -239,7 +239,23 @@ def load_initial_data():
     inicializar_cocineros_desde_comidas()
 
 def load_eventos_completos():
-    """Cargar todos los eventos de la tabla completa 2025-2045"""
+    """Cargar todos los eventos de la tabla completa 2025-2045 SOLO SI LA BD ESTÁ VACÍA"""
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # VERIFICAR SI YA HAY DATOS - NO BORRAR SI EXISTEN
+    cursor.execute("SELECT COUNT(*) FROM comidas")
+    count_comidas = cursor.fetchone()[0]
+    
+    if count_comidas > 0:
+        print(f"✅ Base de datos ya tiene {count_comidas} comidas - NO se cargarán datos predefinidos")
+        conn.close()
+        return  # ← SALIR SIN HACER NADA
+    
+    print("📝 Base de datos vacía - Cargando datos iniciales...")
+    
+    # Solo continúa si la BD está vacía
     import calendar
     from datetime import datetime, timedelta
     
@@ -2122,7 +2138,7 @@ def update_proximos_eventos_tabs(active_tab):
 
 # Inicializar la base de datos y cargar datos
 init_db()
-load_eventos_completos()
+# load_eventos_completos()
 
 # Ejecutar limpieza automática al iniciar
 print("🚀 Iniciando aplicación Penya L'Albenc...")
