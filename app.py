@@ -898,6 +898,61 @@ app.index_string = '''
                 min-height: 100vh;
             }
             
+            /* IMÁGENES RESPONSIVE */
+            
+            /* Logo del header */
+            .header-container img {
+                transition: transform 0.3s ease;
+            }
+            
+            .header-container img:hover {
+                transform: scale(1.05);
+            }
+            
+            /* Imagen de cabecera en inicio */
+            .inicio-image {
+                max-width: 100%;
+                height: auto;
+                border-radius: 10px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                transition: transform 0.3s ease;
+            }
+            
+            .inicio-image:hover {
+                transform: scale(1.02);
+            }
+            
+            /* Responsive para móviles */
+            @media (max-width: 768px) {
+                .header-container img {
+                    height: 35px !important;
+                    margin-right: 10px !important;
+                }
+                
+                .header-container h1 {
+                    font-size: 1.4rem !important;
+                }
+                
+                .inicio-image {
+                    max-width: 150px !important;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .header-container img {
+                    height: 30px !important;
+                    margin-right: 8px !important;
+                }
+                
+                .header-container h1 {
+                    font-size: 1.2rem !important;
+                }
+                
+                .inicio-image {
+                    max-width: 120px !important;
+                }
+            }
+            
             /* Header responsive */
             .header-container {
                 background: linear-gradient(90deg, #2E7D32 0%, #1976D2 100%);
@@ -1247,10 +1302,40 @@ app.index_string = '''
 
 # Layout principal con pestañas
 app.layout = html.Div([
-    # Header
+    # Header con logo
     html.Div([
-        html.H1("🏠 Penya L'Albenc", style={"margin": "0", "color": "white"}),
-        html.P("📍 Gestión de grupo", style={"margin": "5px 0 0 0", "opacity": "0.9"})
+        html.Div([
+            # Logo en el header
+            html.Img(
+                src="/assets/logo.png",
+                style={
+                    "height": "50px",
+                    "width": "auto", 
+                    "margin-right": "15px",
+                    "vertical-align": "middle"
+                }
+            ),
+            # Título al lado del logo
+            html.Div([
+                html.H1("Penya L'Albenc", style={
+                    "margin": "0", 
+                    "color": "white", 
+                    "display": "inline-block",
+                    "vertical-align": "middle",
+                    "font-size": "1.8rem"
+                }),
+                html.P("📍 Gestión de grupo", style={
+                    "margin": "5px 0 0 0", 
+                    "opacity": "0.9",
+                    "font-size": "0.9rem"
+                })
+            ], style={"display": "inline-block", "vertical-align": "middle"})
+        ], style={
+            "display": "flex", 
+            "align-items": "center", 
+            "justify-content": "center",
+            "flex-wrap": "wrap"
+        })
     ], className="header-container"),
     
     # Contenido principal con pestañas
@@ -1381,7 +1466,26 @@ def create_inicio_tab():
     ], style={"border-collapse": "collapse", "width": "100%", "margin": "20px 0"})
     
     return html.Div([
-        html.H2("Bienvenido a Penya L'Albenc", style={"color": "#2E7D32", "margin-bottom": "30px", "text-align": "center"}),
+        # Imagen de cabecera
+        html.Div([
+            html.Img(
+                src="/assets/logo-niño.png",
+                style={
+                    "max-width": "200px",
+                    "height": "auto",
+                    "display": "block",
+                    "margin": "0 auto 20px auto",
+                    "border-radius": "10px",
+                    "box-shadow": "0 4px 8px rgba(0,0,0,0.2)"
+                }
+            )
+        ], style={"text-align": "center", "margin-bottom": "20px"}),
+        
+        html.H2("Bienvenido a Penya L'Albenc", style={
+            "color": "#2E7D32", 
+            "margin-bottom": "30px", 
+            "text-align": "center"
+        }),
         
         # Resumen con contadores
         html.Div([
@@ -1515,9 +1619,9 @@ def create_comidas_tab():
                 columns=[
                     # Columna ID eliminada
                     {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                    {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
                     {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
-                    {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True}
+                    {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
+                    {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}    
                 ],
                 row_deletable=True,
                 editable=True,
@@ -1571,9 +1675,9 @@ def create_comidas_tab():
                     dcc.Dropdown(
                         id='comida-servicio-tabs',
                         options=[
-                            {'label': '🌅 Comida', 'value': 'Comida'},
-                            {'label': '🌙 Cena', 'value': 'Cena'},
-                            {'label': '🌅🌙 Comida y Cena', 'value': 'Comida y Cena'}
+                            {'label': '🌅 Comida', 'value': 'Co'},
+                            {'label': '🌙 Cena', 'value': 'Ce'},
+                            {'label': '🌅🌙 Comida y Cena', 'value': 'Co+Ce'}
                         ],
                         placeholder="Selecciona tipo de servicio"
                     )
