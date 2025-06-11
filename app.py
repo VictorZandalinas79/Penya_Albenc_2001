@@ -970,7 +970,83 @@ app.index_string = '''
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
                 background: white !important;
                 margin: 1rem 0 !important;
-                -webkit-overflow-scrolling: touch !important;  /* Scroll suave en iOS */
+                -webkit-overflow-scrolling: touch !important;
+                font-size: 0.85rem !important;  /* Más pequeño por defecto */
+            }
+
+            /* Celdas más compactas por defecto */
+            .dash-table-container .dash-cell {
+                min-width: 60px !important;
+                max-width: 150px !important;
+                padding: 4px 6px !important;  /* Menos padding */
+                white-space: normal !important;
+                word-break: break-word !important;
+                font-size: 0.8rem !important;  /* Letras más pequeñas */
+                line-height: 1.2 !important;
+            }
+            
+            .dash-table-container .dash-header {
+                font-size: 0.75rem !important;  /* Headers más pequeños */
+                padding: 6px 4px !important;
+                font-weight: 600 !important;
+                text-align: center !important;
+            }
+
+            @media (max-width: 768px) {
+                .dash-table-container {
+                    font-size: 0.75rem !important;  /* Aún más pequeño en móvil */
+                    width: 100% !important;
+                    display: block !important;
+                }
+                
+                .dash-table-container .dash-cell {
+                    min-width: 50px !important;  /* Más estrecho para móviles */
+                    max-width: 120px !important;
+                    padding: 3px 4px !important;  /* Padding mínimo */
+                    font-size: 0.7rem !important;  /* Letras muy pequeñas */
+                    line-height: 1.1 !important;
+                }
+                
+                .dash-header {
+                    font-size: 0.65rem !important;  /* Headers diminutos */
+                    padding: 4px 2px !important;
+                }
+                
+                /* Columnas específicas más estrechas */
+                .dash-cell[data-dash-column="fecha"] {
+                    min-width: 70px !important;
+                    max-width: 80px !important;
+                }
+                
+                .dash-cell[data-dash-column="tipo_servicio"] {
+                    min-width: 60px !important;
+                    max-width: 70px !important;
+                }
+                
+                .dash-cell[data-dash-column="tipo_comida"] {
+                    min-width: 80px !important;
+                    max-width: 90px !important;
+                }
+                
+                .dash-cell[data-dash-column="cocineros"] {
+                    min-width: 100px !important;
+                    max-width: 120px !important;
+                }
+            }
+
+            /* Tabla específica para móvil muy estrecho */
+            @media (max-width: 480px) {
+                .dash-table-container .dash-cell {
+                    min-width: 40px !important;
+                    max-width: 100px !important;
+                    padding: 2px 3px !important;
+                    font-size: 0.65rem !important;
+                }
+                
+                .dash-header {
+                    font-size: 0.6rem !important;
+                    padding: 3px 2px !important;
+                }
             }
 
             @media (max-width: 768px) {
