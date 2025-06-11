@@ -952,7 +952,7 @@ app.index_string = '''
                     max-width: 120px !important;
                 }
             }
-            
+
             /* Header responsive */
             .header-container {
                 background: linear-gradient(90deg, #2E7D32 0%, #1976D2 100%);
@@ -1618,8 +1618,8 @@ def create_comidas_tab():
                 data=comidas_df.to_dict('records'),
                 columns=[
                     # Columna ID eliminada
-                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                    {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
+                    {"name": "📅", "id": "fecha", "type": "datetime", "editable": True},
+                    {"name": "🥘 Tipo", "id": "tipo_comida", "type": "text", "editable": True},
                     {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
                     {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}    
                 ],
