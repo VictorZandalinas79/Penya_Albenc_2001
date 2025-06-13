@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, dash_table
+from dash import dcc, html, Input, Output, State, callback_context, dash_table, ALL
 import dash.dependencies
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,10 +10,25 @@ import calendar
 import os
 import psycopg2
 from urllib.parse import urlparse
+import dash_bootstrap_components as dbc
 
-# Inicializar la app
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
-app.title = "Penya L'Albenc"
+# Componente de confirmación para modificaciones
+confirm_modify = dbc.Modal([
+    dbc.ModalHeader(dbc.ModalTitle("Confirmar Modificación")),
+    dbc.ModalBody("¿Estás seguro de que deseas modificar este registro? Esta acción no se puede deshacer."),
+    dbc.ModalFooter([
+        dbc.Button("Cancelar", id="confirm-modify-cancel", className="ms-auto", n_clicks=0),
+        dbc.Button("Confirmar", id="confirm-modify-submit", color="primary", n_clicks=0)
+    ])
+], id="confirm-modify", is_open=False)
+
+# Almacenamiento temporal para el ID del registro
+store_modify_id = dcc.Store(id='selected-modify-id', data=None)
+
+# Inicializar la app con Bootstrap
+app = dash.Dash(__name__, 
+                suppress_callback_exceptions=True,
+                external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # Para Render
 server = app.server
@@ -1300,105 +1315,153 @@ app.index_string = '''
 </html>
 '''
 
-# Layout principal con pestañas
+# Layout principal con barra de navegación mejorada
 app.layout = html.Div([
-    # Header con logo
-    html.Div([
-        html.Div([
-            # Logo en el header
-            html.Img(
-                src="/assets/logo.png",
-                style={
-                    "height": "50px",
-                    "width": "auto", 
-                    "margin-right": "15px",
-                    "vertical-align": "middle"
-                }
-            ),
-            # Título al lado del logo
-            html.Div([
-                html.H1("Penya L'Albenc", style={
-                    "margin": "0", 
-                    "color": "white", 
-                    "display": "inline-block",
-                    "vertical-align": "middle",
-                    "font-size": "1.8rem"
-                }),
-                html.P("📍 Gestión de grupo", style={
-                    "margin": "5px 0 0 0", 
-                    "opacity": "0.9",
-                    "font-size": "0.9rem"
-                })
-            ], style={"display": "inline-block", "vertical-align": "middle"})
-        ], style={
-            "display": "flex", 
-            "align-items": "center", 
-            "justify-content": "center",
-            "flex-wrap": "wrap"
-        })
-    ], className="header-container"),
+    # Almacenamiento para la pestaña activa
+    dcc.Location(id='url', refresh=False),
+    dcc.Store(id='active-tab', data='inicio'),
     
-    # Contenido principal con pestañas
-    html.Div([
-        dcc.Tabs(
-            id="main-tabs",
-            value="inicio",
-            children=[
-                dcc.Tab(
-                    label="🏠 Inicio",
-                    value="inicio",
-                    className="tab",
-                    selected_className="tab--selected"
+    # Barra de navegación
+    dbc.Navbar(
+        [
+            # Logo y marca
+            html.A(
+                dbc.Row(
+                    [
+                        dbc.Col(html.Img(src="/assets/logo.png", height="40px")),
+                        dbc.Col(dbc.NavbarBrand("Penya L'Albenc", className="ms-2")),
+                    ],
+                    align="center",
+                    className="g-0",
                 ),
-                dcc.Tab(
-                    label="🍽️ Comidas",
-                    value="comidas",
-                    className="tab",
-                    selected_className="tab--selected"
+                href="#",
+                style={"textDecoration": "none"},
+            ),
+            # Botón de hamburguesa para móviles
+            dbc.NavbarToggler(id="navbar-toggler", n_clicks=0),
+            # Contenido del menú
+            dbc.Collapse(
+                dbc.Nav(
+                    [
+                        dbc.NavLink(
+                            [html.Span("🏠"), " Inicio"],
+                            href="#",
+                            id="nav-inicio",
+                            className="nav-link-custom",
+                            active=True
+                        ),
+                        dbc.NavLink(
+                            [html.Span("🍽️"), " Comidas"],
+                            href="#",
+                            id="nav-comidas",
+                            className="nav-link-custom"
+                        ),
+                        dbc.NavLink(
+                            [html.Span("🛒"), " Lista Compra"],
+                            href="#",
+                            id="nav-lista-compra",
+                            className="nav-link-custom"
+                        ),
+                        dbc.NavLink(
+                            [html.Span("🔧"), " Mantenimiento"],
+                            href="#",
+                            id="nav-mantenimiento",
+                            className="nav-link-custom"
+                        ),
+                        dbc.NavLink(
+                            [html.Span("🎉"), " Fiestas"],
+                            href="#",
+                            id="nav-fiestas",
+                            className="nav-link-custom"
+                        ),
+                    ],
+                    className="ms-auto",  # Alinear a la derecha
+                    navbar=True,
                 ),
-                dcc.Tab(
-                    label="🛒 Lista Compra",
-                    value="lista-compra",
-                    className="tab",
-                    selected_className="tab--selected"
-                ),
-                dcc.Tab(
-                    label="🔧 Mantenimiento",
-                    value="mantenimiento",
-                    className="tab",
-                    selected_className="tab--selected"
-                ),
-                dcc.Tab(
-                    label="🎉 Fiestas",
-                    value="fiestas",
-                    className="tab",
-                    selected_className="tab--selected"
-                )
-            ],
-            className="tab-container"
-        ),
-        
-        # Contenido de las pestañas
-        html.Div(id="tab-content")
-    ], className="main-container")
+                id="navbar-collapse",
+                navbar=True,
+                is_open=False,
+            ),
+        ],
+        color="primary",
+        dark=True,
+        className="mb-4",
+        style={"boxShadow": "0 2px 10px rgba(0,0,0,0.1)"}
+    ),
+    
+    # Contenido principal
+    dbc.Container(
+        id="page-content",
+        className="pt-4",
+        fluid=True
+    )
 ])
 
-# Callback para cambiar el contenido según la pestaña seleccionada
+# Callbacks para manejar la navegación
 @app.callback(
-    Output("tab-content", "children"),
-    Input("main-tabs", "value")
+    [Output(f'nav-{tab}', 'active') for tab in ['inicio', 'comidas', 'lista-compra', 'mantenimiento', 'fiestas']] +
+    [Output('page-content', 'children')],
+    [Input(f'nav-{tab}', 'n_clicks') for tab in ['inicio', 'comidas', 'lista-compra', 'mantenimiento', 'fiestas']],
+    [Input('url', 'pathname')],
+    prevent_initial_call=False
 )
-def render_tab_content(active_tab):
-    if active_tab == "comidas":
-        return create_comidas_tab()
-    elif active_tab == "lista-compra":
-        return create_lista_compra_tab()
-    elif active_tab == "mantenimiento":
-        return create_mantenimiento_tab()
-    elif active_tab == "fiestas":
-        return create_fiestas_tab()
+def update_nav_and_content(*args):
+    ctx = dash.callback_context
+    
+    # Determinar qué input activó el callback
+    if not ctx.triggered:
+        tab_id = 'inicio'
     else:
-        return create_inicio_tab()
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        if button_id == 'url':
+            # Si se cargó una URL directamente
+            path = ctx.inputs['url.pathname']
+            if path == '/comidas' or path == '/#comidas':
+                tab_id = 'comidas'
+            elif path == '/lista-compra' or path == '/#lista-compra':
+                tab_id = 'lista-compra'
+            elif path == '/mantenimiento' or path == '/#mantenimiento':
+                tab_id = 'mantenimiento'
+            elif path == '/fiestas' or path == '/#fiestas':
+                tab_id = 'fiestas'
+            else:
+                tab_id = 'inicio'
+        else:
+            # Si se hizo clic en un botón de navegación
+            tab_id = button_id.replace('nav-', '')
+    
+    # Actualizar la URL sin recargar la página
+    if tab_id != 'inicio':
+        dash.callback_context.response.set_cookie('last_tab', tab_id, max_age=86400)  # 1 día de duración
+    
+    # Activar solo la pestaña seleccionada
+    active_states = [tab_id == tab for tab in ['inicio', 'comidas', 'lista-compra', 'mantenimiento', 'fiestas']]
+    
+    # Cargar el contenido correspondiente
+    if tab_id == 'comidas':
+        content = create_comidas_tab()
+    elif tab_id == 'lista-compra':
+        content = create_lista_compra_tab()
+    elif tab_id == 'mantenimiento':
+        content = create_mantenimiento_tab()
+    elif tab_id == 'fiestas':
+        content = create_fiestas_tab()
+    else:
+        content = create_inicio_tab()
+    
+    return active_states + [content]
+
+# Callback para el botón de hamburguesa en móviles
+@app.callback(
+    Output("navbar-collapse", "is_open"),
+    [Input("navbar-toggler", "n_clicks")],
+    [State("navbar-collapse", "is_open")],
+    prevent_initial_call=True
+)
+def toggle_navbar_collapse(n, is_open):
+    if n:
+        return not is_open
+    return is_open
 
 # Contenido de la pestaña Inicio
 def create_inicio_tab():
@@ -2028,6 +2091,40 @@ def create_fiestas_tab():
             ], style={"margin-top": "30px"})
         ])
     ], className="fade-in")
+
+# Callback para mostrar el modal de confirmación de modificación
+@app.callback(
+    [Output('confirm-modify', 'is_open'),
+     Output('selected-modify-id', 'data')],
+    Input({'type': 'modify-button', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def show_modify_confirmation(n_clicks_list):
+    ctx = callback_context
+    if not ctx.triggered:
+        return False, None
+    
+    for i, n_clicks in enumerate(n_clicks_list):
+        if n_clicks and n_clicks > 0:
+            button_id = ctx.triggered[0]['prop_id']
+            button_data = json.loads(button_id.split('.')[0])
+            return True, button_data['index']
+    
+    return False, None
+
+# Callback para confirmar la modificación
+@app.callback(
+    Output('modificacion-output', 'children', allow_duplicate=True),
+    Input('confirm-modify-submit', 'n_clicks'),
+    State('selected-modify-id', 'data'),
+    prevent_initial_call=True
+)
+def confirm_modification(submit_n_clicks, selected_id):
+    if submit_n_clicks and selected_id:
+        # Aquí iría la lógica de modificación
+        return html.Div("✅ Modificación confirmada!",
+                       style={"color": "blue", "font-weight": "bold"})
+    return ""
 
 # Callbacks para comidas (versión tabs)
 @app.callback(
