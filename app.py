@@ -28,6 +28,7 @@ store_modify_id = dcc.Store(id='selected-modify-id', data=None)
 # Inicializar la app con Bootstrap
 app = dash.Dash(__name__, 
                 suppress_callback_exceptions=True,
+                title="Penya Albenc",
                 external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # Para Render
@@ -2357,43 +2358,48 @@ def update_filter_options_tabs(data):
     cocineros = get_cocineros_options()
     return tipos, cocineros, cocineros, cocineros, cocineros, cocineros
 
-# Callback para próximos eventos en la pestaña inicio
+# Callback para próximos eventos en la página de inicio
 @app.callback(
     Output('proximos-eventos-container-tabs', 'children'),
-    [Input('main-tabs', 'value')]
+    [Input('url', 'pathname')]
 )
-def update_proximos_eventos_tabs(active_tab):
-    if active_tab != 'inicio':
+def update_proximos_eventos_tabs(pathname):
+    # Solo mostrar en la página de inicio
+    if pathname != '/' and pathname != '':
         return []
     
-    proximos_df = get_proximos_eventos(5)
-    
-    if len(proximos_df) == 0:
-        return [html.P("No hay eventos próximos", style={"text-align": "center", "color": "#666"})]
-    
-    eventos_cards = []
-    for _, evento in proximos_df.iterrows():
-        # Formatear fecha a D-M-A
-        try:
-            fecha_obj = datetime.strptime(evento['fecha'], '%Y-%m-%d')
-            fecha_formateada = fecha_obj.strftime('%d-%m-%Y')
-        except:
-            fecha_formateada = evento['fecha']
+    try:
+        proximos_df = get_proximos_eventos(5)
         
-        card = html.Div([
-            html.H4(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
-            html.P(f"📅 {fecha_formateada}", style={"margin": "5px 0", "font-weight": "bold"}),
-            html.P(f"🍽️ {evento['tipo_servicio']}", style={"margin": "5px 0"}),
-            html.P(f"👨‍🍳 {evento['cocineros']}", style={"margin": "5px 0", "font-size": "0.9rem", "color": "#666"})
-        ], style={
-            "background": "linear-gradient(135deg, #FFF3E0 0%, #FFCC80 100%)",
-            "padding": "15px", "margin": "10px", "border-radius": "8px",
-            "border-left": "4px solid #FF9800", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
-            "flex": "1", "min-width": "280px"
-        })
-        eventos_cards.append(card)
-    
-    return html.Div(eventos_cards, style={"display": "flex", "flex-wrap": "wrap", "gap": "10px"})
+        if len(proximos_df) == 0:
+            return [html.P("No hay eventos próximos", style={"text-align": "center", "color": "#666"})]
+        
+        eventos_cards = []
+        for _, evento in proximos_df.iterrows():
+            # Formatear fecha a D-M-A
+            try:
+                fecha_obj = datetime.strptime(evento['fecha'], '%Y-%m-%d')
+                fecha_formateada = fecha_obj.strftime('%d-%m-%Y')
+            except:
+                fecha_formateada = evento['fecha']
+            
+            card = html.Div([
+                html.H4(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
+                html.P(f"📅 {fecha_formateada}", style={"margin": "5px 0", "font-weight": "bold"}),
+                html.P(f"🍽️ {evento['tipo_servicio']}", style={"margin": "5px 0"}),
+                html.P(f"👨‍🍳 {evento['cocineros']}", style={"margin": "5px 0", "font-size": "0.9rem", "color": "#666"})
+            ], style={
+                "background": "linear-gradient(135deg, #FFF3E0 0%, #FFCC80 100%)",
+                "padding": "15px", "margin": "10px", "border-radius": "8px",
+                "border-left": "4px solid #FF9800", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
+                "flex": "1", "min-width": "280px"
+            })
+            eventos_cards.append(card)
+        
+        return html.Div(eventos_cards, style={"display": "flex", "flex-wrap": "wrap", "gap": "10px"})
+    except Exception as e:
+        print(f"Error al cargar próximos eventos: {e}")
+        return [html.P("Error al cargar los próximos eventos", style={"text-align": "center", "color": "red"})]
 
 # Inicializar la base de datos y cargar datos
 init_db()
