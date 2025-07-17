@@ -1566,7 +1566,7 @@ def create_inicio_tab():
                 
                 html.Div([
                     html.H4(f"{len(lista_df)}", style={"color": "#2196F3", "margin": "0", "font-size": "2rem"}),
-                    html.P("Items en lista", style={"margin": "5px 0"})
+                    html.P("Cosas para comprar", style={"margin": "5px 0"})
                 ], className="summary-card", style={
                     "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)", 
                     "padding": "25px", "margin": "10px", "border-radius": "12px",
