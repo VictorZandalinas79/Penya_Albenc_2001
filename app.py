@@ -59,6 +59,21 @@ def init_db():
             tipo TEXT
         )
     ''')
+
+    # Tabla de fiestas (agregar después de las otras tablas)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS fiestas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha DATE,
+            cocineros TEXT,
+            menu TEXT,
+            adultos INTEGER DEFAULT 0,
+            nombres_adultos TEXT DEFAULT '',
+            niños INTEGER DEFAULT 0,
+            nombres_niños TEXT DEFAULT '',
+            programa TEXT
+        )
+        ''')
     
     conn.commit()
     conn.close()
@@ -82,6 +97,8 @@ def add_data(table, data):
         cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
     elif table == 'eventos':
         cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", data)
+    elif table == 'fiestas':
+        cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
     
     conn.commit()
     conn.close()
@@ -411,6 +428,37 @@ def update_mantenimiento_data():
     conn.commit()
     conn.close()
     print("✅ Datos de mantenimiento actualizados correctamente!")
+
+def load_fiestas_agosto_2025():
+    """Cargar datos fijos de fiestas agosto 2025"""
+    conn = sqlite3.connect('penya_albenc.db')
+    cursor = conn.cursor()
+    
+    # Verificar si ya hay datos
+    cursor.execute("SELECT COUNT(*) FROM fiestas WHERE fecha BETWEEN '2025-08-08' AND '2025-08-17'")
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return
+    
+    # Datos fijos COMPLETOS para los 10 días
+    fiestas_data = [
+        ('2025-08-08', 'Juan, Pedro, María', '', 0, '', 0, '', '20:00-Pregón|21:30-Verbena'),
+        ('2025-08-09', 'Ana, Luis, Carlos', '', 0, '', 0, '', '19:00-Pasacalles|22:00-Concierto'),
+        ('2025-08-10', 'Miguel, Sofia, David', '', 0, '', 0, '', '18:00-Misa|20:00-Cena'),
+        ('2025-08-11', 'Laura, Javier, Rosa', '', 0, '', 0, '', '19:30-Teatro|22:30-Baile'),
+        ('2025-08-12', 'Antonio, Elena, Pablo', '', 0, '', 0, '', '20:00-Fuegos artificiales'),
+        ('2025-08-13', 'Carmen, Fernando, Lucia', '', 0, '', 0, '', '19:00-Concursos|21:00-Música'),
+        ('2025-08-14', 'Roberto, Isabel, Mario', '', 0, '', 0, '', '18:30-Procesión|22:00-Verbena'),
+        ('2025-08-15', 'Beatriz, Raúl, Ana', '', 0, '', 0, '', '19:00-Misa Mayor|21:30-Gran Baile'),
+        ('2025-08-16', 'Diego, Cristina, José', '', 0, '', 0, '', '20:00-Actuaciones|23:00-Fiesta'),
+        ('2025-08-17', 'María, Carlos, Pilar', '', 0, '', 0, '', '18:00-Clausura|21:00-Cena final'),
+    ]
+    
+    for data in fiestas_data:
+        cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
+    
+    conn.commit()
+    conn.close()
 
 # Funciones auxiliares para filtros (restauradas)
 def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
@@ -895,6 +943,157 @@ def render_page_content(pathname):
     else:
         return create_home_page()
 
+@app.callback(
+    Output('tarjetas-fiestas', 'children'),
+    [Input('url', 'pathname')]
+)
+def mostrar_tarjetas_fiestas(pathname):
+    if pathname != '/fiestas':
+        return []
+    
+    fiestas_df = get_data('fiestas')
+    
+    # Filtrar solo agosto 2025
+    fiestas_agosto = fiestas_df[
+        (fiestas_df['fecha'] >= '2025-08-08') & 
+        (fiestas_df['fecha'] <= '2025-08-17')
+    ].sort_values('fecha') if len(fiestas_df) > 0 else pd.DataFrame()
+    
+    if len(fiestas_agosto) == 0:
+        return [html.P("No hay datos de fiestas de agosto", style={"text-align": "center", "color": "#666"})]
+    
+    tarjetas = []
+    for _, dia in fiestas_agosto.iterrows():
+        # Formatear fecha
+        try:
+            from datetime import datetime
+            fecha_obj = datetime.strptime(dia['fecha'], '%Y-%m-%d')
+            fecha_formateada = fecha_obj.strftime('%d de agosto')
+        except:
+            fecha_formateada = dia['fecha']
+        
+        # Procesar programa (split por |)
+        eventos = dia['programa'].split('|') if dia['programa'] else ['Sin programa']
+        
+        # Procesar nombres adultos y niños
+        nombres_adultos = dia.get('nombres_adultos', '') or 'Sin nombres'
+        nombres_niños = dia.get('nombres_niños', '') or 'Sin nombres'
+        
+        tarjeta = html.Div([
+            html.H4(f"📅 {fecha_formateada}", style={"color": "#FF5722", "margin-bottom": "15px", "text-align": "center"}),
+            
+            html.Div([
+                html.H6("👨‍🍳 Cocineros:", style={"color": "#4CAF50", "margin-bottom": "5px"}),
+                html.P(dia['cocineros'], style={"margin": "0 0 10px 0", "font-weight": "bold"})
+            ]),
+            
+            html.Div([
+                html.H6("🍽️ Menú:", style={"color": "#2196F3", "margin-bottom": "5px"}),
+                html.P(dia['menu'] or 'Sin menú definido', style={"margin": "0 0 10px 0", "font-style": "italic" if not dia['menu'] else "normal"})
+            ]),
+            
+            html.Div([
+                html.H6("👥 Adultos:", style={"color": "#9C27B0", "margin-bottom": "5px"}),
+                html.P(f"Total: {dia['adultos']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
+                html.P(f"Nombres: {nombres_adultos}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
+            ]),
+            
+            html.Div([
+                html.H6("👶 Niños:", style={"color": "#FF9800", "margin-bottom": "5px"}),
+                html.P(f"Total: {dia['niños']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
+                html.P(f"Nombres: {nombres_niños}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
+            ]),
+            
+            html.Div([
+                html.H6("🎪 Programa:", style={"color": "#795548", "margin-bottom": "5px"}),
+                html.Ul([
+                    html.Li(evento.strip(), style={"margin": "2px 0"}) 
+                    for evento in eventos
+                ], style={"margin": "0", "padding-left": "20px"})
+            ])
+        ], style={
+            "border": "2px solid #E0E0E0", 
+            "margin": "15px", 
+            "padding": "20px", 
+            "border-radius": "12px",
+            "background": "linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%)", 
+            "box-shadow": "0 4px 8px rgba(0,0,0,0.1)",
+            "flex": "1",
+            "min-width": "320px",
+            "max-width": "400px"
+        })
+        tarjetas.append(tarjeta)
+    
+    return html.Div(tarjetas, style={"display": "flex", "flex-wrap": "wrap", "justify-content": "center"})
+
+# Callback para cargar datos del día seleccionado
+@app.callback(
+    [Output('fiesta-menu', 'value'),
+     Output('fiesta-adultos', 'value'),
+     Output('fiesta-niños', 'value'),
+     Output('fiesta-nombres-adultos', 'value'),
+     Output('fiesta-nombres-niños', 'value')],
+    [Input('btn-load-fiesta', 'n_clicks')],
+    [State('fiesta-dia-selector', 'value')],
+    prevent_initial_call=True
+)
+def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
+    if not n_clicks or not fecha_seleccionada:
+        return "", 0, 0, "", ""
+    
+    fiestas_df = get_data('fiestas')
+    dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
+    
+    if len(dia_data) == 0:
+        return "", 0, 0, "", ""
+    
+    dia = dia_data.iloc[0]
+    return (
+        dia.get('menu', ''),
+        dia.get('adultos', 0),
+        dia.get('niños', 0),
+        dia.get('nombres_adultos', ''),
+        dia.get('nombres_niños', '')
+    )
+
+# Callback para actualizar día
+@app.callback(
+    [Output('tarjetas-fiestas', 'children', allow_duplicate=True),
+     Output('fiesta-output', 'children')],
+    [Input('btn-update-fiesta', 'n_clicks')],
+    [State('fiesta-dia-selector', 'value'),
+     State('fiesta-menu', 'value'),
+     State('fiesta-adultos', 'value'),
+     State('fiesta-niños', 'value'),
+     State('fiesta-nombres-adultos', 'value'),
+     State('fiesta-nombres-niños', 'value')],
+    prevent_initial_call=True
+)
+def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
+    if not n_clicks or not fecha:
+        return dash.no_update, ""
+    
+    # Buscar el ID del registro
+    fiestas_df = get_data('fiestas')
+    dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
+    
+    if len(dia_data) == 0:
+        return dash.no_update, "⚠️ No se encontró el día seleccionado"
+    
+    dia_id = dia_data.iloc[0]['id']
+    
+    # Actualizar todos los campos
+    update_data('fiestas', dia_id, 'menu', menu or '')
+    update_data('fiestas', dia_id, 'adultos', adultos or 0)
+    update_data('fiestas', dia_id, 'niños', niños or 0)
+    update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
+    update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
+    
+    # Recargar tarjetas
+    tarjetas_actualizadas = mostrar_tarjetas_fiestas('/fiestas')
+    
+    return tarjetas_actualizadas, f"✅ Día {fecha} actualizado exitosamente! 🎉"
+    
 # Página de inicio
 def create_home_page():
     # Obtener datos para resumen
@@ -1516,55 +1715,106 @@ def create_mantenimiento_page():
         html.Div(id='mant-output', style={"margin": "20px 0", "padding": "10px"})
     ])
 
-# Página de fiestas (mejorada)
 def create_fiestas_page():
     return html.Div([
-        html.H1("🎉 Fiestas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H1("🎉 Fiestas de Agosto 2025", style={"color": "#2E7D32", "margin-bottom": "30px"}),
         
-        # Contenido temporal
+        # Mostrar etiquetas por día
+        html.Div(id='tarjetas-fiestas'),
+        
+        # Formulario de edición FUNCIONAL
         html.Div([
-            html.Div([
-                html.H3("🚧 En Construcción", style={"color": "#9C27B0", "text-align": "center"}),
-                html.P("Esta sección estará disponible en próximas actualizaciones.", 
-                       style={"font-size": "18px", "color": "#666", "text-align": "center"}),
-                html.P("Aquí podrás gestionar:", style={"margin-top": "20px", "font-weight": "bold"}),
-                html.Ul([
-                    html.Li("🎭 Eventos especiales y fiestas"),
-                    html.Li("🎪 Organización de actividades"),
-                    html.Li("🎨 Decoraciones y temáticas"),
-                    html.Li("🎵 Música y entretenimiento"),
-                    html.Li("📸 Galería de fotos"),
-                ], style={"color": "#555", "margin": "20px 0"})
-            ], style={
-                "background": "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)",
-                "padding": "40px", "border-radius": "15px", "text-align": "center",
-                "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "margin": "20px 0"
-            }),
+            html.H3("✏️ Editar Día", style={"color": "#9C27B0", "margin-bottom": "20px"}),
             
-            # Próximas fiestas (basadas en eventos existentes)
             html.Div([
-                html.H4("🎊 Próximos Eventos Especiales", style={"color": "#1976D2"}),
                 html.Div([
-                    html.Div([
-                        html.H5("🎭 Sant Antoni", style={"color": "#FF5722"}),
-                        html.P("📅 Enero - Cena especial"),
-                        html.P("🍽️ Tradición gastronómica")
-                    ], style={"background": "#FFF3E0", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
-                    
-                    html.Div([
-                        html.H5("🌸 Brena St Vicent", style={"color": "#4CAF50"}),
-                        html.P("📅 Mayo - Comida y Cena"),
-                        html.P("🌺 Celebración primaveral")
-                    ], style={"background": "#E8F5E8", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
-                    
-                    html.Div([
-                        html.H5("🎪 Fira Magdalena", style={"color": "#9C27B0"}),
-                        html.P("📅 Julio - Gran celebración"),
-                        html.P("🎉 Evento principal del año")
-                    ], style={"background": "#F3E5F5", "padding": "15px", "margin": "10px", "border-radius": "8px"}),
-                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"})
-            ], style={"margin-top": "30px"})
-        ])
+                    html.Label("📅 Seleccionar Día:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Dropdown(
+                        id='fiesta-dia-selector',
+                        options=[
+                            {'label': f"{i} de agosto 2025", 'value': f"2025-08-{i:02d}"} 
+                            for i in range(8, 18)
+                        ],
+                        placeholder="Selecciona el día a editar",
+                        style={"width": "100%"}
+                    )
+                ], style={"margin": "10px", "flex": "1"}),
+            ]),
+            
+            html.Div([
+                html.Div([
+                    html.Label("🍽️ Menú:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Textarea(
+                        id='fiesta-menu',
+                        placeholder="Describe el menú del día...",
+                        style={"width": "100%", "height": "80px", "padding": "8px"}
+                    )
+                ], style={"margin": "10px", "flex": "2"}),
+                
+                html.Div([
+                    html.Label("👥 Número de Adultos:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Input(
+                        id='fiesta-adultos',
+                        type='number',
+                        placeholder="0",
+                        min=0,
+                        style={"width": "100%", "padding": "8px"}
+                    )
+                ], style={"margin": "10px", "flex": "1"}),
+                
+                html.Div([
+                    html.Label("👶 Número de Niños:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Input(
+                        id='fiesta-niños',
+                        type='number',
+                        placeholder="0",
+                        min=0,
+                        style={"width": "100%", "padding": "8px"}
+                    )
+                ], style={"margin": "10px", "flex": "1"}),
+            ], style={"display": "flex", "gap": "10px"}),
+            
+            html.Div([
+                html.Div([
+                    html.Label("👥 Nombres de Adultos:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Textarea(
+                        id='fiesta-nombres-adultos',
+                        placeholder="Escribe los nombres separados por comas: Juan, María, Pedro...",
+                        style={"width": "100%", "height": "60px", "padding": "8px"}
+                    )
+                ], style={"margin": "10px", "flex": "1"}),
+                
+                html.Div([
+                    html.Label("👶 Nombres de Niños:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    dcc.Textarea(
+                        id='fiesta-nombres-niños',
+                        placeholder="Escribe los nombres separados por comas: Ana, Luis, Carlos...",
+                        style={"width": "100%", "height": "60px", "padding": "8px"}
+                    )
+                ], style={"margin": "10px", "flex": "1"}),
+            ], style={"display": "flex", "gap": "10px"}),
+            
+            html.Div([
+                html.Button('✅ Actualizar Día', id='btn-update-fiesta', n_clicks=0,
+                           style={
+                               "background": "linear-gradient(45deg, #9C27B0, #7B1FA2)", 
+                               "color": "white", "border": "none", "padding": "12px 24px",
+                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
+                               "margin": "15px 10px"
+                           }),
+                
+                html.Button('🔄 Cargar Datos del Día', id='btn-load-fiesta', n_clicks=0,
+                           style={
+                               "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
+                               "color": "white", "border": "none", "padding": "12px 24px",
+                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
+                               "margin": "15px 10px"
+                           })
+            ]),
+            
+            html.Div(id='fiesta-output', style={"margin": "20px 0", "padding": "10px"})
+            
+        ], style={"margin-top": "30px", "padding": "25px", "background": "#F8F9FA", "border-radius": "12px"})
     ])
 
 # Callbacks para tablón de anuncios
@@ -1951,6 +2201,8 @@ print(f"🧹 {resultado_limpieza}")
 
 # Si quieres actualizar solo los datos de mantenimiento, descomenta la siguiente línea:
 # update_mantenimiento_data()
+
+load_fiestas_agosto_2025()
 
 if __name__ == '__main__':
     import os
