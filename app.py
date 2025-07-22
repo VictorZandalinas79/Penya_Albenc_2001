@@ -2332,8 +2332,11 @@ def update_proximos_eventos(pathname):
     return html.Div(eventos_cards, style={"display": "flex", "flex-wrap": "wrap", "gap": "10px"})
 
 # Inicializar la base de datos y cargar datos
-init_db()
-load_eventos_completos()
+init_db()  # Primero crear tablas si no existen
+migrate_fiestas_table()  # Luego migrar columnas faltantes
+update_mantenimiento_data()  # Cargar datos de mantenimiento <-- AÑADIR ESTO
+load_eventos_completos()  # Después cargar datos principales
+load_fiestas_agosto_2025()  # Finalmente datos específicos de fiestas
 
 # AGREGAR ESTA LÍNEA ⬇️
 migrate_fiestas_table()
