@@ -33,26 +33,16 @@ body {
     line-height: 1.6;
 }
 
-/* Estilos para el menú desplegable */
-.nav-link-dropdown {
-    display: block;
-    color: #333;
-    text-decoration: none;
-    padding: 18px 30px;  /* ← Padding generoso */
-    transition: background-color 0.2s ease;
-    border-bottom: 1px solid #f0f0f0;
-    font-size: 1.3rem;   /* ← Texto grande */
-    font-weight: 600;    /* ← Texto más grueso */
-}
-
-
-.nav-link-dropdown:hover {
-    background-color: #f8f9fa;
-    color: #2E7D32;
-}
-
-.nav-link-dropdown:last-child {
-    border-bottom: none;
+/* Animación del menú */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Header principal */
@@ -449,4 +439,78 @@ h4 {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Dropdown moderno */
+.modern-dropdown {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.3) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    overflow: hidden !important;
+    animation: slideDownFade 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Mejorar los enlaces del dropdown */
+.nav-link-dropdown {
+    display: block !important;
+    color: #333 !important;
+    text-decoration: none !important;
+    padding: 16px 20px !important;
+    font-size: 1.1rem !important;
+    font-weight: 500 !important;
+    border-bottom: 1px solid rgba(0,0,0,0.05) !important;
+    border-radius: 10px !important;
+    margin: 6px 12px !important;
+    transition: all 0.2s ease !important;
+    background: transparent !important;
+}
+
+.nav-link-dropdown:hover {
+    background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%) !important;
+    color: #2E7D32 !important;
+    transform: translateX(8px) !important;
+    box-shadow: 0 4px 12px rgba(46, 139, 87, 0.2) !important;
+    border-left: 4px solid #2E7D32 !important;
+}
+
+.nav-link-dropdown:last-child {
+    border-bottom: none !important;
+}
+
+/* Dropdown moderno - VERSION DEFINITIVA */
+#dropdown-menu {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 16px !important;
+    box-shadow: 
+        0 20px 40px rgba(0,0,0,0.15),
+        0 0 0 1px rgba(255,255,255,0.3) !important;
+    border: 1px solid rgba(0,0,0,0.1) !important;
+    min-width: 280px !important;
+    overflow: hidden !important;
+    animation: modernSlide 0.3s ease-out !important;
+}
+
+@keyframes modernSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }

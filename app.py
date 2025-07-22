@@ -469,16 +469,16 @@ def load_fiestas_agosto_2025():
     
     # Datos fijos COMPLETOS para los 10 días
     fiestas_data = [
-        ('2025-08-08', '', '', 0, '', 0, '', '20:00-Futbito|21:30-Presentacion'),
-        ('2025-08-09', '', '', 0, '', 0, '', '19:00-Pasacalles|22:00-Concierto'),
-        ('2025-08-10', '', '', 0, '', 0, '', '18:00-Misa|20:00-Cena'),
-        ('2025-08-11', '', '', 0, '', 0, '', '19:30-Teatro|22:30-Baile'),
-        ('2025-08-12', '', '', 0, '', 0, '', '20:00-Fuegos artificiales'),
-        ('2025-08-13', '', '', 0, '', 0, '', '19:00-Concursos|21:00-Música'),
-        ('2025-08-14', '', '', 0, '', 0, '', '18:30-Procesión|22:00-Verbena'),
-        ('2025-08-15', '', '', 0, '', 0, '', '19:00-Misa Mayor|21:30-Gran Baile'),
-        ('2025-08-16', '', '', 0, '', 0, '', '20:00-Actuaciones|23:00-Fiesta'),
-        ('2025-08-17', '', '', 0, '', 0, '', '18:00-Clausura|21:00-Cena final'),
+        ('2025-08-08', '', '', 0, '', 0, '', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
+        ('2025-08-09', '', '', 0, '', 0, '', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
+        ('2025-08-10', '', '', 0, '', 0, '', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
+        ('2025-08-11', '', 'Arroz con secreto y costilla / Guiso de toro', 0, '', 0, '', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
+        ('2025-08-12', '', '', 0, '', 0, '', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
+        ('2025-08-13', '', '', 0, '', 0, '', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
+        ('2025-08-14', '', '', 0, '', 0, '', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
+        ('2025-08-15', '', '', 0, '', 0, '', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
+        ('2025-08-16', '', '', 0, '', 0, '', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
+        ('2025-08-17', '', '', 0, '', 0, '', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
     ]
     
     for data in fiestas_data:
@@ -503,11 +503,19 @@ def generar_tarjetas_fiestas():
         
         tarjetas = []
         for _, dia in fiestas_agosto.iterrows():
-            # Formatear fecha
+            # Formatear fecha con día de la semana
             try:
                 from datetime import datetime
                 fecha_obj = datetime.strptime(dia['fecha'], '%Y-%m-%d')
-                fecha_formateada = fecha_obj.strftime('%d de agosto')
+                
+                # Diccionario para días en español
+                dias_semana = {
+                    0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 
+                    3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
+                }
+                
+                dia_semana = dias_semana[fecha_obj.weekday()]
+                fecha_formateada = f"{dia_semana} {fecha_obj.day} de agosto"
             except:
                 fecha_formateada = dia['fecha']
             
@@ -1006,15 +1014,12 @@ sidebar = html.Div([
                 ], style={"display": "flex", "align-items": "center"})
             ], href="/fiestas", className="nav-link-dropdown"),
             
-        ], id="dropdown-menu", style={
+        ], id="dropdown-menu", className="modern-dropdown", style={
             "position": "absolute",
-            "top": "60px",
+            "top": "65px",
             "right": "0",
-            "background": "white",
-            "border-radius": "8px",
-            "box-shadow": "0 4px 20px rgba(0,0,0,0.15)",
-            "min-width": "200px",
-            "display": "none",  # ← Inicialmente oculto
+            "min-width": "250px",
+            "display": "none",
             "z-index": "1001"
         })
     ], style={"position": "relative"})
@@ -1031,21 +1036,32 @@ app.layout = html.Div([
     content
 ])
 
-# Callback para mostrar/ocultar el menú desplegable
+# Callback mejorado para mostrar/ocultar el menú desplegable
 @app.callback(
     Output("dropdown-menu", "style"),
-    [Input("btn-toggle-sidebar", "n_clicks")],
+    [Input("btn-toggle-sidebar", "n_clicks"),
+     Input("url", "pathname")],  # ← AGREGAR ESTO para escuchar cambios de página
     [State("dropdown-menu", "style")],
     prevent_initial_call=True
 )
-def toggle_dropdown_menu(n_clicks, current_style):
+def toggle_dropdown_menu(n_clicks, pathname, current_style):
+    ctx = callback_context
+    
+    # Si se cambió la página, ocultar el menú
+    if ctx.triggered and ctx.triggered[0]['prop_id'] == 'url.pathname':
+        return {
+            **current_style,
+            "display": "none"
+        }
+    
+    # Si se hizo clic en las 3 rayas
     if n_clicks and n_clicks > 0:
         # Toggle entre mostrar y ocultar
         if current_style.get("display") == "none":
             return {
                 **current_style,
                 "display": "block",
-                "animation": "fadeIn 0.2s ease-in-out"
+                "animation": "slideDown 0.3s ease-out"
             }
         else:
             return {
@@ -1381,23 +1397,22 @@ def create_comidas_page():
         html.H1("🍽️ Gestión de Comidas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
         
         # Tabla de comidas PRIMERO
-        html.H3("📋 Lista de Comidas", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
+        html.H3("📋 Lista de Comidas", style={"color": "#2E7D32", "margin": "10px 0 8px 0"}),
         dash_table.DataTable(
             id='tabla-comidas',
             data=comidas_df.to_dict('records'),
             columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
                 {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True,
                 "format": {"specifier": "%d-%m-%Y"}},
-                {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True},
                 {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
-                {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True}
+                {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
+                {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
             ],
             row_deletable=True,
             editable=True,
             style_cell={
                 'textAlign': 'left',
-                'padding': '12px',
+                'padding': '8px',
                 'fontFamily': 'Arial, sans-serif'
             },
             style_header={
@@ -1678,7 +1693,6 @@ def create_lista_compra_page():
             id='tabla-lista',
             data=lista_df.to_dict('records'),
             columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
                 {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
                 {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
             ],
@@ -1761,7 +1775,6 @@ def create_mantenimiento_page():
             id='tabla-mant',
             data=mant_df.to_dict('records'),
             columns=[
-                {"name": "🆔 ID", "id": "id", "type": "numeric", "editable": False},
                 {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
                 {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
                 {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
