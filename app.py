@@ -78,6 +78,31 @@ def init_db():
     conn.commit()
     conn.close()
 
+def migrate_fiestas_table():
+    """Agregar columnas faltantes a la tabla fiestas si no existen"""
+    conn = sqlite3.connect('penya_albenc.db')
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar si las columnas ya existen
+        cursor.execute("PRAGMA table_info(fiestas)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # Agregar columnas faltantes si no existen
+        if 'nombres_adultos' not in columns:
+            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
+            print("✅ Columna 'nombres_adultos' agregada")
+        
+        if 'nombres_niños' not in columns:
+            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
+            print("✅ Columna 'nombres_niños' agregada")
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error en migración: {e}")
+    finally:
+        conn.close()
+
 # Funciones de base de datos
 def get_data(table):
     conn = sqlite3.connect('penya_albenc.db')
@@ -1027,6 +1052,7 @@ def mostrar_tarjetas_fiestas(pathname):
     return html.Div(tarjetas, style={"display": "flex", "flex-wrap": "wrap", "justify-content": "center"})
 
 # Callback para cargar datos del día seleccionado
+# Callback para cargar datos del día seleccionado (CORREGIDO)
 @app.callback(
     [Output('fiesta-menu', 'value'),
      Output('fiesta-adultos', 'value'),
@@ -1039,27 +1065,30 @@ def mostrar_tarjetas_fiestas(pathname):
 )
 def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
     if not n_clicks or not fecha_seleccionada:
-        return "", 0, 0, "", ""
+        return "", None, None, "", ""
     
-    fiestas_df = get_data('fiestas')
-    dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
-    
-    if len(dia_data) == 0:
-        return "", 0, 0, "", ""
-    
-    dia = dia_data.iloc[0]
-    return (
-        dia.get('menu', ''),
-        dia.get('adultos', 0),
-        dia.get('niños', 0),
-        dia.get('nombres_adultos', ''),
-        dia.get('nombres_niños', '')
-    )
+    try:
+        fiestas_df = get_data('fiestas')
+        dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
+        
+        if len(dia_data) == 0:
+            return "", None, None, "", ""
+        
+        dia = dia_data.iloc[0]
+        return (
+            dia.get('menu', '') or '',
+            dia.get('adultos', 0) or 0,
+            dia.get('niños', 0) or 0,
+            dia.get('nombres_adultos', '') or '',
+            dia.get('nombres_niños', '') or ''
+        )
+    except Exception as e:
+        print(f"Error cargando datos: {e}")
+        return "", None, None, "", ""
 
-# Callback para actualizar día
+# Callback para actualizar día (CORREGIDO SIN allow_duplicate)
 @app.callback(
-    [Output('tarjetas-fiestas', 'children', allow_duplicate=True),
-     Output('fiesta-output', 'children')],
+    Output('fiesta-output', 'children'),
     [Input('btn-update-fiesta', 'n_clicks')],
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
@@ -1071,29 +1100,30 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
 )
 def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
     if not n_clicks or not fecha:
-        return dash.no_update, ""
+        return ""
     
-    # Buscar el ID del registro
-    fiestas_df = get_data('fiestas')
-    dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
-    
-    if len(dia_data) == 0:
-        return dash.no_update, "⚠️ No se encontró el día seleccionado"
-    
-    dia_id = dia_data.iloc[0]['id']
-    
-    # Actualizar todos los campos
-    update_data('fiestas', dia_id, 'menu', menu or '')
-    update_data('fiestas', dia_id, 'adultos', adultos or 0)
-    update_data('fiestas', dia_id, 'niños', niños or 0)
-    update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
-    update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
-    
-    # Recargar tarjetas
-    tarjetas_actualizadas = mostrar_tarjetas_fiestas('/fiestas')
-    
-    return tarjetas_actualizadas, f"✅ Día {fecha} actualizado exitosamente! 🎉"
-    
+    try:
+        # Buscar el ID del registro
+        fiestas_df = get_data('fiestas')
+        dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
+        
+        if len(dia_data) == 0:
+            return "⚠️ No se encontró el día seleccionado"
+        
+        dia_id = dia_data.iloc[0]['id']
+        
+        # Actualizar todos los campos
+        update_data('fiestas', dia_id, 'menu', menu or '')
+        update_data('fiestas', dia_id, 'adultos', adultos or 0)
+        update_data('fiestas', dia_id, 'niños', niños or 0)
+        update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
+        update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
+        
+        return f"✅ Día {fecha} actualizado exitosamente! 🎉 (Recarga la página para ver cambios)"
+        
+    except Exception as e:
+        return f"❌ Error actualizando: {str(e)}"
+
 # Página de inicio
 def create_home_page():
     # Obtener datos para resumen
@@ -2194,13 +2224,13 @@ def update_proximos_eventos(pathname):
 init_db()
 load_eventos_completos()
 
+# AGREGAR ESTA LÍNEA ⬇️
+migrate_fiestas_table()
+
 # Ejecutar limpieza automática al iniciar
 print("🚀 Iniciando aplicación Penya L'Albenc...")
 resultado_limpieza = limpiar_eventos_antiguos()
 print(f"🧹 {resultado_limpieza}")
-
-# Si quieres actualizar solo los datos de mantenimiento, descomenta la siguiente línea:
-# update_mantenimiento_data()
 
 load_fiestas_agosto_2025()
 
