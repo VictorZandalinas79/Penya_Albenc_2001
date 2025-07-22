@@ -1053,90 +1053,6 @@ def render_page_content(pathname):
         return create_home_page()
 
 
-@app.callback(
-    Output('tarjetas-fiestas', 'children'),
-    [Input('url', 'pathname')]
-)
-def mostrar_tarjetas_fiestas(pathname):
-    if pathname != '/fiestas':
-        return []
-    
-    fiestas_df = get_data('fiestas')
-    
-    # Filtrar solo agosto 2025
-    fiestas_agosto = fiestas_df[
-        (fiestas_df['fecha'] >= '2025-08-08') & 
-        (fiestas_df['fecha'] <= '2025-08-17')
-    ].sort_values('fecha') if len(fiestas_df) > 0 else pd.DataFrame()
-    
-    if len(fiestas_agosto) == 0:
-        return [html.P("No hay datos de fiestas de agosto", style={"text-align": "center", "color": "#666"})]
-    
-    tarjetas = []
-    for _, dia in fiestas_agosto.iterrows():
-        # Formatear fecha
-        try:
-            from datetime import datetime
-            fecha_obj = datetime.strptime(dia['fecha'], '%Y-%m-%d')
-            fecha_formateada = fecha_obj.strftime('%d de agosto')
-        except:
-            fecha_formateada = dia['fecha']
-        
-        # Procesar programa (split por |)
-        eventos = dia['programa'].split('|') if dia['programa'] else ['Sin programa']
-        
-        # Procesar nombres adultos y niños
-        nombres_adultos = dia.get('nombres_adultos', '') or 'Sin nombres'
-        nombres_niños = dia.get('nombres_niños', '') or 'Sin nombres'
-        
-        tarjeta = html.Div([
-            html.H4(f"📅 {fecha_formateada}", style={"color": "#FF5722", "margin-bottom": "15px", "text-align": "center"}),
-            
-            html.Div([
-                html.H6("👨‍🍳 Cocineros:", style={"color": "#4CAF50", "margin-bottom": "5px"}),
-                html.P(dia['cocineros'], style={"margin": "0 0 10px 0", "font-weight": "bold"})
-            ]),
-            
-            html.Div([
-                html.H6("🍽️ Menú:", style={"color": "#2196F3", "margin-bottom": "5px"}),
-                html.P(dia['menu'] or 'Sin menú definido', style={"margin": "0 0 10px 0", "font-style": "italic" if not dia['menu'] else "normal"})
-            ]),
-            
-            html.Div([
-                html.H6("👥 Adultos:", style={"color": "#9C27B0", "margin-bottom": "5px"}),
-                html.P(f"Total: {dia['adultos']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
-                html.P(f"Nombres: {nombres_adultos}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
-            ]),
-            
-            html.Div([
-                html.H6("👶 Niños:", style={"color": "#FF9800", "margin-bottom": "5px"}),
-                html.P(f"Total: {dia['niños']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
-                html.P(f"Nombres: {nombres_niños}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
-            ]),
-            
-            html.Div([
-                html.H6("🎪 Programa:", style={"color": "#795548", "margin-bottom": "5px"}),
-                html.Ul([
-                    html.Li(evento.strip(), style={"margin": "2px 0"}) 
-                    for evento in eventos
-                ], style={"margin": "0", "padding-left": "20px"})
-            ])
-        ], style={
-            "border": "2px solid #E0E0E0", 
-            "margin": "15px", 
-            "padding": "20px", 
-            "border-radius": "12px",
-            "background": "linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%)", 
-            "box-shadow": "0 4px 8px rgba(0,0,0,0.1)",
-            "flex": "1",
-            "min-width": "320px",
-            "max-width": "400px"
-        })
-        tarjetas.append(tarjeta)
-    
-    return html.Div(tarjetas, style={"display": "flex", "flex-wrap": "wrap", "justify-content": "center"})
-
-# Callback para cargar datos del día seleccionado
 # Callback para cargar datos del día seleccionado (CORREGIDO)
 @app.callback(
     [Output('fiesta-menu', 'value'),
@@ -1174,8 +1090,9 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
 # Callback para actualizar día (CON LOGS DETALLADOS)
 @app.callback(
     [Output('fiesta-output', 'children'),
-     Output('tarjetas-fiestas', 'children', allow_duplicate=True)],
-    [Input('btn-update-fiesta', 'n_clicks')],
+     Output('tarjetas-fiestas', 'children')],
+    [Input('btn-update-fiesta', 'n_clicks'),
+     Input('url', 'pathname')],  # ← AGREGAR ESTO
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
      State('fiesta-adultos', 'value'),
@@ -1184,86 +1101,77 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
      State('fiesta-nombres-niños', 'value')],
     prevent_initial_call=True
 )
-def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
-    print(f"🔍 CALLBACK LLAMADO: n_clicks={n_clicks}, fecha={fecha}")
+def actualizar_y_mostrar_fiestas(n_clicks, pathname, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
+    ctx = callback_context
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
     
-    if not n_clicks or not fecha:
-        print("❌ Sin clicks o sin fecha")
-        return "", dash.no_update
+    # Si viene de cambio de página, solo mostrar tarjetas
+    if trigger_id == 'url' or not trigger_id:
+        if pathname != '/fiestas':
+            return "", []
+        return "", generar_tarjetas_fiestas()
     
-    try:
-        print(f"🔍 DATOS A ACTUALIZAR:")
-        print(f"  fecha={fecha}")
-        print(f"  menu='{menu}'")
-        print(f"  adultos={adultos}")
-        print(f"  niños={niños}")
-        print(f"  nombres_adultos='{nombres_adultos}'")
-        print(f"  nombres_niños='{nombres_niños}'")
-        
-        # Buscar el ID del registro
-        fiestas_df = get_data('fiestas')
-        print(f"🔍 Total filas en DB: {len(fiestas_df)}")
-        
-        dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
-        print(f"🔍 Filas encontradas para {fecha}: {len(dia_data)}")
-        
-        if len(dia_data) == 0:
-            print("❌ No se encontró el día seleccionado")
-            return "⚠️ No se encontró el día seleccionado", dash.no_update
-        
-        dia_id = dia_data.iloc[0]['id']
-        print(f"🔍 ID encontrado: {dia_id}")
-        print(f"🔍 Datos actuales: {dia_data.iloc[0].to_dict()}")
-        
-        # Actualizar campo por campo con verificación
-        print("🔧 Actualizando campos...")
+    # Si viene del botón de actualizar
+    if trigger_id == 'btn-update-fiesta' and n_clicks and fecha:
+        print(f"🔍 CALLBACK LLAMADO: n_clicks={n_clicks}, fecha={fecha}")
         
         try:
+            print(f"🔍 DATOS A ACTUALIZAR:")
+            print(f"  fecha={fecha}")
+            print(f"  menu='{menu}'")
+            print(f"  adultos={adultos}")
+            print(f"  niños={niños}")
+            print(f"  nombres_adultos='{nombres_adultos}'")
+            print(f"  nombres_niños='{nombres_niños}'")
+            
+            # Buscar el ID del registro
+            fiestas_df = get_data('fiestas')
+            print(f"🔍 Total filas en DB: {len(fiestas_df)}")
+            
+            dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
+            print(f"🔍 Filas encontradas para {fecha}: {len(dia_data)}")
+            
+            if len(dia_data) == 0:
+                print("❌ No se encontró el día seleccionado")
+                return "⚠️ No se encontró el día seleccionado", generar_tarjetas_fiestas()
+            
+            dia_id = dia_data.iloc[0]['id']
+            print(f"🔍 ID encontrado: {dia_id}")
+            # TEMPORAL - verificar si las columnas existen
+            cursor.execute("SELECT nombres_adultos, nombres_niños FROM fiestas WHERE id = ?", (dia_id,))
+            verificacion = cursor.fetchone()
+            print(f"🔍 COLUMNAS EXISTEN: {verificacion}")
+            print(f"🔍 Datos actuales: {dia_data.iloc[0].to_dict()}")
+            
+            # Actualizar campo por campo con verificación
+            print("🔧 Actualizando campos...")
+            
             update_data('fiestas', dia_id, 'menu', menu or '')
-            print(f"✅ Menu actualizado")
-        except Exception as e:
-            print(f"❌ Error actualizando menu: {e}")
-            
-        try:
             update_data('fiestas', dia_id, 'adultos', adultos or 0)
-            print(f"✅ Adultos actualizado")
-        except Exception as e:
-            print(f"❌ Error actualizando adultos: {e}")
-            
-        try:
             update_data('fiestas', dia_id, 'niños', niños or 0)
-            print(f"✅ Niños actualizado")
-        except Exception as e:
-            print(f"❌ Error actualizando niños: {e}")
-            
-        try:
             update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
-            print(f"✅ Nombres adultos actualizado")
-        except Exception as e:
-            print(f"❌ Error actualizando nombres_adultos: {e}")
-            
-        try:
             update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
-            print(f"✅ Nombres niños actualizado")
+            print("✅ Todos los campos actualizados")
+            
+            # Verificar que se actualizó
+            fiestas_verificacion = get_data('fiestas')
+            dia_actualizado = fiestas_verificacion[fiestas_verificacion['fecha'] == fecha].iloc[0]
+            print(f"🔍 DATOS DESPUÉS DE UPDATE: {dia_actualizado.to_dict()}")
+            
+            # REGENERAR TARJETAS INMEDIATAMENTE
+            tarjetas_actualizadas = generar_tarjetas_fiestas()
+            print("✅ Tarjetas regeneradas")
+            
+            return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
+            
         except Exception as e:
-            print(f"❌ Error actualizando nombres_niños: {e}")
-        
-        # Verificar que se actualizó
-        fiestas_verificacion = get_data('fiestas')
-        dia_actualizado = fiestas_verificacion[fiestas_verificacion['fecha'] == fecha].iloc[0]
-        print(f"🔍 DATOS DESPUÉS DE UPDATE: {dia_actualizado.to_dict()}")
-        
-        # REGENERAR TARJETAS INMEDIATAMENTE
-        tarjetas_actualizadas = generar_tarjetas_fiestas()
-        print("✅ Tarjetas regeneradas")
-        
-        return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
-        
-    except Exception as e:
-        print(f"❌ ERROR GENERAL: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return f"❌ Error actualizando: {str(e)}", dash.no_update
+            print(f"❌ ERROR GENERAL: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return f"❌ Error actualizando: {str(e)}", generar_tarjetas_fiestas()
+    
+    # Fallback - mostrar tarjetas
+    return "", generar_tarjetas_fiestas()
 
 # Página de inicio
 def create_home_page():
@@ -2416,6 +2324,18 @@ migrate_fiestas_table()
 print("🚀 Iniciando aplicación Penya L'Albenc...")
 resultado_limpieza = limpiar_eventos_antiguos()
 print(f"🧹 {resultado_limpieza}")
+
+# Forzar migración de columnas faltantes
+print("🔧 Verificando estructura de tabla fiestas...")
+migrate_fiestas_table()
+
+# Verificar que las columnas existen
+conn = sqlite3.connect('penya_albenc.db')
+cursor = conn.cursor()
+cursor.execute("PRAGMA table_info(fiestas)")
+columnas = [col[1] for col in cursor.fetchall()]
+print(f"📊 Columnas en fiestas: {columnas}")
+conn.close()
 
 load_fiestas_agosto_2025()
 
