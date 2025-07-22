@@ -33,6 +33,28 @@ body {
     line-height: 1.6;
 }
 
+/* Estilos para el menú desplegable */
+.nav-link-dropdown {
+    display: block;
+    color: #333;
+    text-decoration: none;
+    padding: 18px 30px;  /* ← Padding generoso */
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 1.3rem;   /* ← Texto grande */
+    font-weight: 600;    /* ← Texto más grueso */
+}
+
+
+.nav-link-dropdown:hover {
+    background-color: #f8f9fa;
+    color: #2E7D32;
+}
+
+.nav-link-dropdown:last-child {
+    border-bottom: none;
+}
+
 /* Header principal */
 .header {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);

@@ -833,22 +833,26 @@ def get_proximos_eventos(limit=5):
         return pd.DataFrame()
 
 # Estilos CSS
-# Estilos CSS
 SIDEBAR_STYLE = {
     "position": "fixed",
     "top": 0,
     "left": 0,
-    "bottom": 0,
-    "width": "18rem",
-    "padding": "2rem 1rem",
-    "background": "linear-gradient(180deg, #2E7D32 0%, #1976D2 100%)",
+    "right": 0,
+    "height": "70px",  # ← Altura fija pequeña
+    "padding": "10px 20px",
+    "background": "linear-gradient(90deg, #2E7D32 0%, #1976D2 100%)",
     "color": "white",
-    "box-shadow": "2px 0 5px rgba(0,0,0,0.1)"
+    "box-shadow": "0 2px 10px rgba(0,0,0,0.15)",
+    "z-index": "1000",
+    "display": "flex",  # ← Flexbox horizontal
+    "align-items": "center",
+    "justify-content": "space-between"
 }
 
 CONTENT_STYLE = {
-    "margin-left": "20rem",
-    "margin-right": "2rem",
+    "margin-top": "90px",  # ← Margen fijo para el header
+    "margin-left": "2rem",
+    "margin-right": "2rem", 
     "padding": "2rem 1rem",
     "background": "#FAFAFA",
     "min-height": "100vh"
@@ -938,106 +942,117 @@ app.index_string = '''
 </html>
 '''
 
-# Layout del sidebar mejorado
+# Layout del sidebar como navbar horizontal
 sidebar = html.Div([
-    html.Div([
-        html.Img(
-            src="/assets/logo.png",
-            style={
-                "width": "80px", 
-                "height": "80px", 
-                "margin": "0 auto 15px auto", 
-                "display": "block",
-                "border-radius": "10px",
-                "object-fit": "contain"
-            }
-        ),
-        html.H2("Penya L'Albenc", 
-            style={"font-size": "1.6rem", "margin-bottom": "10px", "text-align": "center"}),
-        html.P("📍 Gestión de grupo", 
-            style={"font-size": "0.9rem", "opacity": "0.8", "text-align": "center", "margin-bottom": "20px"})
-    ]),
-    html.Hr(style={"border-color": "rgba(255,255,255,0.3)", "margin": "20px 0"}),
+    # Location component
     dcc.Location(id="url"),
-    html.Nav([
-        dcc.Link([
-            html.Div([
-                html.Span("🏠", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Inicio")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/", className="nav-link", 
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s", "background": "rgba(255,255,255,0.1)"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🍽️", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Comidas")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/comidas", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🛒", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Lista de Compra")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/lista-compra", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🔧", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Mantenimiento")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/mantenimiento", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-        
-        dcc.Link([
-            html.Div([
-                html.Span("🎉", style={"font-size": "1.2rem", "margin-right": "10px"}),
-                html.Span("Fiestas")
-            ], style={"display": "flex", "align-items": "center"})
-        ], href="/fiestas", className="nav-link",
-           style={
-               "color": "white", "text-decoration": "none", "padding": "12px 15px", 
-               "display": "block", "border-radius": "8px", "margin": "5px 0",
-               "transition": "all 0.3s"
-           }),
-    ], style={"margin-top": "20px"}),
     
-    # Footer del sidebar
+    # Logo y título (lado izquierdo)
     html.Div([
-        html.Hr(style={"border-color": "rgba(255,255,255,0.3)", "margin": "30px 0 20px 0"}),
-        html.P("💚 Versión 2.0", 
-               style={"font-size": "0.8rem", "opacity": "0.7", "text-align": "center", "margin": "0"})
-    ], style={"position": "absolute", "bottom": "20px", "left": "1rem", "right": "1rem"})
-], style=SIDEBAR_STYLE)
+        html.Img(src="/assets/logo.png", style={
+            "width": "50px", "height": "50px", "margin-right": "15px", 
+            "border-radius": "8px", "object-fit": "contain"
+        }),
+        html.H2("Penya L'Albenc", style={
+            "font-size": "1.3rem", "margin": "0", 
+            "font-weight": "600", "letter-spacing": "-0.5px"
+        })
+    ], style={"display": "flex", "align-items": "center"}),
+    
+    # Botón hamburguesa y menú (lado derecho)
+    html.Div([
+        html.Button("☰", id="btn-toggle-sidebar", 
+                    style={
+                        "background": "rgba(255,255,255,0.2)", "border": "none", 
+                        "color": "white", "font-size": "20px", "cursor": "pointer",
+                        "padding": "8px 12px", "border-radius": "6px",
+                        "transition": "all 0.3s ease"
+                    }),
+        
+        # Menú desplegable (inicialmente oculto)
+        html.Div([
+            dcc.Link([
+                html.Div([
+                    html.Span("🏠", style={"margin-right": "10px"}),
+                    html.Span("Inicio")
+                ], style={"display": "flex", "align-items": "center"})
+            ], href="/", className="nav-link-dropdown"),
+            
+            dcc.Link([
+                html.Div([
+                    html.Span("🍽️", style={"margin-right": "10px"}),
+                    html.Span("Comidas")
+                ], style={"display": "flex", "align-items": "center"})
+            ], href="/comidas", className="nav-link-dropdown"),
+            
+            dcc.Link([
+                html.Div([
+                    html.Span("🛒", style={"margin-right": "10px"}),
+                    html.Span("Lista de Compra")
+                ], style={"display": "flex", "align-items": "center"})
+            ], href="/lista-compra", className="nav-link-dropdown"),
+            
+            dcc.Link([
+                html.Div([
+                    html.Span("🔧", style={"margin-right": "10px"}),
+                    html.Span("Mantenimiento")
+                ], style={"display": "flex", "align-items": "center"})
+            ], href="/mantenimiento", className="nav-link-dropdown"),
+            
+            dcc.Link([
+                html.Div([
+                    html.Span("🎉", style={"margin-right": "10px"}),
+                    html.Span("Fiestas")
+                ], style={"display": "flex", "align-items": "center"})
+            ], href="/fiestas", className="nav-link-dropdown"),
+            
+        ], id="dropdown-menu", style={
+            "position": "absolute",
+            "top": "60px",
+            "right": "0",
+            "background": "white",
+            "border-radius": "8px",
+            "box-shadow": "0 4px 20px rgba(0,0,0,0.15)",
+            "min-width": "200px",
+            "display": "none",  # ← Inicialmente oculto
+            "z-index": "1001"
+        })
+    ], style={"position": "relative"})
+    
+], id="sidebar", style=SIDEBAR_STYLE)
 
-# Layout principal
+# Layout principal (UNA SOLA VEZ - al final)
 content = html.Div(id="page-content", style=CONTENT_STYLE)
 
-# Layout de la app
+# Layout de la app (UNA SOLA VEZ - al final, después de content)
 app.layout = html.Div([
     dcc.Store(id="confirm-action"),
     sidebar,
     content
 ])
+
+# Callback para mostrar/ocultar el menú desplegable
+@app.callback(
+    Output("dropdown-menu", "style"),
+    [Input("btn-toggle-sidebar", "n_clicks")],
+    [State("dropdown-menu", "style")],
+    prevent_initial_call=True
+)
+def toggle_dropdown_menu(n_clicks, current_style):
+    if n_clicks and n_clicks > 0:
+        # Toggle entre mostrar y ocultar
+        if current_style.get("display") == "none":
+            return {
+                **current_style,
+                "display": "block",
+                "animation": "fadeIn 0.2s ease-in-out"
+            }
+        else:
+            return {
+                **current_style,
+                "display": "none"
+            }
+    return current_style
 
 # Callback para las páginas
 @app.callback(Output("page-content", "children"), [Input("url", "pathname")])
@@ -1060,31 +1075,34 @@ def render_page_content(pathname):
 @app.callback(
     [Output('fiesta-menu', 'value'),
      Output('fiesta-nombres-adultos', 'value'),
-     Output('fiesta-nombres-niños', 'value')],
+     Output('fiesta-nombres-niños', 'value'),
+     Output('fiesta-cocineros-selector', 'value')],  # ← AGREGAR
     [Input('btn-load-fiesta', 'n_clicks')],
     [State('fiesta-dia-selector', 'value')],
     prevent_initial_call=True
 )
 def cargar_datos_fiesta_mejorado(n_clicks, fecha_seleccionada):
     if not n_clicks or not fecha_seleccionada:
-        return "", "", ""
+        return "", "", "", []  # ← AGREGAR []
     
     try:
         fiestas_df = get_data('fiestas')
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
         
         if len(dia_data) == 0:
-            return "", "", ""
+            return "", "", "", []  # ← AGREGAR []
         
         dia = dia_data.iloc[0]
+        cocineros_lista = dia.get('cocineros', '').split(', ') if dia.get('cocineros') else []
+        
         return (
             dia.get('menu', '') or '',
             dia.get('nombres_adultos', '') or '',
-            dia.get('nombres_niños', '') or ''
+            dia.get('nombres_niños', '') or '',
+            cocineros_lista  # ← AGREGAR
         )
     except Exception as e:
-        print(f"Error cargando datos: {e}")
-        return "", "", ""
+        return "", "", "", []  # ← AGREGAR []
 
 # Callback para actualizar día (ACTUALIZADO SIN INPUTS DE NÚMERO)
 @app.callback(
@@ -1171,6 +1189,10 @@ def create_home_page():
     mantenimiento_df = get_data('mantenimiento')
     eventos_df = get_data('eventos')
     
+    # Obtener mantenimiento del año actual
+    año_actual = datetime.now().year
+    mantenimiento_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual]
+    
     # Últimos elementos añadidos
     ultima_comida = comidas_df.tail(1) if len(comidas_df) > 0 else pd.DataFrame()
     ultima_lista = lista_df.tail(1) if len(lista_df) > 0 else pd.DataFrame()
@@ -1231,9 +1253,46 @@ def create_home_page():
     return html.Div([
         html.H1("Bienvenido a Penya L'Albenc", style={"color": "#2E7D32", "margin-bottom": "30px"}),
         
-        # Resumen con contadores
+        # PRIMERA FILA: MANTENIMIENTO ACTUAL EN GRANDE
         html.Div([
-            html.H3("Resumen General", style={"color": "#1976D2", "margin-bottom": "20px"}),
+            html.H3("🔧 Mantenimiento del Año", style={"color": "#FF9800", "margin-bottom": "20px", "text-align": "center"}),
+            html.Div([
+                html.Div([
+                    # Logo al lado del título
+                    html.Div([
+                        html.Img(src="/assets/logo.png", style={
+                            "width": "80px", "height": "80px", "margin-right": "20px", 
+                            "border-radius": "12px", "object-fit": "contain",
+                            "box-shadow": "0 4px 8px rgba(0,0,0,0.2)"
+                        }),
+                        html.H2(f"📅 AÑO {año_actual}", style={"color": "#FF9800", "margin": "0", "font-size": "2.5rem"})
+                    ], style={"display": "flex", "align-items": "center", "justify-content": "center", "margin-bottom": "20px"}),
+                    
+                    html.Div([
+                        html.H4("🔨 MANTENIMIENTO:", style={"color": "#E65100", "margin": "0 0 10px 0", "font-size": "1.3rem"}),
+                        html.P(mantenimiento_actual.iloc[0]['mantenimiento'] if len(mantenimiento_actual) > 0 else "⚠️ Sin datos de mantenimiento", 
+                               style={"margin": "0 0 20px 0", "font-size": "1.1rem", "font-weight": "500", "color": "#333"})
+                    ]),
+                    
+                    html.Div([
+                        html.H4("🏗️ CADAFALS:", style={"color": "#F57C00", "margin": "0 0 10px 0", "font-size": "1.3rem"}),
+                        html.P(mantenimiento_actual.iloc[0]['cadafals'] if len(mantenimiento_actual) > 0 else "⚠️ Sin datos de cadafals", 
+                               style={"margin": "0", "font-size": "1.1rem", "font-weight": "500", "color": "#333"})
+                    ])
+                    
+                ], style={
+                    "background": "linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%)", 
+                    "padding": "40px", "border-radius": "16px",
+                    "box-shadow": "0 8px 20px rgba(0,0,0,0.15)", "text-align": "left",
+                    "border": "3px solid #FF9800", "width": "100%", "max-width": "800px", "margin": "0 auto",
+                    "position": "relative"  # ← AGREGAR ESTO para la segunda opción
+                })
+            ], style={"display": "flex", "justify-content": "center", "margin": "20px 0"})
+        ]),
+        
+        # SEGUNDA FILA: Resumen con contadores
+        html.Div([
+            html.H3("📊 Resumen General", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
             html.Div([
                 html.Div([
                     html.H4(f"{len(comidas_df)}", style={"color": "#4CAF50", "margin": "0", "font-size": "2rem"}),
@@ -1246,7 +1305,7 @@ def create_home_page():
                 
                 html.Div([
                     html.H4(f"{len(lista_df)}", style={"color": "#2196F3", "margin": "0", "font-size": "2rem"}),
-                    html.P("Items en lista", style={"margin": "5px 0"})
+                    html.P("Lista de compra", style={"margin": "5px 0"})
                 ], className="summary-card", style={
                     "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)", 
                     "padding": "25px", "margin": "10px", "border-radius": "12px",
@@ -1255,7 +1314,7 @@ def create_home_page():
                 
                 html.Div([
                     html.H4(f"{len(mantenimiento_df)}", style={"color": "#FF9800", "margin": "0", "font-size": "2rem"}),
-                    html.P("Tareas mantenimiento", style={"margin": "5px 0"})
+                    html.P("Años programados", style={"margin": "5px 0"})
                 ], className="summary-card", style={
                     "background": "linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%)", 
                     "padding": "25px", "margin": "10px", "border-radius": "12px",
@@ -1273,15 +1332,19 @@ def create_home_page():
             ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
         ]),
         
-        # Próximos eventos (en lugar de últimas actividades)
+        # TERCERA FILA: Próximos eventos
         html.Div([
-            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "30px 0 20px 0"}),
+            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
             html.Div([
                 # Mostrar próximos eventos dinámicamente
                 html.Div(id="proximos-eventos-container")
             ])
         ], style={"margin-top": "30px"}),
-                
+        
+        # CUARTA FILA: Información adicional
+        html.Div([
+            html.H3("ℹ️ Información Adicional", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
+            html.Div([
                 # Último item lista
                 html.Div([
                     html.H5("🛒 Último Item Lista", style={"color": "#2196F3", "margin-bottom": "10px"}),
@@ -1291,19 +1354,20 @@ def create_home_page():
                            style={"margin": "5px 0"})
                 ], style={
                     "background": "#E8F4FD", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #2196F3"
+                    "border-radius": "8px", "border-left": "4px solid #2196F3", "flex": "1"
                 }),
                 
-                # Referencia rápida al mantenimiento
+                # Calendario del mes
                 html.Div([
-                    html.H5("🔧 Mantenimiento Actual", style={"color": "#FF9800", "margin-bottom": "10px"}),
-                    html.P(f"📅 Año {datetime.now().year}", style={"margin": "5px 0"}),
-                    html.P("👀 Ver detalles abajo", style={"margin": "5px 0", "font-size": "0.9rem", "font-style": "italic"})
+                    html.H5("📅 Calendario del Mes", style={"color": "#4CAF50", "margin-bottom": "10px"}),
+                    calendar_table
                 ], style={
-                    "background": "#FFF8E1", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #FF9800"
+                    "background": "#F8F9FA", "padding": "20px", "margin": "10px", 
+                    "border-radius": "8px", "border-left": "4px solid #4CAF50", "flex": "2"
                 }),
-                ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
+            ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap", "gap": "20px"})
+        ])
+    ])
           
 
 # Página de comidas (actualizada con selectores de cocineros únicos)
@@ -1809,6 +1873,17 @@ def create_fiestas_page():
                     )
                 ], style={"margin": "10px", "flex": "1"}),
             ]),
+
+            html.Div([
+                html.Label("👨‍🍳 Cocineros:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                dcc.Dropdown(
+                    id='fiesta-cocineros-selector',
+                    options=get_cocineros_options(),  # Usa la misma función que comidas
+                    placeholder="Selecciona cocineros (múltiple)",
+                    multi=True,
+                    style={"width": "100%"}
+                )
+            ], style={"margin": "10px"}),
             
             html.Div([
                 html.Div([
@@ -1877,6 +1952,20 @@ def create_fiestas_page():
         ], style={"margin-top": "30px", "padding": "25px", "background": "#F8F9FA", "border-radius": "12px"})
     ])
 
+def limpiar_datos_anteriores():
+    """Limpiar datos residuales y resetear con datos limpios"""
+    conn = sqlite3.connect('penya_albenc.db')
+    cursor = conn.cursor()
+    
+    # Limpiar tablas principales
+    cursor.execute("DELETE FROM comidas")
+    cursor.execute("DELETE FROM eventos") 
+    cursor.execute("DELETE FROM fiestas")
+    
+    conn.commit()
+    conn.close()
+    print("🧹 Datos anteriores limpiados")
+
 def create_debug_page():
     """Página temporal para debuggear la base de datos"""
     try:
@@ -1920,116 +2009,6 @@ def create_debug_page():
             html.H1("❌ Error en Debug"),
             html.P(f"Error: {str(e)}")
         ])
-
-# Callbacks para tablón de anuncios
-@app.callback(
-    Output('modal-anuncio', 'style'),
-    [Input('btn-nuevo-anuncio', 'n_clicks'),
-     Input('btn-cancelar-anuncio', 'n_clicks'),
-     Input('btn-publicar-anuncio', 'n_clicks')],
-    prevent_initial_call=True
-)
-def toggle_modal_anuncio(n_nuevo, n_cancelar, n_publicar):
-    ctx = callback_context
-    if not ctx.triggered:
-        return {"display": "none"}
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if trigger_id == 'btn-nuevo-anuncio':
-        return {
-            "position": "fixed", "top": "0", "left": "0", "width": "100%", "height": "100%",
-            "background": "rgba(0,0,0,0.5)", "display": "flex", "align-items": "center",
-            "justify-content": "center", "z-index": "1000"
-        }
-    else:  # cancelar o publicar
-        return {"display": "none"}
-
-@app.callback(
-    [Output('lista-noticias', 'children'),
-     Output('anuncio-titulo', 'value'),
-     Output('anuncio-contenido', 'value')],
-    [Input('btn-publicar-anuncio', 'n_clicks'),
-     Input({'type': 'btn-delete-noticia', 'index': dash.dependencies.ALL}, 'n_clicks')],
-    [State('anuncio-titulo', 'value'),
-     State('anuncio-contenido', 'value'),
-     State('anuncio-autor', 'value')],
-    prevent_initial_call=True
-)
-def manage_noticias(n_publicar, n_delete_list, titulo, contenido, autor):
-    ctx = callback_context
-    
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update
-    
-    trigger_info = ctx.triggered[0]['prop_id']
-    
-    # Publicar nuevo anuncio
-    if 'btn-publicar-anuncio' in trigger_info and n_publicar > 0:
-        if titulo and contenido:
-            add_noticia(titulo, contenido, autor or 'Administrador')
-            # Limpiar campos y recargar lista
-            noticias_df = get_noticias()
-            nueva_lista = [
-                html.Div([
-                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
-                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
-                    html.Div([
-                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
-                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
-                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
-                                   style={"background": "#F44336", "color": "white", "border": "none",
-                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
-                                         "font-size": "0.8rem", "float": "right"})
-                    ])
-                ], style={
-                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
-                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
-                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
-                })
-                for noticia in noticias_df.to_dict('records')[:5]
-            ]
-            return nueva_lista, "", ""  # Limpiar campos
-    
-    # Eliminar anuncio
-    elif 'btn-delete-noticia' in trigger_info:
-        # Extraer el ID del anuncio a eliminar
-        import json
-        prop_id_dict = json.loads(trigger_info.split('.')[0])
-        noticia_id = prop_id_dict['index']
-        
-        # Verificar si realmente se hizo clic
-        if any(n_delete_list):
-            delete_noticia(noticia_id)
-            
-            # Recargar lista
-            noticias_df = get_noticias()
-            nueva_lista = [
-                html.Div([
-                    html.H5(noticia['titulo'], style={"color": "#1976D2", "margin": "0 0 8px 0"}),
-                    html.P(noticia['contenido'], style={"margin": "0 0 10px 0", "color": "#333"}),
-                    html.Div([
-                        html.Span(f"👤 {noticia['autor']}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "15px"}),
-                        html.Span(f"📅 {noticia['fecha_creacion'][:16]}", style={"font-size": "0.85rem", "color": "#666", "margin-right": "10px"}),
-                        html.Button('🗑️', id={'type': 'btn-delete-noticia', 'index': noticia['id']}, n_clicks=0,
-                                   style={"background": "#F44336", "color": "white", "border": "none",
-                                         "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
-                                         "font-size": "0.8rem", "float": "right"})
-                    ])
-                ], style={
-                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)",
-                    "padding": "15px", "margin": "10px 0", "border-radius": "8px",
-                    "border-left": "4px solid #2196F3", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)"
-                })
-                for noticia in noticias_df.to_dict('records')[:5]
-            ] if len(noticias_df) > 0 else [
-                html.Div([
-                    html.P("No hay anuncios publicados", style={"text-align": "center", "color": "#666", "font-style": "italic"})
-                ], style={"padding": "20px"})
-            ]
-            return nueva_lista, dash.no_update, dash.no_update
-    
-    return dash.no_update, dash.no_update, dash.no_update
 
 # Callbacks para comidas (actualizado con selectores únicos)
 @app.callback(
@@ -2368,5 +2347,10 @@ if __name__ == '__main__':
     print(f"🌐 Servidor iniciado en puerto {port}")
     print("📊 Base de datos inicializada correctamente")
     print("✨ ¡Aplicación lista para usar!")
+    print("🧹 Limpiando datos anteriores...")
+    limpiar_datos_anteriores()  # ← AGREGAR ESTO
+    load_eventos_completos()
+    load_fiestas_agosto_2025()
+
     
     app.run_server(debug=debug, host='0.0.0.0', port=port)
