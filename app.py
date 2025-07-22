@@ -467,16 +467,16 @@ def load_fiestas_agosto_2025():
     
     # Datos fijos COMPLETOS para los 10 días
     fiestas_data = [
-        ('2025-08-08', 'Juan, Pedro, María', '', 0, '', 0, '', '20:00-Pregón|21:30-Verbena'),
-        ('2025-08-09', 'Ana, Luis, Carlos', '', 0, '', 0, '', '19:00-Pasacalles|22:00-Concierto'),
-        ('2025-08-10', 'Miguel, Sofia, David', '', 0, '', 0, '', '18:00-Misa|20:00-Cena'),
-        ('2025-08-11', 'Laura, Javier, Rosa', '', 0, '', 0, '', '19:30-Teatro|22:30-Baile'),
-        ('2025-08-12', 'Antonio, Elena, Pablo', '', 0, '', 0, '', '20:00-Fuegos artificiales'),
-        ('2025-08-13', 'Carmen, Fernando, Lucia', '', 0, '', 0, '', '19:00-Concursos|21:00-Música'),
-        ('2025-08-14', 'Roberto, Isabel, Mario', '', 0, '', 0, '', '18:30-Procesión|22:00-Verbena'),
-        ('2025-08-15', 'Beatriz, Raúl, Ana', '', 0, '', 0, '', '19:00-Misa Mayor|21:30-Gran Baile'),
-        ('2025-08-16', 'Diego, Cristina, José', '', 0, '', 0, '', '20:00-Actuaciones|23:00-Fiesta'),
-        ('2025-08-17', 'María, Carlos, Pilar', '', 0, '', 0, '', '18:00-Clausura|21:00-Cena final'),
+        ('2025-08-08', '', '', 0, '', 0, '', '20:00-Futbito|21:30-Presentacion'),
+        ('2025-08-09', '', '', 0, '', 0, '', '19:00-Pasacalles|22:00-Concierto'),
+        ('2025-08-10', '', '', 0, '', 0, '', '18:00-Misa|20:00-Cena'),
+        ('2025-08-11', '', '', 0, '', 0, '', '19:30-Teatro|22:30-Baile'),
+        ('2025-08-12', '', '', 0, '', 0, '', '20:00-Fuegos artificiales'),
+        ('2025-08-13', '', '', 0, '', 0, '', '19:00-Concursos|21:00-Música'),
+        ('2025-08-14', '', '', 0, '', 0, '', '18:30-Procesión|22:00-Verbena'),
+        ('2025-08-15', '', '', 0, '', 0, '', '19:00-Misa Mayor|21:30-Gran Baile'),
+        ('2025-08-16', '', '', 0, '', 0, '', '20:00-Actuaciones|23:00-Fiesta'),
+        ('2025-08-17', '', '', 0, '', 0, '', '18:00-Clausura|21:00-Cena final'),
     ]
     
     for data in fiestas_data:
@@ -859,6 +859,7 @@ app.index_string = '''
     <head>
         {%metas%}
         <title>{%title%}</title>
+        <link rel="shortcut icon" href="/assets/favicon.ico">
         {%favicon%}
         {%css%}
         <style>
@@ -1053,67 +1054,64 @@ def render_page_content(pathname):
         return create_home_page()
 
 
-# Callback para cargar datos del día seleccionado (CORREGIDO)
+# Callback para cargar datos del día seleccionado (ACTUALIZADO)
 @app.callback(
     [Output('fiesta-menu', 'value'),
-     Output('fiesta-adultos', 'value'),
-     Output('fiesta-niños', 'value'),
      Output('fiesta-nombres-adultos', 'value'),
      Output('fiesta-nombres-niños', 'value')],
     [Input('btn-load-fiesta', 'n_clicks')],
     [State('fiesta-dia-selector', 'value')],
     prevent_initial_call=True
 )
-def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
+def cargar_datos_fiesta_mejorado(n_clicks, fecha_seleccionada):
     if not n_clicks or not fecha_seleccionada:
-        return "", None, None, "", ""
+        return "", "", ""
     
     try:
         fiestas_df = get_data('fiestas')
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
         
         if len(dia_data) == 0:
-            return "", None, None, "", ""
+            return "", "", ""
         
         dia = dia_data.iloc[0]
         return (
             dia.get('menu', '') or '',
-            dia.get('adultos', 0) or 0,
-            dia.get('niños', 0) or 0,
             dia.get('nombres_adultos', '') or '',
             dia.get('nombres_niños', '') or ''
         )
     except Exception as e:
         print(f"Error cargando datos: {e}")
-        return "", None, None, "", ""
+        return "", "", ""
 
-# Callback para actualizar día (CON LOGS DETALLADOS)
+# Callback para actualizar día (ACTUALIZADO SIN INPUTS DE NÚMERO)
 @app.callback(
     [Output('fiesta-output', 'children'),
      Output('tarjetas-fiestas', 'children')],
     [Input('btn-update-fiesta', 'n_clicks'),
-     Input('url', 'pathname')],  # ← AGREGAR ESTO
+     Input('url', 'pathname')],
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
-     State('fiesta-adultos', 'value'),
-     State('fiesta-niños', 'value'),
+     State('fiesta-adultos', 'data'),  # Ahora viene del Store
+     State('fiesta-niños', 'data'),    # Ahora viene del Store
      State('fiesta-nombres-adultos', 'value'),
      State('fiesta-nombres-niños', 'value')],
-    prevent_initial_call=True
 )
-def actualizar_y_mostrar_fiestas(n_clicks, pathname, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
+def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
     ctx = callback_context
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
     
     # Si viene de cambio de página, solo mostrar tarjetas
     if trigger_id == 'url' or not trigger_id:
-        if pathname != '/fiestas':
-            return "", []
         return "", generar_tarjetas_fiestas()
     
     # Si viene del botón de actualizar
     if trigger_id == 'btn-update-fiesta' and n_clicks and fecha:
-        print(f"🔍 CALLBACK LLAMADO: n_clicks={n_clicks}, fecha={fecha}")
+        print(f"🔍 CALLBACK MEJORADO: n_clicks={n_clicks}, fecha={fecha}")
+        
+        # Crear UNA SOLA conexión nueva para todo el proceso
+        conn = sqlite3.connect('penya_albenc.db')
+        cursor = conn.cursor()
         
         try:
             print(f"🔍 DATOS A ACTUALIZAR:")
@@ -1124,51 +1122,41 @@ def actualizar_y_mostrar_fiestas(n_clicks, pathname, fecha, menu, adultos, niño
             print(f"  nombres_adultos='{nombres_adultos}'")
             print(f"  nombres_niños='{nombres_niños}'")
             
-            # Buscar el ID del registro
-            fiestas_df = get_data('fiestas')
-            print(f"🔍 Total filas en DB: {len(fiestas_df)}")
+            # Buscar el ID del registro directamente con la nueva conexión
+            cursor.execute("SELECT id FROM fiestas WHERE fecha = ?", (fecha,))
+            result = cursor.fetchone()
             
-            dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
-            print(f"🔍 Filas encontradas para {fecha}: {len(dia_data)}")
-            
-            if len(dia_data) == 0:
+            if not result:
                 print("❌ No se encontró el día seleccionado")
                 return "⚠️ No se encontró el día seleccionado", generar_tarjetas_fiestas()
             
-            dia_id = dia_data.iloc[0]['id']
+            dia_id = result[0]
             print(f"🔍 ID encontrado: {dia_id}")
-            # TEMPORAL - verificar si las columnas existen
-            cursor.execute("SELECT nombres_adultos, nombres_niños FROM fiestas WHERE id = ?", (dia_id,))
-            verificacion = cursor.fetchone()
-            print(f"🔍 COLUMNAS EXISTEN: {verificacion}")
-            print(f"🔍 Datos actuales: {dia_data.iloc[0].to_dict()}")
             
-            # Actualizar campo por campo con verificación
-            print("🔧 Actualizando campos...")
+            # Actualizar todos los campos en una sola query
+            cursor.execute("""
+                UPDATE fiestas 
+                SET menu = ?, adultos = ?, niños = ?, nombres_adultos = ?, nombres_niños = ? 
+                WHERE id = ?
+            """, (menu or '', adultos or 0, niños or 0, nombres_adultos or '', nombres_niños or '', dia_id))
             
-            update_data('fiestas', dia_id, 'menu', menu or '')
-            update_data('fiestas', dia_id, 'adultos', adultos or 0)
-            update_data('fiestas', dia_id, 'niños', niños or 0)
-            update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
-            update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
+            conn.commit()
             print("✅ Todos los campos actualizados")
             
-            # Verificar que se actualizó
-            fiestas_verificacion = get_data('fiestas')
-            dia_actualizado = fiestas_verificacion[fiestas_verificacion['fecha'] == fecha].iloc[0]
-            print(f"🔍 DATOS DESPUÉS DE UPDATE: {dia_actualizado.to_dict()}")
-            
-            # REGENERAR TARJETAS INMEDIATAMENTE
+            # REGENERAR TARJETAS
             tarjetas_actualizadas = generar_tarjetas_fiestas()
             print("✅ Tarjetas regeneradas")
             
-            return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
+            return f"✅ Día {fecha} actualizado exitosamente! 🎉 (Adultos: {adultos}, Niños: {niños})", tarjetas_actualizadas
             
         except Exception as e:
             print(f"❌ ERROR GENERAL: {str(e)}")
             import traceback
             traceback.print_exc()
             return f"❌ Error actualizando: {str(e)}", generar_tarjetas_fiestas()
+            
+        finally:
+            conn.close()
     
     # Fallback - mostrar tarjetas
     return "", generar_tarjetas_fiestas()
@@ -1801,7 +1789,7 @@ def create_fiestas_page():
         # Mostrar etiquetas por día
         html.Div(id='tarjetas-fiestas'),
         
-        # Formulario de edición FUNCIONAL
+        # Formulario de edición MEJORADO
         html.Div([
             html.H3("✏️ Editar Día", style={"color": "#9C27B0", "margin-bottom": "20px"}),
             
@@ -1828,50 +1816,41 @@ def create_fiestas_page():
                         placeholder="Describe el menú del día...",
                         style={"width": "100%", "height": "80px", "padding": "8px"}
                     )
-                ], style={"margin": "10px", "flex": "2"}),
-                
-                html.Div([
-                    html.Label("👥 Número de Adultos:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='fiesta-adultos',
-                        type='number',
-                        placeholder="0",
-                        min=0,
-                        style={"width": "100%", "padding": "8px"}
-                    )
                 ], style={"margin": "10px", "flex": "1"}),
-                
-                html.Div([
-                    html.Label("👶 Número de Niños:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='fiesta-niños',
-                        type='number',
-                        placeholder="0",
-                        min=0,
-                        style={"width": "100%", "padding": "8px"}
-                    )
-                ], style={"margin": "10px", "flex": "1"}),
-            ], style={"display": "flex", "gap": "10px"}),
+            ]),
             
+            # SECCIÓN MEJORADA - Solo nombres con conteo automático
             html.Div([
                 html.Div([
                     html.Label("👥 Nombres de Adultos:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.P(id='contador-adultos', children="Total: 0", 
+                           style={"font-weight": "bold", "color": "#9C27B0", "margin": "0 0 5px 0"}),
                     dcc.Textarea(
                         id='fiesta-nombres-adultos',
                         placeholder="Escribe los nombres separados por comas: Juan, María, Pedro...",
-                        style={"width": "100%", "height": "60px", "padding": "8px"}
-                    )
+                        style={"width": "100%", "height": "80px", "padding": "8px"}
+                    ),
+                    html.P("💡 Los nombres se cuentan automáticamente", 
+                           style={"font-size": "0.8rem", "color": "#666", "font-style": "italic", "margin": "5px 0 0 0"})
                 ], style={"margin": "10px", "flex": "1"}),
                 
                 html.Div([
                     html.Label("👶 Nombres de Niños:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.P(id='contador-niños', children="Total: 0", 
+                           style={"font-weight": "bold", "color": "#FF9800", "margin": "0 0 5px 0"}),
                     dcc.Textarea(
                         id='fiesta-nombres-niños',
                         placeholder="Escribe los nombres separados por comas: Ana, Luis, Carlos...",
-                        style={"width": "100%", "height": "60px", "padding": "8px"}
-                    )
+                        style={"width": "100%", "height": "80px", "padding": "8px"}
+                    ),
+                    html.P("💡 Los nombres se cuentan automáticamente", 
+                           style={"font-size": "0.8rem", "color": "#666", "font-style": "italic", "margin": "5px 0 0 0"})
                 ], style={"margin": "10px", "flex": "1"}),
             ], style={"display": "flex", "gap": "10px"}),
+            
+            # Campos ocultos para almacenar los números (necesarios para el callback de actualización)
+            dcc.Store(id='fiesta-adultos', data=0),
+            dcc.Store(id='fiesta-niños', data=0),
             
             html.Div([
                 html.Button('✅ Actualizar Día', id='btn-update-fiesta', n_clicks=0,
@@ -2274,6 +2253,43 @@ def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimi
         return get_data('mantenimiento').to_dict('records'), ""
     except:
         return [], ""
+
+# Callback para conteo automático de nombres
+@app.callback(
+    [Output('contador-adultos', 'children'),
+     Output('contador-niños', 'children'),
+     Output('fiesta-adultos', 'data'),
+     Output('fiesta-niños', 'data')],
+    [Input('fiesta-nombres-adultos', 'value'),
+     Input('fiesta-nombres-niños', 'value')],
+    prevent_initial_call=False
+)
+def contar_nombres_automaticamente(nombres_adultos, nombres_niños):
+    """Contar automáticamente los nombres separados por comas"""
+    
+    def contar_nombres(texto):
+        """Función auxiliar para contar nombres"""
+        if not texto or not texto.strip():
+            return 0
+        
+        # Separar por comas, limpiar espacios y filtrar strings vacíos
+        nombres = [nombre.strip() for nombre in texto.split(',')]
+        nombres_validos = [nombre for nombre in nombres if nombre]  # Filtrar strings vacíos
+        
+        return len(nombres_validos)
+    
+    # Contar adultos
+    total_adultos = contar_nombres(nombres_adultos)
+    
+    # Contar niños  
+    total_niños = contar_nombres(nombres_niños)
+    
+    return (
+        f"👥 Total: {total_adultos}",
+        f"👶 Total: {total_niños}",
+        total_adultos,
+        total_niños
+    )
 
 @app.callback(
     Output('proximos-eventos-container', 'children'),
