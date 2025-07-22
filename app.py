@@ -1047,6 +1047,8 @@ def render_page_content(pathname):
         return create_mantenimiento_page()
     elif pathname == "/fiestas":
         return create_fiestas_page()
+    elif pathname == "/debug":  # ← AGREGAR ESTO
+        return create_debug_page()
     else:
         return create_home_page()
 
@@ -1187,14 +1189,20 @@ def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, n
         return "", dash.no_update
     
     try:
+        print(f"🔍 DEBUG: Actualizando fecha={fecha}, menu={menu}, adultos={adultos}")
+        
         # Buscar el ID del registro
         fiestas_df = get_data('fiestas')
+        print(f"🔍 DEBUG: Total filas en DB: {len(fiestas_df)}")
+        
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
+        print(f"🔍 DEBUG: Filas encontradas para {fecha}: {len(dia_data)}")
         
         if len(dia_data) == 0:
             return "⚠️ No se encontró el día seleccionado", dash.no_update
         
         dia_id = dia_data.iloc[0]['id']
+        print(f"🔍 DEBUG: ID encontrado: {dia_id}")
         
         # Actualizar todos los campos
         update_data('fiestas', dia_id, 'menu', menu or '')
@@ -1203,12 +1211,15 @@ def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, n
         update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
         update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
         
+        print(f"✅ DEBUG: Actualización completada para ID {dia_id}")
+        
         # REGENERAR TARJETAS INMEDIATAMENTE
         tarjetas_actualizadas = generar_tarjetas_fiestas()
         
         return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
         
     except Exception as e:
+        print(f"❌ DEBUG ERROR: {str(e)}")
         return f"❌ Error actualizando: {str(e)}", dash.no_update
 
 # Página de inicio
@@ -1933,6 +1944,50 @@ def create_fiestas_page():
             
         ], style={"margin-top": "30px", "padding": "25px", "background": "#F8F9FA", "border-radius": "12px"})
     ])
+
+def create_debug_page():
+    """Página temporal para debuggear la base de datos"""
+    try:
+        # Obtener datos de fiestas
+        fiestas_df = get_data('fiestas')
+        
+        # Verificar estructura de tabla
+        conn = sqlite3.connect('penya_albenc.db')
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(fiestas)")
+        columnas = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM fiestas")
+        total_filas = cursor.fetchone()[0]
+        conn.close()
+        
+        return html.Div([
+            html.H1("🐛 Debug Base de Datos", style={"color": "#F44336"}),
+            
+            html.H3("📊 Estructura de tabla fiestas:"),
+            html.Pre(str(columnas), style={"background": "#f5f5f5", "padding": "10px"}),
+            
+            html.H3(f"📈 Total filas: {total_filas}"),
+            
+            html.H3("📋 Datos completos:"),
+            dash_table.DataTable(
+                data=fiestas_df.to_dict('records'),
+                columns=[{"name": col, "id": col} for col in fiestas_df.columns],
+                style_table={'overflowX': 'auto'},
+                page_size=20
+            ),
+            
+            html.H3("🔍 Datos específicos agosto:"),
+            html.Pre(str(fiestas_df[
+                (fiestas_df['fecha'] >= '2025-08-08') & 
+                (fiestas_df['fecha'] <= '2025-08-17')
+            ].to_dict('records')), style={"background": "#f5f5f5", "padding": "10px", "white-space": "pre-wrap"})
+        ])
+        
+    except Exception as e:
+        return html.Div([
+            html.H1("❌ Error en Debug"),
+            html.P(f"Error: {str(e)}")
+        ])
 
 # Callbacks para tablón de anuncios
 @app.callback(
