@@ -9,7 +9,9 @@ from datetime import datetime, date, timedelta
 import calendar
 
 # Inicializar la app
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, suppress_callback_exceptions=True, 
+                assets_folder='assets',
+                assets_url_path='/assets/')
 app.title = "Penya L'Albenc"
 
 # Para Render
@@ -860,7 +862,7 @@ app.index_string = '''
         {%metas%}
         <title>{%title%}</title>
         <link rel="shortcut icon" href="/assets/favicon.ico">
-        {%favicon%}
+        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
         {%css%}
         <style>
             body {
