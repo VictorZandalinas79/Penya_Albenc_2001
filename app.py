@@ -485,6 +485,88 @@ def load_fiestas_agosto_2025():
     conn.commit()
     conn.close()
 
+def generar_tarjetas_fiestas():
+    """Función auxiliar para generar las tarjetas de fiestas"""
+    try:
+        fiestas_df = get_data('fiestas')
+        
+        # Filtrar solo agosto 2025
+        fiestas_agosto = fiestas_df[
+            (fiestas_df['fecha'] >= '2025-08-08') & 
+            (fiestas_df['fecha'] <= '2025-08-17')
+        ].sort_values('fecha') if len(fiestas_df) > 0 else pd.DataFrame()
+        
+        if len(fiestas_agosto) == 0:
+            return [html.P("No hay datos de fiestas de agosto", style={"text-align": "center", "color": "#666"})]
+        
+        tarjetas = []
+        for _, dia in fiestas_agosto.iterrows():
+            # Formatear fecha
+            try:
+                from datetime import datetime
+                fecha_obj = datetime.strptime(dia['fecha'], '%Y-%m-%d')
+                fecha_formateada = fecha_obj.strftime('%d de agosto')
+            except:
+                fecha_formateada = dia['fecha']
+            
+            # Procesar programa (split por |)
+            eventos = dia['programa'].split('|') if dia['programa'] else ['Sin programa']
+            
+            # Procesar nombres adultos y niños (con verificación de campo)
+            nombres_adultos = dia.get('nombres_adultos', '') or 'Sin nombres'
+            nombres_niños = dia.get('nombres_niños', '') or 'Sin nombres'
+            
+            tarjeta = html.Div([
+                html.H4(f"📅 {fecha_formateada}", style={"color": "#FF5722", "margin-bottom": "15px", "text-align": "center"}),
+                
+                html.Div([
+                    html.H6("👨‍🍳 Cocineros:", style={"color": "#4CAF50", "margin-bottom": "5px"}),
+                    html.P(dia['cocineros'], style={"margin": "0 0 10px 0", "font-weight": "bold"})
+                ]),
+                
+                html.Div([
+                    html.H6("🍽️ Menú:", style={"color": "#2196F3", "margin-bottom": "5px"}),
+                    html.P(dia['menu'] or 'Sin menú definido', style={"margin": "0 0 10px 0", "font-style": "italic" if not dia['menu'] else "normal"})
+                ]),
+                
+                html.Div([
+                    html.H6("👥 Adultos:", style={"color": "#9C27B0", "margin-bottom": "5px"}),
+                    html.P(f"Total: {dia['adultos']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
+                    html.P(f"Nombres: {nombres_adultos}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
+                ]),
+                
+                html.Div([
+                    html.H6("👶 Niños:", style={"color": "#FF9800", "margin-bottom": "5px"}),
+                    html.P(f"Total: {dia['niños']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
+                    html.P(f"Nombres: {nombres_niños}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
+                ]),
+                
+                html.Div([
+                    html.H6("🎪 Programa:", style={"color": "#795548", "margin-bottom": "5px"}),
+                    html.Ul([
+                        html.Li(evento.strip(), style={"margin": "2px 0"}) 
+                        for evento in eventos
+                    ], style={"margin": "0", "padding-left": "20px"})
+                ])
+            ], style={
+                "border": "2px solid #E0E0E0", 
+                "margin": "15px", 
+                "padding": "20px", 
+                "border-radius": "12px",
+                "background": "linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%)", 
+                "box-shadow": "0 4px 8px rgba(0,0,0,0.1)",
+                "flex": "1",
+                "min-width": "320px",
+                "max-width": "400px"
+            })
+            tarjetas.append(tarjeta)
+        
+        return html.Div(tarjetas, style={"display": "flex", "flex-wrap": "wrap", "justify-content": "center"})
+        
+    except Exception as e:
+        print(f"Error generando tarjetas: {e}")
+        return [html.P(f"Error cargando datos: {e}", style={"text-align": "center", "color": "red"})]
+
 # Funciones auxiliares para filtros (restauradas)
 def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
     """Buscar comidas por año y/o tipo de comida"""
@@ -968,6 +1050,7 @@ def render_page_content(pathname):
     else:
         return create_home_page()
 
+
 @app.callback(
     Output('tarjetas-fiestas', 'children'),
     [Input('url', 'pathname')]
@@ -1086,9 +1169,10 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
         print(f"Error cargando datos: {e}")
         return "", None, None, "", ""
 
-# Callback para actualizar día (CORREGIDO SIN allow_duplicate)
+# Callback para actualizar día (MEJORADO CON ACTUALIZACIÓN AUTOMÁTICA)
 @app.callback(
-    Output('fiesta-output', 'children'),
+    [Output('fiesta-output', 'children'),
+     Output('tarjetas-fiestas', 'children', allow_duplicate=True)],  # ← AGREGAR ESTO
     [Input('btn-update-fiesta', 'n_clicks')],
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
@@ -1100,7 +1184,7 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
 )
 def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
     if not n_clicks or not fecha:
-        return ""
+        return "", dash.no_update
     
     try:
         # Buscar el ID del registro
@@ -1108,7 +1192,7 @@ def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, n
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
         
         if len(dia_data) == 0:
-            return "⚠️ No se encontró el día seleccionado"
+            return "⚠️ No se encontró el día seleccionado", dash.no_update
         
         dia_id = dia_data.iloc[0]['id']
         
@@ -1119,10 +1203,13 @@ def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, n
         update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
         update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
         
-        return f"✅ Día {fecha} actualizado exitosamente! 🎉 (Recarga la página para ver cambios)"
+        # REGENERAR TARJETAS INMEDIATAMENTE
+        tarjetas_actualizadas = generar_tarjetas_fiestas()
+        
+        return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
         
     except Exception as e:
-        return f"❌ Error actualizando: {str(e)}"
+        return f"❌ Error actualizando: {str(e)}", dash.no_update
 
 # Página de inicio
 def create_home_page():
