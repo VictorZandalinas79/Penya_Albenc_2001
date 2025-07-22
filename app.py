@@ -1171,10 +1171,10 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
         print(f"Error cargando datos: {e}")
         return "", None, None, "", ""
 
-# Callback para actualizar día (MEJORADO CON ACTUALIZACIÓN AUTOMÁTICA)
+# Callback para actualizar día (CON LOGS DETALLADOS)
 @app.callback(
     [Output('fiesta-output', 'children'),
-     Output('tarjetas-fiestas', 'children', allow_duplicate=True)],  # ← AGREGAR ESTO
+     Output('tarjetas-fiestas', 'children', allow_duplicate=True)],
     [Input('btn-update-fiesta', 'n_clicks')],
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
@@ -1185,41 +1185,84 @@ def cargar_datos_fiesta(n_clicks, fecha_seleccionada):
     prevent_initial_call=True
 )
 def actualizar_fiesta(n_clicks, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
+    print(f"🔍 CALLBACK LLAMADO: n_clicks={n_clicks}, fecha={fecha}")
+    
     if not n_clicks or not fecha:
+        print("❌ Sin clicks o sin fecha")
         return "", dash.no_update
     
     try:
-        print(f"🔍 DEBUG: Actualizando fecha={fecha}, menu={menu}, adultos={adultos}")
+        print(f"🔍 DATOS A ACTUALIZAR:")
+        print(f"  fecha={fecha}")
+        print(f"  menu='{menu}'")
+        print(f"  adultos={adultos}")
+        print(f"  niños={niños}")
+        print(f"  nombres_adultos='{nombres_adultos}'")
+        print(f"  nombres_niños='{nombres_niños}'")
         
         # Buscar el ID del registro
         fiestas_df = get_data('fiestas')
-        print(f"🔍 DEBUG: Total filas en DB: {len(fiestas_df)}")
+        print(f"🔍 Total filas en DB: {len(fiestas_df)}")
         
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha]
-        print(f"🔍 DEBUG: Filas encontradas para {fecha}: {len(dia_data)}")
+        print(f"🔍 Filas encontradas para {fecha}: {len(dia_data)}")
         
         if len(dia_data) == 0:
+            print("❌ No se encontró el día seleccionado")
             return "⚠️ No se encontró el día seleccionado", dash.no_update
         
         dia_id = dia_data.iloc[0]['id']
-        print(f"🔍 DEBUG: ID encontrado: {dia_id}")
+        print(f"🔍 ID encontrado: {dia_id}")
+        print(f"🔍 Datos actuales: {dia_data.iloc[0].to_dict()}")
         
-        # Actualizar todos los campos
-        update_data('fiestas', dia_id, 'menu', menu or '')
-        update_data('fiestas', dia_id, 'adultos', adultos or 0)
-        update_data('fiestas', dia_id, 'niños', niños or 0)
-        update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
-        update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
+        # Actualizar campo por campo con verificación
+        print("🔧 Actualizando campos...")
         
-        print(f"✅ DEBUG: Actualización completada para ID {dia_id}")
+        try:
+            update_data('fiestas', dia_id, 'menu', menu or '')
+            print(f"✅ Menu actualizado")
+        except Exception as e:
+            print(f"❌ Error actualizando menu: {e}")
+            
+        try:
+            update_data('fiestas', dia_id, 'adultos', adultos or 0)
+            print(f"✅ Adultos actualizado")
+        except Exception as e:
+            print(f"❌ Error actualizando adultos: {e}")
+            
+        try:
+            update_data('fiestas', dia_id, 'niños', niños or 0)
+            print(f"✅ Niños actualizado")
+        except Exception as e:
+            print(f"❌ Error actualizando niños: {e}")
+            
+        try:
+            update_data('fiestas', dia_id, 'nombres_adultos', nombres_adultos or '')
+            print(f"✅ Nombres adultos actualizado")
+        except Exception as e:
+            print(f"❌ Error actualizando nombres_adultos: {e}")
+            
+        try:
+            update_data('fiestas', dia_id, 'nombres_niños', nombres_niños or '')
+            print(f"✅ Nombres niños actualizado")
+        except Exception as e:
+            print(f"❌ Error actualizando nombres_niños: {e}")
+        
+        # Verificar que se actualizó
+        fiestas_verificacion = get_data('fiestas')
+        dia_actualizado = fiestas_verificacion[fiestas_verificacion['fecha'] == fecha].iloc[0]
+        print(f"🔍 DATOS DESPUÉS DE UPDATE: {dia_actualizado.to_dict()}")
         
         # REGENERAR TARJETAS INMEDIATAMENTE
         tarjetas_actualizadas = generar_tarjetas_fiestas()
+        print("✅ Tarjetas regeneradas")
         
         return f"✅ Día {fecha} actualizado exitosamente! 🎉", tarjetas_actualizadas
         
     except Exception as e:
-        print(f"❌ DEBUG ERROR: {str(e)}")
+        print(f"❌ ERROR GENERAL: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return f"❌ Error actualizando: {str(e)}", dash.no_update
 
 # Página de inicio
