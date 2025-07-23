@@ -876,68 +876,6 @@ app.index_string = '''
         <link rel="shortcut icon" href="/assets/favicon.ico">
         <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
         {%css%}
-        <style>
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                margin: 0;
-                background: linear-gradient(135deg, #E8F5E8 0%, #E3F2FD 100%);
-            }
-            
-            .nav-link:hover {
-                background: rgba(255,255,255,0.2) !important;
-                transform: translateX(5px);
-            }
-            
-            .summary-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 12px rgba(0,0,0,0.15) !important;
-                transition: all 0.3s ease;
-            }
-            
-            /* Estilos para las tablas */
-            .dash-table-container {
-                border-radius: 12px;
-                overflow: hidden;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                background: white;
-            }
-            
-            /* Animaciones suaves */
-            .fade-in {
-                animation: fadeIn 0.5s ease-in;
-            }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            
-            /* Estilos para botones */
-            button:hover {
-                transform: translateY(-1px) !important;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-                transition: all 0.2s ease !important;
-            }
-            
-            /* Calendario personalizado */
-            table {
-                border-radius: 12px !important;
-                overflow: hidden !important;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-            }
-            
-            /* Inputs y dropdowns */
-            .Select-control, input[type="text"], input[type="number"] {
-                border-radius: 6px !important;
-                border: 2px solid #E0E0E0 !important;
-                transition: border-color 0.3s ease !important;
-            }
-            
-            .Select-control:focus, input[type="text"]:focus, input[type="number"]:focus {
-                border-color: #4CAF50 !important;
-                box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2) !important;
-            }
-        </style>
     </head>
     <body>
         {%app_entry%}
@@ -1014,14 +952,8 @@ sidebar = html.Div([
                 ], style={"display": "flex", "align-items": "center"})
             ], href="/fiestas", className="nav-link-dropdown"),
             
-        ], id="dropdown-menu", className="modern-dropdown", style={
-            "position": "absolute",
-            "top": "65px",
-            "right": "0",
-            "min-width": "250px",
-            "display": "none",
-            "z-index": "1001"
-        })
+        ], id="dropdown-menu", className="modern-dropdown", style={"display": "none"})
+
     ], style={"position": "relative"})
     
 ], id="sidebar", style=SIDEBAR_STYLE)
@@ -1040,35 +972,25 @@ app.layout = html.Div([
 @app.callback(
     Output("dropdown-menu", "style"),
     [Input("btn-toggle-sidebar", "n_clicks"),
-     Input("url", "pathname")],  # ← AGREGAR ESTO para escuchar cambios de página
-    [State("dropdown-menu", "style")],
+     Input("url", "pathname")],
     prevent_initial_call=True
 )
-def toggle_dropdown_menu(n_clicks, pathname, current_style):
+def toggle_dropdown_menu(n_clicks, pathname):
     ctx = callback_context
     
     # Si se cambió la página, ocultar el menú
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'url.pathname':
-        return {
-            **current_style,
-            "display": "none"
-        }
+        return {"display": "none"}
     
     # Si se hizo clic en las 3 rayas
-    if n_clicks and n_clicks > 0:
-        # Toggle entre mostrar y ocultar
-        if current_style.get("display") == "none":
-            return {
-                **current_style,
-                "display": "block",
-                "animation": "slideDown 0.3s ease-out"
-            }
-        else:
-            return {
-                **current_style,
-                "display": "none"
-            }
-    return current_style
+    if ctx.triggered and ctx.triggered[0]['prop_id'] == 'btn-toggle-sidebar.n_clicks':
+        # Alternar entre mostrar y ocultar basado en n_clicks par/impar
+        if n_clicks and n_clicks % 2 == 1:  # Impar = mostrar
+            return {"display": "flex"}  # ← CAMBIÉ A FLEX para horizontal
+        else:  # Par = ocultar
+            return {"display": "none"}
+    
+    return {"display": "none"}
 
 # Callback para las páginas
 @app.callback(Output("page-content", "children"), [Input("url", "pathname")])
