@@ -1359,100 +1359,172 @@ def create_comidas_page():
     años_disponibles = get_años_disponibles()
     cocineros_options = get_cocineros_options()
     
+    # 1. Ordenar el DataFrame por fecha (de más reciente a más antigua)
+    comidas_df['fecha'] = pd.to_datetime(comidas_df['fecha'])  # Asegurar que es datetime
+    comidas_df = comidas_df.sort_values('fecha', ascending=True)
+    
+    tipos_comida = get_tipos_comida()
+    años_disponibles = get_años_disponibles()
+    cocineros_options = get_cocineros_options()
+
     return html.Div([
-        html.H1("🍽️ Gestión de Comidas", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H1("🍽️ Gestión de Comidas", style={
+            "color": "#2E7D32", 
+            "margin-bottom": "20px",
+            "fontSize": "24px",
+            "textAlign": "center"
+        }),
         
-        # Tabla de comidas PRIMERO
-        html.H3("📋 Lista de Comidas", style={"color": "#2E7D32", "margin": "10px 0 8px 0"}),
-        dash_table.DataTable(
-            id='tabla-comidas',
-            data=comidas_df.to_dict('records'),
-            columns=[
-                {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
-                {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
-                {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '8px',
-                'fontFamily': 'Arial, sans-serif',
-                'fontSize': '12px',  # Tamaño de fuente más pequeño
-                'minWidth': '10px',
-                'width': '10px',
-                'maxWidth': '10px',
-                'overflow': 'hidden',
-                'textOverflow': 'ellipsis',
-                'whiteSpace': 'normal'  # Permite ajuste de texto
-            },
-            style_header={
-                'backgroundColor': '#4CAF50',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center',
-                'fontSize': '12px'  # Tamaño de fuente más pequeño para encabezados
-            },
-            style_data={
-                'whiteSpace': 'normal',
-                'height': 'auto',
-                'lineHeight': '15px'  # Altura de línea reducida
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
+        # Tabla de comidas responsive
+        html.H3("📋 Lista de Comidas", style={
+            "color": "#2E7D32", 
+            "margin": "10px 0 8px 0",
+            "fontSize": "18px"
+        }),
+        html.Div(
+            dash_table.DataTable(
+                id='tabla-comidas',
+                data=comidas_df.to_dict('records'),
+                columns=[
+                    {"name": "🥘 Tipo", "id": "tipo_comida", "type": "text", "editable": True},
+                    {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
+                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                    {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_table={
+                    'overflowX': 'auto',
+                    'minWidth': '100%',
+                    'maxWidth': '100%'
                 },
-                {
-                    'if': {'column_id': 'cocineros'},
-                    'backgroundColor': '#E8F5E8',
-                    'color': '#2E7D32',
-                    'minWidth': '120px',
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '8px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'fontSize': '12px',
+                    'minWidth': '80px',
                     'width': '120px',
-                    'maxWidth': '120px'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
+                    'maxWidth': '200px',
+                    'whiteSpace': 'normal',
+                    'lineHeight': '15px'
+                },
+                style_header={
+                    'backgroundColor': '#4CAF50',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'fontSize': '13px',
+                    'padding': '8px'
+                },
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'cocineros'},
+                        'backgroundColor': '#E8F5E8',
+                        'color': '#2E7D32'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=10,
+                page_action='native',
+                fixed_rows={'headers': True}
+            ),
+            style={
+                'width': '100%',
+                'overflow': 'auto',
+                'border': '1px solid #ddd',
+                'borderRadius': '8px',
+                'marginBottom': '15px'
+            }
         ),
         
-        # Gestión de cocineros únicos
+        # Gestión de cocineros (responsive)
         html.Div([
-            html.H3("👨‍🍳 Gestión de Cocineros", style={"color": "#1976D2", "margin-bottom": "15px"}),
+            html.H3("👨‍🍳 Gestión de Cocineros", style={
+                "color": "#1976D2", 
+                "margin-bottom": "10px",
+                "fontSize": "18px"
+            }),
             html.Div([
                 dcc.Input(
                     id='nuevo-cocinero-nombre',
-                    placeholder="Nombre del nuevo cocinero",
+                    placeholder="Nombre del cocinero",
                     type='text',
-                    style={"padding": "8px", "width": "250px", "margin": "5px"}
+                    style={
+                        "padding": "8px", 
+                        "width": "100%", 
+                        "margin": "5px 0",
+                        "borderRadius": "6px",
+                        "border": "1px solid #ddd"
+                    }
                 ),
                 html.Button('➕ Agregar Cocinero', id='btn-add-nuevo-cocinero', n_clicks=0,
-                           style={
-                               "background": "#9C27B0", "color": "white", "border": "none",
-                               "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                           })
-            ], style={"display": "flex", "align-items": "center", "gap": "5px"}),
-            html.P("💡 Agrega nuevos cocineros a la lista maestra para usarlos en los selectores", 
-                   style={"color": "#666", "font-style": "italic", "margin": "10px 0"})
-        ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
+                    style={
+                        "background": "#9C27B0", 
+                        "color": "white", 
+                        "border": "none",
+                        "padding": "10px", 
+                        "width": "100%",
+                        "borderRadius": "6px", 
+                        "margin": "5px 0", 
+                        "cursor": "pointer"
+                    }
+                )
+            ], style={"marginBottom": "10px"}),
+            html.P("💡 Agrega nuevos cocineros a la lista maestra", 
+                style={
+                    "color": "#666", 
+                    "fontStyle": "italic", 
+                    "margin": "5px 0",
+                    "fontSize": "12px"
+                }
+            )
+        ], style={
+            "background": "#F3E5F5", 
+            "padding": "15px", 
+            "borderRadius": "8px", 
+            "margin": "15px 0"
+        }),
         
-        # Formulario para agregar comida (CON SELECTORES)
+        # Formulario para agregar comida (responsive)
         html.Div([
-            html.H3("➕ Agregar Nueva Comida", style={"color": "#4CAF50"}),
+            html.H3("➕ Agregar Comida", style={
+                "color": "#4CAF50",
+                "fontSize": "18px",
+                "marginBottom": "10px"
+            }),
             html.Div([
+                # Fecha
                 html.Div([
-                    html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("📅 Fecha:", style={
+                        "fontWeight": "bold", 
+                        "marginBottom": "5px",
+                        "fontSize": "14px"
+                    }),
                     dcc.DatePickerSingle(
                         id='comida-fecha',
                         date=date.today(),
                         display_format='DD/MM/YYYY',
                         style={"width": "100%"}
                     )
-                ], style={"margin": "10px"}),
+                ], style={"margin": "10px 0"}),
                 
+                # Tipo de servicio
                 html.Div([
-                    html.Label("🍽️ Tipo de Servicio:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("🍽️ Servicio:", style={
+                        "fontWeight": "bold", 
+                        "marginBottom": "5px",
+                        "fontSize": "14px"
+                    }),
                     dcc.Dropdown(
                         id='comida-servicio',
                         options=[
@@ -1460,287 +1532,392 @@ def create_comidas_page():
                             {'label': '🌙 Cena', 'value': 'Cena'},
                             {'label': '🌅🌙 Comida y Cena', 'value': 'Comida y Cena'}
                         ],
-                        placeholder="Selecciona tipo de servicio",
+                        placeholder="Selecciona servicio",
                         style={"width": "100%"}
                     )
-                ], style={"margin": "10px"}),
+                ], style={"margin": "10px 0"}),
                 
+                # Tipo de comida
                 html.Div([
-                    html.Label("🥘 Tipo de Comida:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("🥘 Tipo:", style={
+                        "fontWeight": "bold", 
+                        "marginBottom": "5px",
+                        "fontSize": "14px"
+                    }),
                     dcc.Input(
                         id='comida-tipo', 
-                        placeholder="Ej: Comida Normal, Sant Antoni, etc.", 
+                        placeholder="Ej: Comida Normal, Sant Antoni...", 
                         type='text',
-                        style={"width": "100%", "padding": "8px"}
+                        style={
+                            "width": "100%", 
+                            "padding": "8px",
+                            "borderRadius": "6px",
+                            "border": "1px solid #ddd"
+                        }
                     )
-                ], style={"margin": "10px"}),
+                ], style={"margin": "10px 0"}),
                 
+                # Cocineros
                 html.Div([
-                    html.Label("👨‍🍳 Cocineros:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("👨‍🍳 Cocineros:", style={
+                        "fontWeight": "bold", 
+                        "marginBottom": "5px",
+                        "fontSize": "14px"
+                    }),
                     dcc.Dropdown(
                         id='comida-cocineros-selector',
                         options=cocineros_options,
-                        placeholder="Selecciona cocineros (múltiple)",
+                        placeholder="Selecciona cocineros",
                         multi=True,
                         style={"width": "100%"}
                     )
-                ], style={"margin": "10px"}),
+                ], style={"margin": "10px 0"}),
                 
+                # Botón
                 html.Button('✅ Agregar Comida', id='btn-add-comida', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px"
-                           })
-            ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"})
-        ]),
+                    style={
+                        "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
+                        "color": "white", 
+                        "border": "none", 
+                        "padding": "12px",
+                        "width": "100%",
+                        "borderRadius": "8px", 
+                        "fontWeight": "bold", 
+                        "cursor": "pointer",
+                        "margin": "10px 0",
+                        "fontSize": "14px"
+                    }
+                )
+            ], style={"padding": "10px 0"})
+        ], style={
+            "background": "#F8F9FA", 
+            "padding": "15px", 
+            "borderRadius": "8px", 
+            "margin": "15px 0"
+        }),
         
-        # Panel avanzado de gestión de cocineros (MEJORADO CON SELECTORES)
+        # Panel avanzado (responsive)
         html.Div([
-            html.H3("🔄 Gestión Avanzada de Cocineros", style={"color": "#1976D2", "margin-bottom": "20px"}),
-            html.P("💡 Selecciona año y tipo de comida para modificar cocineros en TODAS las comidas de esa categoría", 
-                   style={"color": "#666", "font-style": "italic", "margin-bottom": "20px"}),
+            html.H3("🔄 Gestión Avanzada", style={
+                "color": "#1976D2", 
+                "marginBottom": "15px",
+                "fontSize": "18px"
+            }),
+            html.P("💡 Modifica cocineros en múltiples comidas", 
+                style={
+                    "color": "#666", 
+                    "fontStyle": "italic", 
+                    "marginBottom": "15px",
+                    "fontSize": "14px"
+                }
+            ),
             
-            # Filtros principales
+            # Filtros
             html.Div([
-                html.H5("🎯 Seleccionar Comidas a Modificar", style={"color": "#9C27B0", "margin-bottom": "15px"}),
+                html.H5("🎯 Filtros", style={
+                    "color": "#9C27B0", 
+                    "marginBottom": "10px",
+                    "fontSize": "16px"
+                }),
                 html.Div([
                     html.Div([
-                        html.Label("📅 Año:", style={"font-weight": "bold", "color": "#9C27B0"}),
+                        html.Label("📅 Año:", style={
+                            "fontWeight": "bold", 
+                            "color": "#9C27B0",
+                            "fontSize": "14px"
+                        }),
                         dcc.Dropdown(
                             id='filter-año',
                             options=años_disponibles,
-                            placeholder="Selecciona el año",
-                            style={"width": "150px"}
+                            placeholder="Año",
+                            style={"width": "100%"}
                         )
-                    ], style={"margin": "10px"}),
+                    ], style={"margin": "10px 0", "width": "100%"}),
                     
                     html.Div([
-                        html.Label("🥘 Tipo de Comida:", style={"font-weight": "bold", "color": "#9C27B0"}),
+                        html.Label("🥘 Tipo:", style={
+                            "fontWeight": "bold", 
+                            "color": "#9C27B0",
+                            "fontSize": "14px"
+                        }),
                         dcc.Dropdown(
                             id='filter-tipo',
                             options=tipos_comida,
-                            placeholder="Selecciona el tipo",
-                            style={"width": "200px"}
+                            placeholder="Tipo de comida",
+                            style={"width": "100%"}
                         )
-                    ], style={"margin": "10px"}),
-                ], style={"display": "flex", "align-items": "end", "gap": "10px"})
-            ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "15px 0"}),
+                    ], style={"margin": "10px 0", "width": "100%"})
+                ])
+            ], style={
+                "background": "#F3E5F5", 
+                "padding": "15px", 
+                "borderRadius": "8px", 
+                "margin": "15px 0"
+            }),
             
-            # Operaciones disponibles CON SELECTORES
+            # Operaciones
             html.Div([
-                # Cambiar cocinero por otro
+                # Cambiar cocinero
                 html.Div([
-                    html.H5("🔄 Cambiar Cocinero", style={"color": "#FF9800", "margin-bottom": "10px"}),
+                    html.H5("🔄 Cambiar Cocinero", style={
+                        "color": "#FF9800", 
+                        "marginBottom": "10px",
+                        "fontSize": "16px"
+                    }),
                     html.Div([
                         dcc.Dropdown(
                             id='cambiar-cocinero-antiguo',
                             options=cocineros_options,
-                            placeholder="Cocinero actual",
-                            style={"width": "150px", "margin": "5px"}
+                            placeholder="Actual",
+                            style={"width": "100%", "margin": "5px 0"}
                         ),
-                        html.Span("→", style={"margin": "0 10px", "font-size": "20px", "color": "#FF9800"}),
                         dcc.Dropdown(
                             id='cambiar-cocinero-nuevo',
                             options=cocineros_options,
-                            placeholder="Cocinero nuevo",
-                            style={"width": "150px", "margin": "5px"}
+                            placeholder="Nuevo",
+                            style={"width": "100%", "margin": "5px 0"}
                         ),
                         html.Button('🔄 Cambiar', id='btn-cambiar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#FF9800", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px", "flex-wrap": "wrap"})
-                ], style={"background": "#FFF3E0", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                            style={
+                                "background": "#FF9800", 
+                                "color": "white", 
+                                "border": "none",
+                                "padding": "10px", 
+                                "width": "100%",
+                                "borderRadius": "6px", 
+                                "margin": "5px 0", 
+                                "cursor": "pointer",
+                                "fontSize": "14px"
+                            }
+                        )
+                    ])
+                ], style={
+                    "background": "#FFF3E0", 
+                    "padding": "15px", 
+                    "borderRadius": "8px", 
+                    "margin": "10px 0"
+                }),
                 
                 # Agregar cocinero
                 html.Div([
-                    html.H5("➕ Agregar Cocinero", style={"color": "#4CAF50", "margin-bottom": "10px"}),
+                    html.H5("➕ Agregar Cocinero", style={
+                        "color": "#4CAF50", 
+                        "marginBottom": "10px",
+                        "fontSize": "16px"
+                    }),
                     html.Div([
                         dcc.Dropdown(
                             id='agregar-cocinero',
                             options=cocineros_options,
-                            placeholder="Selecciona cocinero a agregar",
-                            style={"width": "250px", "margin": "5px"}
+                            placeholder="Selecciona cocinero",
+                            style={"width": "100%", "margin": "5px 0"}
                         ),
                         html.Button('➕ Agregar', id='btn-agregar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#4CAF50", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
-                ], style={"background": "#E8F5E8", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
+                            style={
+                                "background": "#4CAF50", 
+                                "color": "white", 
+                                "border": "none",
+                                "padding": "10px", 
+                                "width": "100%",
+                                "borderRadius": "6px", 
+                                "margin": "5px 0", 
+                                "cursor": "pointer",
+                                "fontSize": "14px"
+                            }
+                        )
+                    ])
+                ], style={
+                    "background": "#E8F5E8", 
+                    "padding": "15px", 
+                    "borderRadius": "8px", 
+                    "margin": "10px 0"
+                }),
                 
                 # Eliminar cocinero
                 html.Div([
-                    html.H5("➖ Eliminar Cocinero", style={"color": "#F44336", "margin-bottom": "10px"}),
+                    html.H5("➖ Eliminar Cocinero", style={
+                        "color": "#F44336", 
+                        "marginBottom": "10px",
+                        "fontSize": "16px"
+                    }),
                     html.Div([
                         dcc.Dropdown(
                             id='eliminar-cocinero',
                             options=cocineros_options,
-                            placeholder="Selecciona cocinero a eliminar",
-                            style={"width": "250px", "margin": "5px"}
+                            placeholder="Selecciona cocinero",
+                            style={"width": "100%", "margin": "5px 0"}
                         ),
                         html.Button('➖ Eliminar', id='btn-eliminar-cocinero', n_clicks=0,
-                                   style={
-                                       "background": "#F44336", "color": "white", "border": "none",
-                                       "padding": "8px 16px", "border-radius": "6px", "margin": "5px", "cursor": "pointer"
-                                   })
-                    ], style={"display": "flex", "align-items": "center", "gap": "5px"})
-                ], style={"background": "#FFEBEE", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
-                
-                # NUEVO: Intercambio específico entre diferentes grupos
-                html.Div([
-                    html.H5("🔄 Intercambio Específico", style={"color": "#9C27B0", "margin-bottom": "10px"}),
-                    html.P("Intercambia cocineros entre diferentes años/tipos", style={"color": "#666", "font-size": "0.9rem", "margin-bottom": "10px"}),
-                    html.Div([
-                        # Grupo 1
-                        html.Div([
-                            html.Label("Grupo 1:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
-                            dcc.Dropdown(
-                                id='intercambio-año1',
-                                options=años_disponibles,
-                                placeholder="Año 1",
-                                style={"width": "120px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-tipo1',
-                                options=tipos_comida,
-                                placeholder="Tipo 1",
-                                style={"width": "140px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-cocinero1',
-                                options=cocineros_options,
-                                placeholder="Cocinero 1",
-                                style={"width": "140px", "margin": "2px"}
-                            )
-                        ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
-                        
-                        html.Span("↔️", style={"margin": "0 15px", "font-size": "24px", "align-self": "center"}),
-                        
-                        # Grupo 2
-                        html.Div([
-                            html.Label("Grupo 2:", style={"font-weight": "bold", "color": "#9C27B0", "margin-bottom": "5px"}),
-                            dcc.Dropdown(
-                                id='intercambio-año2',
-                                options=años_disponibles,
-                                placeholder="Año 2",
-                                style={"width": "120px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-tipo2',
-                                options=tipos_comida,
-                                placeholder="Tipo 2",
-                                style={"width": "140px", "margin": "2px"}
-                            ),
-                            dcc.Dropdown(
-                                id='intercambio-cocinero2',
-                                options=cocineros_options,
-                                placeholder="Cocinero 2",
-                                style={"width": "140px", "margin": "2px"}
-                            )
-                        ], style={"display": "flex", "flex-direction": "column", "gap": "5px", "margin": "5px"}),
-                        
-                        html.Button('🔄 Intercambiar', id='btn-intercambiar-especifico', n_clicks=0,
-                                   style={
-                                       "background": "#9C27B0", "color": "white", "border": "none",
-                                       "padding": "12px 20px", "border-radius": "6px", "margin": "10px", 
-                                       "cursor": "pointer", "align-self": "center"
-                                   })
-                    ], style={"display": "flex", "align-items": "start", "gap": "10px", "flex-wrap": "wrap"})
-                ], style={"background": "#F3E5F5", "padding": "15px", "border-radius": "8px", "margin": "10px"}),
-                
-            ], style={"margin": "20px 0"})
-        ], style={"background": "#F5F5F5", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
+                            style={
+                                "background": "#F44336", 
+                                "color": "white", 
+                                "border": "none",
+                                "padding": "10px", 
+                                "width": "100%",
+                                "borderRadius": "6px", 
+                                "margin": "5px 0", 
+                                "cursor": "pointer",
+                                "fontSize": "14px"
+                            }
+                        )
+                    ])
+                ], style={
+                    "background": "#FFEBEE", 
+                    "padding": "15px", 
+                    "borderRadius": "8px", 
+                    "margin": "10px 0"
+                })
+            ])
+        ], style={
+            "background": "#F5F5F5", 
+            "padding": "15px", 
+            "borderRadius": "8px", 
+            "margin": "15px 0"
+        }),
         
-        # Mensajes y confirmaciones
-        html.Div(id='comida-output', style={"margin": "20px 0", "padding": "10px"})
-    ])
+        # Mensajes
+        html.Div(id='comida-output', style={
+            "margin": "15px 0", 
+            "padding": "10px",
+            "fontSize": "14px"
+        })
+    ], style={
+        "padding": "10px",
+        "maxWidth": "100%",
+        "overflowX": "hidden"
+    })
 
 # Página de lista de compra
 def create_lista_compra_page():
     lista_df = get_data('lista_compra')
     
     return html.Div([
-        html.H1("🛒 Lista de Compra", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H1("🛒 Lista de Compra", style={"color": "#2E7D32", "margin-bottom": "20px", "fontSize": "24px"}),
         
-        # Tabla de lista PRIMERO
-        html.H3("📋 Lista de Compras", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        dash_table.DataTable(
-            id='tabla-lista',
-            data=lista_df.to_dict('records'),
-            columns=[
-                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#2196F3',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
+        # Tabla de lista con diseño responsive
+        html.H3("📋 Lista de Compras", style={"color": "#2E7D32", "margin": "15px 0 10px 0", "fontSize": "18px"}),
+        html.Div(
+            dash_table.DataTable(
+                id='tabla-lista',
+                data=lista_df.to_dict('records'),
+                columns=[
+                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                    {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_table={
+                    'overflowX': 'auto',
+                    'minWidth': '100%',
+                    'maxWidth': '100%',
+                    'marginBottom': '20px'
                 },
-                {
-                    'if': {'column_id': 'objeto'},
-                    'backgroundColor': '#E3F2FD',
-                    'color': '#1976D2'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '8px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'minWidth': '80px',
+                    'width': '120px',
+                    'maxWidth': '200px',
+                    'whiteSpace': 'normal',
+                    'fontSize': '12px',
+                    'lineHeight': '15px'
+                },
+                style_header={
+                    'backgroundColor': '#2196F3',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'fontSize': '13px',
+                    'padding': '8px'
+                },
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'objeto'},
+                        'backgroundColor': '#E3F2FD',
+                        'color': '#1976D2'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=10,  # Menos filas por página en móvil
+                page_action='native',
+                fixed_rows={'headers': True}
+            ),
+            style={
+                'width': '100%',
+                'overflow': 'auto',
+                'border': '1px solid #ddd',
+                'borderRadius': '8px',
+                'marginBottom': '15px'
+            }
         ),
         
-        # Formulario para agregar DESPUÉS de la tabla
+        # Formulario para agregar - Adaptado para móvil
         html.Div([
-            html.H3("➕ Agregar Nuevo Item", style={"color": "#2196F3"}),
+            html.H3("➕ Agregar Nuevo Item", style={"color": "#2196F3", "fontSize": "18px", "marginBottom": "10px"}),
             html.Div([
+                # Fecha en su propia fila
                 html.Div([
-                    html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px", "fontSize": "14px"}),
                     dcc.DatePickerSingle(
                         id='lista-fecha',
                         date=date.today(),
                         display_format='DD/MM/YYYY',
-                        style={"width": "100%"}
+                        style={"width": "100%", "marginBottom": "10px"}
                     )
-                ], style={"margin": "10px", "flex": "1"}),
+                ], style={"width": "100%", "marginBottom": "10px"}),
                 
+                # Objeto en su propia fila
                 html.Div([
-                    html.Label("📦 Objeto a Comprar:", style={"font-weight": "bold", "margin-bottom": "5px"}),
+                    html.Label("📦 Objeto a Comprar:", style={"font-weight": "bold", "margin-bottom": "5px", "fontSize": "14px"}),
                     dcc.Input(
                         id='lista-objeto', 
                         placeholder="Ej: Tomates, Pan, Aceite...", 
                         type='text',
-                        style={"width": "100%", "padding": "8px"}
+                        style={"width": "100%", "padding": "8px", "marginBottom": "10px"}
                     )
-                ], style={"margin": "10px", "flex": "2"}),
+                ], style={"width": "100%", "marginBottom": "10px"}),
                 
-                html.Button('✅ Agregar Item', id='btn-add-lista', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px", "align-self": "end"
-                           })
-            ], style={"display": "flex", "align-items": "end", "gap": "10px"})
-        ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
+                # Botón centrado
+                html.Div(
+                    html.Button('✅ Agregar Item', id='btn-add-lista', n_clicks=0,
+                               style={
+                                   "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
+                                   "color": "white", 
+                                   "border": "none", 
+                                   "padding": "10px 20px",
+                                   "border-radius": "8px", 
+                                   "font-weight": "bold", 
+                                   "cursor": "pointer",
+                                   "width": "100%",
+                                   "fontSize": "14px"
+                               }),
+                    style={"width": "100%"}
+                )
+            ], style={"display": "flex", "flexDirection": "column"})  # Cambiado a columna para móvil
+        ], style={
+            "background": "#F8F9FA", 
+            "padding": "15px", 
+            "border-radius": "8px", 
+            "margin": "15px 0",
+            "fontSize": "14px"
+        }),
         
-        html.Div(id='lista-output', style={"margin": "20px 0", "padding": "10px"})
-    ])
+        html.Div(id='lista-output', style={
+            "margin": "15px 0", 
+            "padding": "10px",
+            "fontSize": "14px"
+        })
+    ], style={"padding": "10px"})  # Padding general para el contenedor principal
 
 # Página de mantenimiento
 def create_mantenimiento_page():
@@ -1869,7 +2046,7 @@ def create_mantenimiento_page():
 
 def create_fiestas_page():
     return html.Div([
-        html.H1("🎉 Fiestas de Agosto 2025", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H1("🎉 Fiestas 2025 - Vilafranca", style={"color": "#2E7D32", "margin-bottom": "30px"}),
         
         # Mostrar etiquetas por día
         html.Div(id='tarjetas-fiestas'),
