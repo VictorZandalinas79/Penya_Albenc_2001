@@ -1363,10 +1363,6 @@ def create_comidas_page():
     comidas_df['fecha'] = pd.to_datetime(comidas_df['fecha'])  # Asegurar que es datetime
     comidas_df = comidas_df.sort_values('fecha', ascending=True)
     
-    tipos_comida = get_tipos_comida()
-    años_disponibles = get_años_disponibles()
-    cocineros_options = get_cocineros_options()
-
     return html.Div([
         html.H1("🍽️ Gestión de Comidas", style={
             "color": "#2E7D32", 
@@ -1766,7 +1762,127 @@ def create_comidas_page():
                     "padding": "15px", 
                     "borderRadius": "8px", 
                     "margin": "10px 0"
-                })
+                }),
+                
+                # Intercambio específico
+                html.Div([
+                    html.H5("🔄 Intercambio Específico", style={
+                        "color": "#9C27B0", 
+                        "marginBottom": "10px",
+                        "fontSize": "16px"
+                    }),
+                    html.Div([
+                        # Año 1
+                        html.Div([
+                            html.Label("📅 Año 1:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-año1',
+                                options=años_disponibles,
+                                placeholder="Selecciona año",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Tipo 1
+                        html.Div([
+                            html.Label("🥘 Tipo 1:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-tipo1',
+                                options=tipos_comida,
+                                placeholder="Selecciona tipo",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Cocinero 1
+                        html.Div([
+                            html.Label("👨‍🍳 Cocinero 1:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-cocinero1',
+                                options=cocineros_options,
+                                placeholder="Selecciona cocinero",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Año 2
+                        html.Div([
+                            html.Label("📅 Año 2:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-año2',
+                                options=años_disponibles,
+                                placeholder="Selecciona año",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Tipo 2
+                        html.Div([
+                            html.Label("🥘 Tipo 2:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-tipo2',
+                                options=tipos_comida,
+                                placeholder="Selecciona tipo",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Cocinero 2
+                        html.Div([
+                            html.Label("👨‍🍳 Cocinero 2:", style={
+                                "fontWeight": "bold", 
+                                "color": "#9C27B0",
+                                "fontSize": "14px"
+                            }),
+                            dcc.Dropdown(
+                                id='int-cocinero2',
+                                options=cocineros_options,
+                                placeholder="Selecciona cocinero",
+                                style={"width": "100%", "margin": "5px 0"}
+                            )
+                        ], style={"margin": "10px 0"}),
+                        
+                        # Botón de intercambio
+                        html.Button('🔄 Intercambiar', id='btn-intercambiar-especifico', n_clicks=0,
+                            style={
+                                "background": "#9C27B0", 
+                                "color": "white", 
+                                "border": "none",
+                                "padding": "10px", 
+                                "width": "100%",
+                                "borderRadius": "6px", 
+                                "margin": "5px 0", 
+                                "cursor": "pointer",
+                                "fontSize": "14px"
+                            }
+                        )
+                    ])
+                ], style={
+                    "background": "#F3E5F5", 
+                    "padding": "15px", 
+                    "borderRadius": "8px", 
+                    "margin": "10px 0"
+                }),
             ])
         ], style={
             "background": "#F5F5F5", 
@@ -2221,8 +2337,8 @@ def create_debug_page():
      State('filter-año', 'value'), State('filter-tipo', 'value'),
      State('cambiar-cocinero-antiguo', 'value'), State('cambiar-cocinero-nuevo', 'value'),
      State('agregar-cocinero', 'value'), State('eliminar-cocinero', 'value'),
-     State('intercambio-año1', 'value'), State('intercambio-tipo1', 'value'), State('intercambio-cocinero1', 'value'),
-     State('intercambio-año2', 'value'), State('intercambio-tipo2', 'value'), State('intercambio-cocinero2', 'value')],
+     State('int-año1', 'value'), State('int-tipo1', 'value'), State('int-cocinero1', 'value'),
+     State('int-año2', 'value'), State('int-tipo2', 'value'), State('int-cocinero2', 'value')],
     prevent_initial_call=True
 )
 def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_intercambio,
@@ -2317,8 +2433,8 @@ def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_int
 # Callback para actualizar opciones dinámicamente
 @app.callback(
     [Output('filter-tipo', 'options'),
-     Output('intercambio-tipo1', 'options'),
-     Output('intercambio-tipo2', 'options')],
+     Output('int-tipo1', 'options'),
+     Output('int-tipo2', 'options')],
     [Input('tabla-comidas', 'data')],
     prevent_initial_call=True
 )
