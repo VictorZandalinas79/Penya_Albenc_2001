@@ -840,54 +840,69 @@ def get_proximos_eventos(limit=5):
         print(f"Error obteniendo próximos eventos: {e}")
         return pd.DataFrame()
 
-# Estilos CSS
+# Versión Ultra Moderna - Dark Theme
 SIDEBAR_STYLE = {
     "position": "fixed",
     "top": 0,
     "left": 0,
     "right": 0,
-    "height": "70px",  # ← Altura fija pequeña
-    "padding": "10px 20px",
-    "background": "linear-gradient(90deg, #2E7D32 0%, #1976D2 100%)",
-    "color": "white",
-    "box-shadow": "0 2px 10px rgba(0,0,0,0.15)",
-    "z-index": "1000",
-    "display": "flex",  # ← Flexbox horizontal
-    "align-items": "center",
-    "justify-content": "space-between"
+    "height": "80px",  # ← Más altura para mejor proporción
+    "padding": "0 max(1rem, env(safe-area-inset-left)) 0 max(1rem, env(safe-area-inset-right))",  # ← Soporte PWA
+    "background": """
+        linear-gradient(135deg, 
+            rgba(30, 30, 30, 0.95) 0%, 
+            rgba(45, 45, 45, 0.95) 50%, 
+            rgba(20, 20, 20, 0.95) 100%)
+    """,  # ← Dark glassmorphism
+    "backdropFilter": "blur(20px) saturate(1.2)",  # ← Efecto moderno
+    "borderBottom": "1px solid rgba(255,255,255,0.08)",
+    "color": "rgba(255,255,255,0.95)",
+    "boxShadow": """
+        0 8px 32px rgba(0,0,0,0.12),
+        0 2px 8px rgba(0,0,0,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.05)
+    """,  # ← Sombras premium
+    "zIndex": "1000",
+    "display": "flex",
+    "alignItems": "center",
+    "justifyContent": "space-between",
+    "transition": "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",  # ← Easing premium
+    "WebkitBackdropFilter": "blur(20px) saturate(1.2)",
+    # Soporte para notch de móviles
+    "paddingTop": "env(safe-area-inset-top)",
 }
 
 CONTENT_STYLE = {
-    "margin-top": "90px",  # ← Margen fijo para el header
-    "margin-left": "2rem",
-    "margin-right": "2rem", 
-    "padding": "2rem 1rem",
-    "background": "#FAFAFA",
-    "min-height": "100vh"
+    "marginTop": "100px",  # ← Ajustado
+    "marginLeft": "clamp(0.5rem, 5vw, 4rem)",  # ← Más responsive
+    "marginRight": "clamp(0.5rem, 5vw, 4rem)",
+    "padding": "clamp(2rem, 4vw, 4rem) clamp(1.5rem, 3vw, 3rem)",
+    "background": """
+        linear-gradient(135deg, 
+            rgba(248, 250, 252, 0.98) 0%, 
+            rgba(241, 245, 249, 0.95) 100%)
+    """,  # ← Fondo premium
+    "minHeight": "calc(100vh - 100px)",  # ← Altura exacta
+    "borderRadius": "32px 32px 0 0",  # ← Bordes más redondeados
+    "boxShadow": """
+        0 -10px 40px rgba(0,0,0,0.06),
+        0 -2px 8px rgba(0,0,0,0.02),
+        inset 0 1px 0 rgba(255,255,255,0.8)
+    """,  # ← Sombras premium
+    "position": "relative",
+    "overflow": "hidden",
+    "backgroundImage": """
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 200, 255, 0.05) 0%, transparent 50%)
+    """,  # ← Efectos de luz múltiples
+    "transition": "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
+    # Animación sutil de entrada
+    "animation": "slideInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
 }
 
-# CSS adicional para mejorar la apariencia
-app.index_string = '''
-<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>{%title%}</title>
-        <link rel="shortcut icon" href="/assets/favicon.ico">
-        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-        {%css%}
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-        </footer>
-    </body>
-</html>
-'''
 
+# Layout del sidebar como navbar horizontal
 # Layout del sidebar como navbar horizontal
 sidebar = html.Div([
     # Location component
@@ -952,7 +967,7 @@ sidebar = html.Div([
                 ], style={"display": "flex", "align-items": "center"})
             ], href="/fiestas", className="nav-link-dropdown"),
             
-        ], id="dropdown-menu", className="modern-dropdown", style={"display": "none"})
+        ], id="dropdown-menu", className="modern-dropdown")  # ← Sin style inline
 
     ], style={"position": "relative"})
     
@@ -970,7 +985,8 @@ app.layout = html.Div([
 
 # Callback mejorado para mostrar/ocultar el menú desplegable
 @app.callback(
-    Output("dropdown-menu", "style"),
+    [Output("dropdown-menu", "style"),
+     Output("dropdown-menu", "className")],
     [Input("btn-toggle-sidebar", "n_clicks"),
      Input("url", "pathname")],
     prevent_initial_call=True
@@ -978,19 +994,47 @@ app.layout = html.Div([
 def toggle_dropdown_menu(n_clicks, pathname):
     ctx = callback_context
     
+    # Estilos base del menú centrado
+    base_style = {
+        "position": "fixed",
+        "top": "100%",
+        "left": "85%",
+        "transform": "translate(-50%, -50%)",
+        "zIndex": "1003",
+        "background": "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",  # ← Gradiente sutil
+        "borderRadius": "24px",  # ← Más redondeado
+        "boxShadow": """
+            0 25px 50px rgba(0,0,0,0.15),
+            0 0 0 1px rgba(255,255,255,0.05),
+            inset 0 1px 0 rgba(255,255,255,0.9)
+        """,  # ← Sombras múltiples premium
+        "border": "1px solid rgba(226, 232, 240, 0.8)",  # ← Borde más sutil
+        "backdropFilter": "blur(20px) saturate(1.1)",  # ← Efecto glassmorphism
+        "minWidth": "280px",
+        "width": "280px",
+        "maxHeight": "50vh",
+        "overflowY": "auto",
+        "animation": "modalSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",  # ← Animación con bounce
+        "flexDirection": "column",
+        "padding": "30px 0",  # ← Más padding vertical
+        # Scroll personalizado
+        "scrollbarWidth": "thin",
+        "scrollbarColor": "#cbd5e1 transparent"
+    }
+    
     # Si se cambió la página, ocultar el menú
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'url.pathname':
-        return {"display": "none"}
+        return {**base_style, "display": "none"}, "modern-dropdown"
     
     # Si se hizo clic en las 3 rayas
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'btn-toggle-sidebar.n_clicks':
-        # Alternar entre mostrar y ocultar basado en n_clicks par/impar
         if n_clicks and n_clicks % 2 == 1:  # Impar = mostrar
-            return {"display": "flex"}  # ← CAMBIÉ A FLEX para horizontal
+            return {**base_style, "display": "flex"}, "modern-dropdown show"
         else:  # Par = ocultar
-            return {"display": "none"}
+            return {**base_style, "display": "none"}, "modern-dropdown"
     
-    return {"display": "none"}
+    # Por defecto oculto
+    return {**base_style, "display": "none"}, "modern-dropdown"
 
 # Callback para las páginas
 @app.callback(Output("page-content", "children"), [Input("url", "pathname")])

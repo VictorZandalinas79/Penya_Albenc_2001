@@ -1,64 +1,15 @@
-/* RESET Y FORZADO PARA SIDEBAR */
-* {
-    box-sizing: border-box;
-}
-
-/* SIDEBAR PRINCIPAL - SUPER FORZADO */
+/* SIDEBAR PRINCIPAL - No tocar, ya funciona */
 #sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 70px !important;
-    padding: 10px 20px !important;
-    background: linear-gradient(90deg, #2E7D32 0%, #1976D2 100%) !important;
-    color: white !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.15) !important;
-    z-index: 1000 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    margin: 0 !important;
-    border: none !important;
+    /* Los estilos vienen de SIDEBAR_STYLE */
 }
 
-/* CONTENIDO PRINCIPAL - SUPER FORZADO */
-#page-content {
-    margin-top: 90px !important;
-    margin-left: 2rem !important;
-    margin-right: 2rem !important;
-    padding: 2rem 1rem !important;
-    background: #FAFAFA !important;
-    min-height: 100vh !important;
+/* CONTENEDOR DEL BOTÓN Y MENÚ */
+#sidebar > div:last-child {
     position: relative !important;
-    z-index: 1 !important;
+    z-index: 1001 !important;
 }
 
-/* ELEMENTOS DEL SIDEBAR - SUPER FORZADOS */
-#sidebar > div:first-child {
-    display: flex !important;
-    align-items: center !important;
-}
-
-#sidebar img {
-    width: 50px !important;
-    height: 50px !important;
-    margin-right: 15px !important;
-    border-radius: 8px !important;
-    object-fit: contain !important;
-}
-
-#sidebar h2 {
-    font-size: 1.3rem !important;
-    margin: 0 !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.5px !important;
-    color: white !important;
-    border: none !important;
-    padding: 0 !important;
-}
-
+/* BOTÓN HAMBURGUESA */
 #btn-toggle-sidebar {
     background: rgba(255,255,255,0.2) !important;
     border: none !important;
@@ -68,48 +19,205 @@
     padding: 8px 12px !important;
     border-radius: 6px !important;
     transition: all 0.3s ease !important;
-    margin: 0 !important;
+    z-index: 1002 !important;
 }
 
-/* MENÚ DESPLEGABLE */
-#dropdown-menu {
-    position: absolute !important;
-    top: 65px !important;
+#btn-toggle-sidebar:hover {
+    background: rgba(255,255,255,0.3) !important;
+    transform: scale(1.05) !important;
+}
+
+/* MENÚ CENTRADO EN LA PANTALLA COMO MODAL */
+#dropdown-menu.modern-dropdown {
+    position: fixed !important;  /* ← FIXED para centrar en pantalla */
+    top: 50% !important;          /* ← Centrado vertical */
+    left: 50% !important;         /* ← Centrado horizontal */
+    transform: translate(-50%, -50%) !important;  /* ← Centrado exacto */
+    z-index: 1003 !important;
+    background: #FFFFFF !important;
+    border-radius: 20px !important;  /* ← Más redondeado */
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;  /* ← Sombra más dramática */
+    border: 2px solid #E0E0E0 !important;
+    min-width: 320px !important;
+    width: 320px !important;
+    max-height: 80vh !important;  /* ← Máximo 80% de la pantalla */
+    overflow-y: auto !important;
+    animation: modalSlide 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+    
+    /* OCULTO POR DEFECTO */
+    display: none !important;
+    
+    /* LAYOUT VERTICAL */
+    flex-direction: column !important;
+    padding: 20px 0 !important;  /* ← Más padding */
+}
+
+/* MOSTRAR CUANDO TIENE CLASE "show" */
+#dropdown-menu.modern-dropdown.show {
+    display: flex !important;
+}
+
+/* OVERLAY OSCURO DE FONDO */
+#dropdown-menu.modern-dropdown.show::before {
+    content: '';
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
     right: 0 !important;
-    z-index: 1001 !important;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(20px) !important;
-    border-radius: 16px !important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important;
-    border: 1px solid rgba(0,0,0,0.1) !important;
-    min-width: 280px !important;
-    overflow: hidden !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.5) !important;  /* ← Fondo oscuro */
+    z-index: -1 !important;
+    animation: fadeIn 0.3s ease !important;
 }
 
-/* ENLACES DEL MENÚ */
+/* ESTILOS DE LOS ENLACES VERTICALES CENTRADOS */
 .nav-link-dropdown {
     display: block !important;
+    text-align: center !important;  /* ← Centrado */
+    white-space: nowrap !important;
+    padding: 18px 30px !important;  /* ← Más padding */
+    margin: 8px 20px !important;    /* ← Más margen */
+    border-radius: 12px !important; /* ← Más redondeado */
+    transition: all 0.3s ease !important;
     color: #333 !important;
     text-decoration: none !important;
-    padding: 20px 30px !important;
-    font-size: 1.4rem !important;
-    font-weight: 600 !important;
-    border-bottom: 1px solid rgba(0,0,0,0.05) !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    transition: all 0.2s ease !important;
-    background: white !important;
-    white-space: nowrap !important;
+    font-size: 1.2rem !important;   /* ← Texto más grande */
+    font-weight: 600 !important;    /* ← Más negrita */
+    border-bottom: none !important;
+    background: rgba(248, 250, 252, 0.8) !important;  /* ← Fondo sutil */
 }
 
 .nav-link-dropdown:hover {
-    background: #f0f0f0 !important;
-    color: #2E7D32 !important;
+    background: linear-gradient(135deg, #2E7D32 0%, #1976D2 100%) !important;  /* ← Colores del tema */
+    color: white !important;
+    transform: translateY(-2px) scale(1.02) !important;  /* ← Efecto hover */
+    box-shadow: 0 8px 25px rgba(46, 125, 50, 0.3) !important;
 }
 
-/* CUERPO */
-body {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-family: Arial, sans-serif !important;
+/* ANIMACIONES MEJORADAS */
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);  /* ← Aparece desde pequeño */
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* RESPONSIVE PARA MÓVILES */
+@media (max-width: 768px) {
+    #dropdown-menu.modern-dropdown {
+        width: 90vw !important;  /* ← Ancho responsive en móvil */
+        max-width: 400px !important;
+    }
+    
+    .nav-link-dropdown {
+        font-size: 1.1rem !important;
+        padding: 16px 25px !important;
+    }
+    
+    #sidebar {
+        height: 70px !important;
+        padding: 0 1rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    #dropdown-menu.modern-dropdown {
+        width: 95vw !important;
+    }
+    
+    .nav-link-dropdown {
+        font-size: 1rem !important;
+        padding: 14px 20px !important;
+    }
+    
+    #sidebar {
+        height: 65px !important;
+        padding: 0 0.75rem !important;
+    }
+}
+
+/* ANIMACIÓN DEL CONTENIDO PRINCIPAL */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* FONDO OSCURO CUANDO EL MENÚ ESTÁ ABIERTO */
+.modern-dropdown.show::before {
+    content: '';
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: -1 !important;
+    animation: fadeIn 0.3s ease !important;
+}
+
+/* ANIMACIONES */
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ESTILOS DE LOS ENLACES DEL MENÚ CENTRADO */
+.modern-dropdown .nav-link-dropdown {
+    display: block !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    padding: 18px 30px !important;
+    margin: 8px 20px !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+    color: #333 !important;
+    text-decoration: none !important;
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    background: rgba(248, 250, 252, 0.8) !important;
+}
+
+.modern-dropdown .nav-link-dropdown:hover {
+    background: linear-gradient(135deg, #2E7D32 0%, #1976D2 100%) !important;
+    color: white !important;
+    transform: translateY(-2px) scale(1.02) !important;
+    box-shadow: 0 8px 25px rgba(46, 125, 50, 0.3) !important;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .modern-dropdown {
+        width: 90vw !important;
+        max-width: 400px !important;
+    }
 }
