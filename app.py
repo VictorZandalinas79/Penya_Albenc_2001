@@ -1368,8 +1368,6 @@ def create_comidas_page():
             id='tabla-comidas',
             data=comidas_df.to_dict('records'),
             columns=[
-                {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True,
-                "format": {"specifier": "%d-%m-%Y"}},
                 {"name": "🥘 Tipo Comida", "id": "tipo_comida", "type": "text", "editable": True},
                 {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
                 {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
@@ -1379,13 +1377,26 @@ def create_comidas_page():
             style_cell={
                 'textAlign': 'left',
                 'padding': '8px',
-                'fontFamily': 'Arial, sans-serif'
+                'fontFamily': 'Arial, sans-serif',
+                'fontSize': '12px',  # Tamaño de fuente más pequeño
+                'minWidth': '10px',
+                'width': '10px',
+                'maxWidth': '10px',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'whiteSpace': 'normal'  # Permite ajuste de texto
             },
             style_header={
                 'backgroundColor': '#4CAF50',
                 'color': 'white',
                 'fontWeight': 'bold',
-                'textAlign': 'center'
+                'textAlign': 'center',
+                'fontSize': '12px'  # Tamaño de fuente más pequeño para encabezados
+            },
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+                'lineHeight': '15px'  # Altura de línea reducida
             },
             style_data_conditional=[
                 {
@@ -1395,7 +1406,10 @@ def create_comidas_page():
                 {
                     'if': {'column_id': 'cocineros'},
                     'backgroundColor': '#E8F5E8',
-                    'color': '#2E7D32'
+                    'color': '#2E7D32',
+                    'minWidth': '120px',
+                    'width': '120px',
+                    'maxWidth': '120px'
                 }
             ],
             sort_action="native",
@@ -1735,51 +1749,77 @@ def create_mantenimiento_page():
     return html.Div([
         html.H1("🔧 Mantenimiento", style={"color": "#2E7D32", "margin-bottom": "30px"}),
         
-        # Tabla de mantenimiento PRIMERO
+        # Tabla de mantenimiento con diseño responsive
         html.H3("📋 Tareas de Mantenimiento", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        dash_table.DataTable(
-            id='tabla-mant',
-            data=mant_df.to_dict('records'),
-            columns=[
-                {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
-                {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
-                {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
-            ],
-            row_deletable=True,
-            editable=True,
-            style_cell={
-                'textAlign': 'left',
-                'padding': '12px',
-                'fontFamily': 'Arial, sans-serif'
-            },
-            style_header={
-                'backgroundColor': '#FF9800',
-                'color': 'white',
-                'fontWeight': 'bold',
-                'textAlign': 'center'
-            },
-            style_data_conditional=[
-                {
-                    'if': {'row_index': 'odd'},
-                    'backgroundColor': '#F8F9FA'
+        html.Div(
+            dash_table.DataTable(
+                id='tabla-mant',
+                data=mant_df.to_dict('records'),
+                columns=[
+                    {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
+                    {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
+                    {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
+                ],
+                row_deletable=True,
+                editable=True,
+                style_table={
+                    'overflowX': 'auto',
+                    'minWidth': '100%',
+                    'maxWidth': '100%'
                 },
-                {
-                    'if': {'column_id': 'mantenimiento'},
-                    'backgroundColor': '#FFF3E0',
-                    'color': '#E65100'
+                style_cell={
+                    'textAlign': 'left',
+                    'padding': '8px',
+                    'fontFamily': 'Arial, sans-serif',
+                    'minWidth': '100px',
+                    'width': '150px',
+                    'maxWidth': '200px',
+                    'whiteSpace': 'normal',
+                    'fontSize': '12px'
                 },
-                {
-                    'if': {'column_id': 'cadafals'},
-                    'backgroundColor': '#FFF8E1',
-                    'color': '#F57C00'
-                }
-            ],
-            sort_action="native",
-            filter_action="native",
-            page_size=15
+                style_header={
+                    'backgroundColor': '#FF9800',
+                    'color': 'white',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'fontSize': '12px'
+                },
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto'
+                },
+                style_data_conditional=[
+                    {
+                        'if': {'row_index': 'odd'},
+                        'backgroundColor': '#F8F9FA'
+                    },
+                    {
+                        'if': {'column_id': 'mantenimiento'},
+                        'backgroundColor': '#FFF3E0',
+                        'color': '#E65100'
+                    },
+                    {
+                        'if': {'column_id': 'cadafals'},
+                        'backgroundColor': '#FFF8E1',
+                        'color': '#F57C00'
+                    }
+                ],
+                sort_action="native",
+                filter_action="native",
+                page_size=15,
+                page_action='native',
+                fixed_rows={'headers': True}
+            ),
+            style={
+                'width': '100%',
+                'overflow': 'auto',
+                'marginBottom': '20px',
+                'border': '1px solid #ddd',
+                'borderRadius': '8px'
+            }
         ),
         
-        # Formulario para agregar DESPUÉS de la tabla
+        # Formulario para agregar (se mantiene igual)
         html.Div([
             html.H3("➕ Agregar Tarea de Mantenimiento", style={"color": "#FF9800"}),
             html.Div([
@@ -1821,7 +1861,7 @@ def create_mantenimiento_page():
                                "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
                                "margin": "10px", "align-self": "end"
                            })
-            ], style={"display": "flex", "align-items": "end", "gap": "10px"})
+            ], style={"display": "flex", "flex-wrap": "wrap", "align-items": "end", "gap": "10px"})
         ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
         
         html.Div(id='mant-output', style={"margin": "20px 0", "padding": "10px"})
