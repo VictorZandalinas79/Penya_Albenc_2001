@@ -5,13 +5,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
+import os
 from datetime import datetime, date, timedelta
 import calendar
 
 # Inicializar la app
-app = dash.Dash(__name__, suppress_callback_exceptions=True, 
+is_production = os.environ.get('RENDER') is not None
+
+app = dash.Dash(__name__, 
+                suppress_callback_exceptions=True, 
                 assets_folder='assets',
-                assets_url_path='/assets/')
+                # En producción usar ruta absoluta
+                assets_url_path='/assets/' if not is_production else '/assets/')
 app.title = "Penya L'Albenc"
 
 # AGREGAR ESTO ⬇️
@@ -21,8 +26,8 @@ app.index_string = '''
     <head>
         {%metas%}
         <title>Penya L'Albenc</title>
-        <link rel="shortcut icon" href="/assets/favicon.ico">
-        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+        <link rel="shortcut icon" href="./assets/favicon.ico">  <!-- ← Relativa -->
+        <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         {%css%}
     </head>
