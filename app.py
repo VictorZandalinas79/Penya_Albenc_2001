@@ -1259,7 +1259,11 @@ def create_home_page():
     ], style={"border-collapse": "collapse", "width": "100%", "margin": "20px 0"})
     
     return html.Div([
-        html.H1("Bienvenido a Penya L'Albenc", style={"color": "#2E7D32", "margin-bottom": "30px"}),
+        html.H1("Bienvenido a Penya L'Albenc", style={
+            "color": "#2E7D32", 
+            "margin-bottom": "30px",
+            "text-align": "center"  # ← AGREGAR ESTA LÍNEA
+        }),
         
         # PRIMERA FILA: MANTENIMIENTO ACTUAL EN GRANDE
         html.Div([
@@ -1269,8 +1273,8 @@ def create_home_page():
                     # Logo al lado del título
                     html.Div([
                         html.Img(src="/assets/logo2.png", style={
-                            "width": "120px", "height": "120px", "margin-right": "50px", 
-                            "border-radius": "20px", "object-fit": "cover",
+                            "width": "200px", "height": "200px", "margin-right": "50px", 
+                            "border-radius": "20px", "object-fit": "contain",
                             "box-shadow": "0 4px 8px rgba(0,0,0,0.2)"
                         }),
                         html.H2(f"📅 AÑO {año_actual}", style={"color": "#FF9800", "margin": "0", "font-size": "2.5rem"})
@@ -1413,6 +1417,7 @@ def create_comidas_page():
                     {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
                     {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
                 ],
+                sort_by=[{"column_id": "fecha", "direction": "asc"}],
                 row_deletable=True,
                 editable=True,
                 style_table={
