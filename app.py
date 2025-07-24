@@ -12,12 +12,10 @@ import calendar
 # Inicializar la app
 is_production = os.environ.get('RENDER') is not None
 
-app = dash.Dash(__name__, 
-                suppress_callback_exceptions=True, 
+# Al inicio del archivo, después de crear la app
+app = dash.Dash(__name__, suppress_callback_exceptions=True, 
                 assets_folder='assets',
-                # En producción usar ruta absoluta
-                assets_url_path='/assets/' if not is_production else '/assets/')
-app.title = "Penya L'Albenc"
+                assets_url_path='/assets/')
 
 # AGREGAR ESTO ⬇️
 app.index_string = '''
@@ -26,8 +24,8 @@ app.index_string = '''
     <head>
         {%metas%}
         <title>Penya L'Albenc</title>
-        <link rel="shortcut icon" href="./assets/favicon.ico">  <!-- ← Relativa -->
-        <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
+        <link rel="shortcut icon" href="/assets/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         {%css%}
     </head>
@@ -1270,9 +1268,9 @@ def create_home_page():
                 html.Div([
                     # Logo al lado del título
                     html.Div([
-                        html.Img(src="/assets/logo.png", style={
-                            "width": "80px", "height": "80px", "margin-right": "20px", 
-                            "border-radius": "12px", "object-fit": "contain",
+                        html.Img(src="/assets/logo2.png", style={
+                            "width": "120px", "height": "120px", "margin-right": "50px", 
+                            "border-radius": "20px", "object-fit": "cover",
                             "box-shadow": "0 4px 8px rgba(0,0,0,0.2)"
                         }),
                         html.H2(f"📅 AÑO {año_actual}", style={"color": "#FF9800", "margin": "0", "font-size": "2.5rem"})
