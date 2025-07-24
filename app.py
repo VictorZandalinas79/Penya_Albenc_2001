@@ -14,6 +14,29 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True,
                 assets_url_path='/assets/')
 app.title = "Penya L'Albenc"
 
+# AGREGAR ESTO ⬇️
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>Penya L'Albenc</title>
+        <link rel="shortcut icon" href="/assets/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # Para Render
 server = app.server
 
