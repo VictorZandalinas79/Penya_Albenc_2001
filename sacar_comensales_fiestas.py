@@ -1,16 +1,11 @@
 import csv
 from collections import defaultdict
 from io import StringIO
-import os
-<<<<<<< HEAD
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-=======
-
->>>>>>> e93812b7752819badd8563c55f763cc423373247
 
 def process_festes_csv(input_csv):
     # Leer el CSV original
@@ -19,10 +14,7 @@ def process_festes_csv(input_csv):
     # Estructuras para almacenar los datos
     days_adults = defaultdict(list)
     days_children = defaultdict(list)
-<<<<<<< HEAD
     days_cooks = defaultdict(list)  # Nueva estructura para cocineros
-=======
->>>>>>> e93812b7752819badd8563c55f763cc423373247
     
     # Procesar cada entrada
     for row in reader:
@@ -30,28 +22,20 @@ def process_festes_csv(input_csv):
         age_group = row['Tria un...']
         available_days = row['Tria els dies que estaras per a sopar'].split('\n')
         
-<<<<<<< HEAD
         # Procesar días para cocinar (quinta columna)
         cook_days_column = list(row.values())[4] if len(row.values()) > 4 else ""
         cook_days = cook_days_column.split('\n') if cook_days_column else []
         
         # Procesar días de asistencia
-=======
->>>>>>> e93812b7752819badd8563c55f763cc423373247
         for day in available_days:
             day = day.strip()
             if not day:
                 continue
-<<<<<<< HEAD
                         
-=======
-                
->>>>>>> e93812b7752819badd8563c55f763cc423373247
             if age_group == 'Adult':
                 days_adults[day].append(name)
             elif age_group == 'Xiquet':
                 days_children[day].append(name)
-<<<<<<< HEAD
         
         # Procesar días para cocinar (solo adultos pueden cocinar)
         if age_group == 'Adult':
@@ -62,22 +46,13 @@ def process_festes_csv(input_csv):
     
     # Ordenar los días cronológicamente
     def get_day_number(day_str):
-=======
-    
-    # Ordenar los días cronológicamente (necesitamos extraer la fecha numérica)
-    def get_day_number(day_str):
         # Ejemplo: "Dimarts 12 d'agost" -> extraer 12
->>>>>>> e93812b7752819badd8563c55f763cc423373247
         parts = day_str.split()
         return int(parts[1])
     
     sorted_days = sorted(days_adults.keys(), key=get_day_number)
     
-<<<<<<< HEAD
     # Preparar el CSV de salida para asistencia
-=======
-    # Preparar el CSV de salida
->>>>>>> e93812b7752819badd8563c55f763cc423373247
     output = StringIO()
     writer = csv.writer(output)
     
@@ -97,7 +72,6 @@ def process_festes_csv(input_csv):
             len(children)
         ])
     
-<<<<<<< HEAD
     return output.getvalue(), days_cooks, sorted_days, days_adults, days_children
 
 def create_cooking_pdf(days_cooks, sorted_days, days_adults, days_children, filename='cocineros_por_dia.pdf'):
@@ -257,18 +231,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-=======
-    return output.getvalue()
-
-# Ejemplo de uso (deberías reemplazar esto con la lectura real del archivo)
-with open('Festes_20252025-07-28_12_25_30.csv', mode='r', encoding='utf-8') as file:
-    input_csv = file.read()
-
-output_csv = process_festes_csv(input_csv)
-
-# Guardar el resultado en un nuevo archivo CSV
-with open('assistencia_per_dia.csv', mode='w', encoding='utf-8') as file:
-    file.write(output_csv)
-
-print("Archivo procesado correctamente. Resultado guardado en 'assistencia_per_dia.csv'")
->>>>>>> e93812b7752819badd8563c55f763cc423373247
