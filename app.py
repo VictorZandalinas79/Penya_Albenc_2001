@@ -495,16 +495,16 @@ def load_fiestas_agosto_2025():
     
     # Datos fijos COMPLETOS para los 10 días
     fiestas_data = [
-        ('2025-08-08', '', '', 0, '', 0, '', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
-        ('2025-08-09', '', '', 0, '', 0, '', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
-        ('2025-08-10', '', '', 0, '', 0, '', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
-        ('2025-08-11', '', 'Arroz con secreto y costilla / Guiso de toro', 0, '', 0, '', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
-        ('2025-08-12', '', '', 0, '', 0, '', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
-        ('2025-08-13', '', '', 0, '', 0, '', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
-        ('2025-08-14', '', '', 0, '', 0, '', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
-        ('2025-08-15', '', '', 0, '', 0, '', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
-        ('2025-08-16', '', '', 0, '', 0, '', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
-        ('2025-08-17', '', '', 0, '', 0, '', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
+        ('2025-08-08', 'Oscar Vicente, Serafin Montoliu', '', 0, '', 0, '', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
+        ('2025-08-09', 'Alfonso Roig, Ana Troncho', '', 0, '', 0, '', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
+        ('2025-08-10', 'Miguel A. Monfort, Lucia Carceller', '', 0, '', 0, '', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
+        ('2025-08-11', 'DIA DE LES PENYES', 'Arroz con secreto y costilla / Guiso de toro', 0, '', 0, '', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
+        ('2025-08-12', 'Victor Prades, Sara Barcina, J. Fernando Marques', '', 0, '', 0, '', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
+        ('2025-08-13', 'David Roig, Carmina Escorihuela', '', 0, '', 0, '', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
+        ('2025-08-14', 'J.Ramon Barreda, Carolina De Toro', '', 0, '', 0, '', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
+        ('2025-08-15', 'Raul Altaba, Elena Domingo, Victor Zandalinas, Sonia Domingo', '', 0, '', 0, '', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
+        ('2025-08-16', 'Luis Belles, Marta Fusté, Alonso Roqueta, Lara Sorribes', '', 0, '', 0, '', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
+        ('2025-08-17', 'Francisco Vicente, Sugey Guzman, Diego Tena, Pilar Gimeno', '', 0, '', 0, '', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
     ]
     
     for data in fiestas_data:
