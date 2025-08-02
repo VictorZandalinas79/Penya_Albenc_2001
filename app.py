@@ -1,5 +1,6 @@
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, dash_table
+from dash import dcc, html, Input, Output, State, callback_context, dash_table, ALL
+from dash.exceptions import PreventUpdate
 import dash.dependencies
 import plotly.express as px
 import plotly.graph_objects as go
@@ -8,6 +9,7 @@ import sqlite3
 import os
 from datetime import datetime, date, timedelta
 import calendar
+
 
 # Inicializar la app
 is_production = os.environ.get('RENDER') is not None
@@ -260,7 +262,7 @@ def load_eventos_completos():
         primer_sabado = primer_dia + timedelta(days=dias_hasta_sabado)
         tercer_sabado = primer_sabado + timedelta(days=14)
         return tercer_sabado.strftime('%Y-%m-%d')
-    
+
     def get_ultimo_sabado_mayo(año):
         """Obtener el último sábado de mayo"""
         # Último día de mayo
@@ -441,6 +443,55 @@ def load_eventos_completos():
     conn.close()
     print("✅ Eventos completos 2025-2045 cargados exitosamente!")
 
+def get_dias_fiestas_con_semana():
+        """Obtener días de fiestas con día de la semana en español"""
+        from datetime import datetime
+        
+        dias_semana = {
+            0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 
+            3: 'Jueves', 4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
+        }
+        
+        opciones = []
+        for i in range(8, 18):
+            fecha_str = f"2025-08-{i:02d}"
+            fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d')
+            dia_semana = dias_semana[fecha_obj.weekday()]
+            
+            opciones.append({
+                'label': f"{dia_semana} {i} de agosto 2025", 
+                'value': fecha_str
+            })
+        
+        return opciones
+
+def generar_lista_comensales(nombres_str, tipo):
+        """Generar lista visual de comensales con botones eliminar"""
+        if not nombres_str or not nombres_str.strip():
+            return []
+        
+        nombres = [nombre.strip() for nombre in nombres_str.split(',') if nombre.strip()]
+        
+        lista_elementos = []
+        for i, nombre in enumerate(nombres):
+            elemento = html.Div([
+                html.Span(nombre, style={"flex": "1", "padding": "5px"}),
+                html.Button("❌", 
+                        id={"type": "btn-eliminar-comensal", "index": f"{tipo}-{i}", "nombre": nombre},
+                        style={
+                            "background": "#F44336", "color": "white", "border": "none",
+                            "padding": "2px 6px", "border-radius": "4px", "cursor": "pointer",
+                            "font-size": "12px", "margin-left": "10px"
+                        })
+            ], style={
+                "display": "flex", "align-items": "center", "justify-content": "space-between",
+                "background": "#f9f9f9", "margin": "3px 0", "padding": "5px", 
+                "border-radius": "6px", "border": "1px solid #ddd"
+            })
+            lista_elementos.append(elemento)
+        
+        return lista_elementos
+        
 def update_mantenimiento_data():
     """Función para actualizar solo los datos de mantenimiento (útil para actualizaciones)"""
     conn = sqlite3.connect('penya_albenc.db')
@@ -495,16 +546,16 @@ def load_fiestas_agosto_2025():
     
     # Datos fijos COMPLETOS para los 10 días
     fiestas_data = [
-        ('2025-08-08', 'Oscar Vicente, Serafin Montoliu', '', 0, '', 0, '', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
-        ('2025-08-09', 'Alfonso Roig, Ana Troncho', '', 0, '', 0, '', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
-        ('2025-08-10', 'Miguel A. Monfort, Lucia Carceller', '', 0, '', 0, '', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
-        ('2025-08-11', 'DIA DE LES PENYES', 'Arroz con secreto y costilla / Guiso de toro', 0, '', 0, '', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
-        ('2025-08-12', 'Victor Prades, Sara Barcina, J. Fernando Marques', '', 0, '', 0, '', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
-        ('2025-08-13', 'David Roig, Carmina Escorihuela', '', 0, '', 0, '', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
-        ('2025-08-14', 'J.Ramon Barreda, Carolina De Toro', '', 0, '', 0, '', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
-        ('2025-08-15', 'Raul Altaba, Elena Domingo, Victor Zandalinas, Sonia Domingo', '', 0, '', 0, '', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
-        ('2025-08-16', 'Luis Belles, Marta Fusté, Alonso Roqueta, Lara Sorribes', '', 0, '', 0, '', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
-        ('2025-08-17', 'Francisco Vicente, Sugey Guzman, Diego Tena, Pilar Gimeno', '', 0, '', 0, '', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
+        ('2025-08-08', 'Oscar Vicente, Serafin Montoliu', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, Carmina Escorihuela, David Roig, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
+        ('2025-08-09', 'Alfonso Roig, Ana Troncho', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
+        ('2025-08-10', 'Miguel A. Monfort, Lucia Carceller', '', 0, 'Susana Pitarch, Serafin Montoliu, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Vera Montoliu, Saul Montoliu, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
+        ('2025-08-11', 'DIA DE LES PENYES', 'Arroz con secreto y costilla / Guiso de toro', 0, 'Alonso Roqueta, Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
+        ('2025-08-12', 'Victor Prades, Sara Barcina, J. Fernando Marques', '', 0, 'Alonso Roqueta, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
+        ('2025-08-13', 'David Roig, Carmina Escorihuela', '', 0, 'Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
+        ('2025-08-14', 'J.Ramon Barreda, Carolina De Toro', '', 0, 'Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
+        ('2025-08-15', 'Raul Altaba, Elena Domingo, Victor Zandalinas, Sonia Domingo', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
+        ('2025-08-16', 'Luis Belles, Marta Fusté, Alonso Roqueta, Lara Sorribes', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Nuria Monfort, Andrea Monfort, Alex Roig', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
+        ('2025-08-17', 'Francisco Vicente, Sugey Guzman, Diego Tena, Pilar Gimeno', '', 0, 'Susana Pitarch, Serafin Montoliu, Alonso Roqueta, Lara Sorribes, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Vera Montoliu, Saul Montoliu, Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
     ]
     
     for data in fiestas_data:
@@ -514,7 +565,7 @@ def load_fiestas_agosto_2025():
     conn.close()
 
 def generar_tarjetas_fiestas():
-    """Función auxiliar para generar las tarjetas de fiestas"""
+    """Función auxiliar para generar las tarjetas de fiestas - VERSIÓN MEJORADA"""
     try:
         fiestas_df = get_data('fiestas')
         
@@ -548,59 +599,200 @@ def generar_tarjetas_fiestas():
             # Procesar programa (split por |)
             eventos = dia['programa'].split('|') if dia['programa'] else ['Sin programa']
             
-            # Procesar nombres adultos y niños (con verificación de campo)
-            nombres_adultos = dia.get('nombres_adultos', '') or 'Sin nombres'
-            nombres_niños = dia.get('nombres_niños', '') or 'Sin nombres'
+            # Procesar listas de comensales
+            def crear_lista_comensales(nombres_str, emoji, color):
+                if not nombres_str or nombres_str.strip() == 'Sin nombres':
+                    return html.P("Sin comensales registrados", 
+                                 style={"font-style": "italic", "color": "#999", "margin": "0"})
+                
+                nombres = [nombre.strip() for nombre in nombres_str.split(',') if nombre.strip()]
+                if not nombres:
+                    return html.P("Sin comensales registrados", 
+                                 style={"font-style": "italic", "color": "#999", "margin": "0"})
+                
+                lista_elementos = []
+                for nombre in nombres:
+                    lista_elementos.append(
+                        html.Div([
+                            html.Span(f"{emoji} {nombre}", style={
+                                "background": f"linear-gradient(135deg, {color}20 0%, {color}10 100%)",
+                                "padding": "4px 8px",
+                                "border-radius": "12px",
+                                "border": f"1px solid {color}40",
+                                "font-size": "0.85rem",
+                                "margin": "2px",
+                                "display": "inline-block"
+                            })
+                        ], style={"display": "inline-block", "margin": "1px"})
+                    )
+                
+                return html.Div(lista_elementos, style={
+                    "display": "flex", 
+                    "flex-wrap": "wrap", 
+                    "gap": "4px",
+                    "margin": "5px 0"
+                })
+            
+            # Obtener nombres de adultos y niños (con verificación de campos)
+            nombres_adultos = dia.get('nombres_adultos', '') or ''
+            nombres_niños = dia.get('nombres_niños', '') or ''
+            
+            # Contar comensales
+            def contar_nombres(texto):
+                if not texto or not texto.strip():
+                    return 0
+                nombres = [nombre.strip() for nombre in texto.split(',') if nombre.strip()]
+                return len(nombres)
+            
+            total_adultos = contar_nombres(nombres_adultos)
+            total_niños = contar_nombres(nombres_niños)
+            
+            # Determinar color de la tarjeta según el día
+            color_dia = "#FF5722"  # Naranja por defecto
+            if "PENYES" in dia['cocineros'].upper():
+                color_dia = "#4CAF50"  # Verde para día especial
+            elif fecha_obj.weekday() == 5:  # Sábado
+                color_dia = "#9C27B0"  # Morado para sábados
+            elif fecha_obj.weekday() == 6:  # Domingo
+                color_dia = "#2196F3"  # Azul para domingos
             
             tarjeta = html.Div([
-                html.H4(f"📅 {fecha_formateada}", style={"color": "#FF5722", "margin-bottom": "15px", "text-align": "center"}),
+                # Cabecera con fecha
+                html.Div([
+                    html.H4(f"📅 {fecha_formateada}", style={
+                        "color": "white", 
+                        "margin": "0", 
+                        "text-align": "center",
+                        "font-size": "1.1rem",
+                        "font-weight": "bold"
+                    })
+                ], style={
+                    "background": f"linear-gradient(135deg, {color_dia} 0%, {color_dia}CC 100%)",
+                    "padding": "15px",
+                    "border-radius": "12px 12px 0 0",
+                    "margin": "-20px -20px 15px -20px"
+                }),
                 
+                # Cocineros
                 html.Div([
                     html.H6("👨‍🍳 Cocineros:", style={"color": "#4CAF50", "margin-bottom": "5px"}),
-                    html.P(dia['cocineros'], style={"margin": "0 0 10px 0", "font-weight": "bold"})
+                    html.P(dia['cocineros'], style={
+                        "margin": "0 0 15px 0", 
+                        "font-weight": "bold",
+                        "background": "#E8F5E8",
+                        "padding": "8px",
+                        "border-radius": "6px"
+                    })
                 ]),
                 
+                # Menú
                 html.Div([
                     html.H6("🍽️ Menú:", style={"color": "#2196F3", "margin-bottom": "5px"}),
-                    html.P(dia['menu'] or 'Sin menú definido', style={"margin": "0 0 10px 0", "font-style": "italic" if not dia['menu'] else "normal"})
+                    html.P(dia['menu'] or 'Sin menú definido', style={
+                        "margin": "0 0 15px 0", 
+                        "font-style": "italic" if not dia['menu'] else "normal",
+                        "background": "#E3F2FD" if dia['menu'] else "#F5F5F5",
+                        "padding": "8px",
+                        "border-radius": "6px",
+                        "color": "#333" if dia['menu'] else "#999"
+                    })
                 ]),
                 
+                # Comensales Adultos
                 html.Div([
-                    html.H6("👥 Adultos:", style={"color": "#9C27B0", "margin-bottom": "5px"}),
-                    html.P(f"Total: {dia['adultos']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
-                    html.P(f"Nombres: {nombres_adultos}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
+                    html.Div([
+                        html.H6("👥 Adultos", style={"color": "#9C27B0", "margin": "0", "display": "inline"}),
+                        html.Span(f" ({total_adultos})", style={
+                            "background": "#9C27B0", 
+                            "color": "white", 
+                            "padding": "2px 8px", 
+                            "border-radius": "10px", 
+                            "font-size": "0.8rem",
+                            "margin-left": "8px",
+                            "font-weight": "bold"
+                        })
+                    ], style={"margin-bottom": "8px", "display": "flex", "align-items": "center"}),
+                    crear_lista_comensales(nombres_adultos, "👤", "#9C27B0")
+                ], style={"margin-bottom": "15px"}),
+                
+                # Comensales Niños
+                html.Div([
+                    html.Div([
+                        html.H6("👶 Niños", style={"color": "#FF9800", "margin": "0", "display": "inline"}),
+                        html.Span(f" ({total_niños})", style={
+                            "background": "#FF9800", 
+                            "color": "white", 
+                            "padding": "2px 8px", 
+                            "border-radius": "10px", 
+                            "font-size": "0.8rem",
+                            "margin-left": "8px",
+                            "font-weight": "bold"
+                        })
+                    ], style={"margin-bottom": "8px", "display": "flex", "align-items": "center"}),
+                    crear_lista_comensales(nombres_niños, "👶", "#FF9800")
+                ], style={"margin-bottom": "15px"}),
+                
+                # Programa
+                html.Div([
+                    html.H6("🎪 Programa:", style={"color": "#795548", "margin-bottom": "8px"}),
+                    html.Div([
+                        html.Div([
+                            html.Span("🕐", style={"margin-right": "5px", "color": "#795548"}),
+                            html.Span(evento.strip(), style={"font-size": "0.9rem"})
+                        ], style={
+                            "background": "#F5F5F5",
+                            "padding": "6px 10px",
+                            "margin": "3px 0",
+                            "border-radius": "6px",
+                            "border-left": "3px solid #795548"
+                        }) for evento in eventos
+                    ])
                 ]),
                 
+                # Total de comensales al pie
                 html.Div([
-                    html.H6("👶 Niños:", style={"color": "#FF9800", "margin-bottom": "5px"}),
-                    html.P(f"Total: {dia['niños']}", style={"margin": "0 0 5px 0", "font-weight": "bold"}),
-                    html.P(f"Nombres: {nombres_niños}", style={"margin": "0 0 10px 0", "font-size": "0.9rem", "color": "#666"})
-                ]),
-                
-                html.Div([
-                    html.H6("🎪 Programa:", style={"color": "#795548", "margin-bottom": "5px"}),
-                    html.Ul([
-                        html.Li(evento.strip(), style={"margin": "2px 0"}) 
-                        for evento in eventos
-                    ], style={"margin": "0", "padding-left": "20px"})
+                    html.Span(f"👥 Total comensales: {total_adultos + total_niños}", style={
+                        "background": "linear-gradient(135deg, #E8EAF6 0%, #C5CAE9 100%)",
+                        "color": "#3F51B5",
+                        "padding": "8px 15px",
+                        "border-radius": "20px",
+                        "font-weight": "bold",
+                        "font-size": "0.9rem",
+                        "display": "inline-block",
+                        "width": "100%",
+                        "text-align": "center",
+                        "margin-top": "10px",
+                        "border": "1px solid #3F51B540"
+                    })
                 ])
+                
             ], style={
-                "border": "2px solid #E0E0E0", 
+                "border": f"2px solid {color_dia}40", 
                 "margin": "15px", 
                 "padding": "20px", 
-                "border-radius": "12px",
+                "border-radius": "16px",
                 "background": "linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 100%)", 
-                "box-shadow": "0 4px 8px rgba(0,0,0,0.1)",
+                "box-shadow": f"0 8px 25px {color_dia}20, 0 4px 10px rgba(0,0,0,0.1)",
                 "flex": "1",
-                "min-width": "320px",
-                "max-width": "400px"
+                "min-width": "350px",
+                "max-width": "450px",
+                "position": "relative",
+                "transition": "transform 0.3s ease, box-shadow 0.3s ease"
             })
             tarjetas.append(tarjeta)
         
-        return html.Div(tarjetas, style={"display": "flex", "flex-wrap": "wrap", "justify-content": "center"})
+        return html.Div(tarjetas, style={
+            "display": "flex", 
+            "flex-wrap": "wrap", 
+            "justify-content": "center",
+            "gap": "15px",
+            "padding": "10px"
+        })
         
     except Exception as e:
         print(f"Error generando tarjetas: {e}")
+        import traceback
+        traceback.print_exc()
         return [html.P(f"Error cargando datos: {e}", style={"text-align": "center", "color": "red"})]
 
 # Funciones auxiliares para filtros (restauradas)
@@ -1079,53 +1271,238 @@ def render_page_content(pathname):
         return create_home_page()
 
 
-# Callback para cargar datos del día seleccionado (ACTUALIZADO)
+# Callback para cargar datos automáticamente al seleccionar día
 @app.callback(
     [Output('fiesta-menu', 'value'),
-     Output('fiesta-nombres-adultos', 'value'),
-     Output('fiesta-nombres-niños', 'value'),
-     Output('fiesta-cocineros-selector', 'value')],  # ← AGREGAR
-    [Input('btn-load-fiesta', 'n_clicks')],
-    [State('fiesta-dia-selector', 'value')],
+     Output('store-comensales-adultos', 'data'),
+     Output('store-comensales-niños', 'data'),
+     Output('lista-adultos-visual', 'children'),
+     Output('lista-niños-visual', 'children'),
+     Output('contador-adultos-nuevo', 'children'),
+     Output('contador-niños-nuevo', 'children')],
+    [Input('fiesta-dia-selector', 'value')],  # ← Ahora reacciona al selector
     prevent_initial_call=True
 )
-def cargar_datos_fiesta_mejorado(n_clicks, fecha_seleccionada):
-    if not n_clicks or not fecha_seleccionada:
-        return "", "", "", []  # ← AGREGAR []
+def cargar_datos_automaticamente(fecha_seleccionada):
+    if not fecha_seleccionada:
+        return "", [], [], [], [], "(0)", "(0)"
     
     try:
         fiestas_df = get_data('fiestas')
         dia_data = fiestas_df[fiestas_df['fecha'] == fecha_seleccionada]
         
         if len(dia_data) == 0:
-            return "", "", "", []  # ← AGREGAR []
+            return "", [], [], [], [], "(0)", "(0)"
         
         dia = dia_data.iloc[0]
-        cocineros_lista = dia.get('cocineros', '').split(', ') if dia.get('cocineros') else []
+        
+        # Convertir nombres en listas
+        nombres_adultos = [nombre.strip() for nombre in (dia.get('nombres_adultos', '') or '').split(',') if nombre.strip()]
+        nombres_niños = [nombre.strip() for nombre in (dia.get('nombres_niños', '') or '').split(',') if nombre.strip()]
+        
+        # Generar listas visuales
+        def crear_lista_visual(nombres, tipo, color):
+            if not nombres:
+                return [html.P("Sin comensales", style={"color": "#999", "font-style": "italic"})]
+            
+            elementos = []
+            for i, nombre in enumerate(nombres):
+                elemento = html.Div([
+                    html.Span(f"👤 {nombre}", style={"flex": "1", "padding": "5px"}),
+                    html.Button("❌", 
+                            id={"type": "btn-eliminar", "categoria": tipo, "index": i, "nombre": nombre},
+                            style={
+                                "background": "#F44336", "color": "white", "border": "none",
+                                "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                                "font-size": "12px", "margin-left": "10px"
+                            })
+                ], style={
+                    "display": "flex", "align-items": "center", "justify-content": "space-between",
+                    "background": f"{color}20", "margin": "3px 0", "padding": "8px", 
+                    "border-radius": "6px", "border": f"1px solid {color}40"
+                })
+                elementos.append(elemento)
+            
+            return elementos
+        
+        lista_adultos_visual = crear_lista_visual(nombres_adultos, "adultos", "#9C27B0")
+        lista_niños_visual = crear_lista_visual(nombres_niños, "niños", "#FF9800")
         
         return (
             dia.get('menu', '') or '',
-            dia.get('nombres_adultos', '') or '',
-            dia.get('nombres_niños', '') or '',
-            cocineros_lista  # ← AGREGAR
+            nombres_adultos,
+            nombres_niños,
+            lista_adultos_visual,
+            lista_niños_visual,
+            f"({len(nombres_adultos)})",
+            f"({len(nombres_niños)})"
         )
     except Exception as e:
-        return "", "", "", []  # ← AGREGAR []
+        print(f"Error cargando datos: {e}")
+        return "", [], [], [], [], "(0)", "(0)"
+
+# Callback para agregar adultos
+@app.callback(
+    [Output('store-comensales-adultos', 'data', allow_duplicate=True),
+     Output('lista-adultos-visual', 'children', allow_duplicate=True),
+     Output('contador-adultos-nuevo', 'children', allow_duplicate=True),
+     Output('input-nuevo-adulto', 'value')],
+    [Input('btn-add-adulto', 'n_clicks')],
+    [State('input-nuevo-adulto', 'value'),
+     State('store-comensales-adultos', 'data')],
+    prevent_initial_call=True
+)
+def agregar_adulto(n_clicks, nuevo_nombre, lista_actual):
+    if not n_clicks or not nuevo_nombre or not nuevo_nombre.strip():
+        raise PreventUpdate
+    
+    nuevo_nombre = nuevo_nombre.strip()
+    if nuevo_nombre in lista_actual:
+        raise PreventUpdate
+    
+    nueva_lista = lista_actual + [nuevo_nombre]
+    
+    # Crear lista visual
+    elementos = []
+    for i, nombre in enumerate(nueva_lista):
+        elemento = html.Div([
+            html.Span(f"👤 {nombre}", style={"flex": "1", "padding": "5px"}),
+            html.Button("❌", 
+                    id={"type": "btn-eliminar", "categoria": "adultos", "index": i, "nombre": nombre},
+                    style={
+                        "background": "#F44336", "color": "white", "border": "none",
+                        "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                        "font-size": "12px", "margin-left": "10px"
+                    })
+        ], style={
+            "display": "flex", "align-items": "center", "justify-content": "space-between",
+            "background": "#9C27B020", "margin": "3px 0", "padding": "8px", 
+            "border-radius": "6px", "border": "1px solid #9C27B040"
+        })
+        elementos.append(elemento)
+    
+    return nueva_lista, elementos, f"({len(nueva_lista)})", ""
+
+# Callback para agregar niños
+@app.callback(
+    [Output('store-comensales-niños', 'data', allow_duplicate=True),
+     Output('lista-niños-visual', 'children', allow_duplicate=True),
+     Output('contador-niños-nuevo', 'children', allow_duplicate=True),
+     Output('input-nuevo-niño', 'value')],
+    [Input('btn-add-niño', 'n_clicks')],
+    [State('input-nuevo-niño', 'value'),
+     State('store-comensales-niños', 'data')],
+    prevent_initial_call=True
+)
+def agregar_niño(n_clicks, nuevo_nombre, lista_actual):
+    if not n_clicks or not nuevo_nombre or not nuevo_nombre.strip():
+        raise PreventUpdate
+    
+    nuevo_nombre = nuevo_nombre.strip()
+    if nuevo_nombre in lista_actual:
+        raise PreventUpdate
+    
+    nueva_lista = lista_actual + [nuevo_nombre]
+    
+    # Crear lista visual
+    elementos = []
+    for i, nombre in enumerate(nueva_lista):
+        elemento = html.Div([
+            html.Span(f"👶 {nombre}", style={"flex": "1", "padding": "5px"}),
+            html.Button("❌", 
+                    id={"type": "btn-eliminar", "categoria": "niños", "index": i, "nombre": nombre},
+                    style={
+                        "background": "#F44336", "color": "white", "border": "none",
+                        "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                        "font-size": "12px", "margin-left": "10px"
+                    })
+        ], style={
+            "display": "flex", "align-items": "center", "justify-content": "space-between",
+            "background": "#FF980020", "margin": "3px 0", "padding": "8px", 
+            "border-radius": "6px", "border": "1px solid #FF980040"
+        })
+        elementos.append(elemento)
+    
+    return nueva_lista, elementos, f"({len(nueva_lista)})", ""
+
+# Callback para eliminar comensales (con pattern matching)
+@app.callback(
+    [Output('store-comensales-adultos', 'data', allow_duplicate=True),
+     Output('store-comensales-niños', 'data', allow_duplicate=True),
+     Output('lista-adultos-visual', 'children', allow_duplicate=True),
+     Output('lista-niños-visual', 'children', allow_duplicate=True),
+     Output('contador-adultos-nuevo', 'children', allow_duplicate=True),
+     Output('contador-niños-nuevo', 'children', allow_duplicate=True)],
+    [Input({"type": "btn-eliminar", "categoria": ALL, "index": ALL, "nombre": ALL}, "n_clicks")],
+    [State('store-comensales-adultos', 'data'),
+     State('store-comensales-niños', 'data')],
+    prevent_initial_call=True
+)
+def eliminar_comensal(n_clicks_list, adultos_actuales, niños_actuales):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks_list):
+        raise PreventUpdate
+    
+    # Encontrar qué botón se presionó
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    button_data = eval(button_id)  # Convertir string a dict
+    
+    nombre_eliminar = button_data['nombre']
+    categoria = button_data['categoria']
+    
+    # Eliminar de la lista correspondiente
+    if categoria == "adultos" and nombre_eliminar in adultos_actuales:
+        adultos_actuales.remove(nombre_eliminar)
+    elif categoria == "niños" and nombre_eliminar in niños_actuales:
+        niños_actuales.remove(nombre_eliminar)
+    
+    # Regenerar listas visuales
+    def crear_elementos(lista, tipo, emoji, color):
+        if not lista:
+            return [html.P("Sin comensales", style={"color": "#999", "font-style": "italic"})]
+        
+        elementos = []
+        for i, nombre in enumerate(lista):
+            elemento = html.Div([
+                html.Span(f"{emoji} {nombre}", style={"flex": "1", "padding": "5px"}),
+                html.Button("❌", 
+                        id={"type": "btn-eliminar", "categoria": tipo, "index": i, "nombre": nombre},
+                        style={
+                            "background": "#F44336", "color": "white", "border": "none",
+                            "padding": "4px 8px", "border-radius": "4px", "cursor": "pointer",
+                            "font-size": "12px", "margin-left": "10px"
+                        })
+            ], style={
+                "display": "flex", "align-items": "center", "justify-content": "space-between",
+                "background": f"{color}20", "margin": "3px 0", "padding": "8px", 
+                "border-radius": "6px", "border": f"1px solid {color}40"
+            })
+            elementos.append(elemento)
+        
+        return elementos
+    
+    lista_adultos_visual = crear_elementos(adultos_actuales, "adultos", "👤", "#9C27B0")
+    lista_niños_visual = crear_elementos(niños_actuales, "niños", "👶", "#FF9800")
+    
+    return (
+        adultos_actuales, niños_actuales,
+        lista_adultos_visual, lista_niños_visual,
+        f"({len(adultos_actuales)})", f"({len(niños_actuales)})"
+    )
 
 # Callback para actualizar día (ACTUALIZADO SIN INPUTS DE NÚMERO)
 @app.callback(
     [Output('fiesta-output', 'children'),
      Output('tarjetas-fiestas', 'children')],
-    [Input('btn-update-fiesta', 'n_clicks'),
+    [Input('btn-guardar-cambios', 'n_clicks'),
      Input('url', 'pathname')],
     [State('fiesta-dia-selector', 'value'),
      State('fiesta-menu', 'value'),
-     State('fiesta-adultos', 'data'),  # Ahora viene del Store
-     State('fiesta-niños', 'data'),    # Ahora viene del Store
-     State('fiesta-nombres-adultos', 'value'),
-     State('fiesta-nombres-niños', 'value')],
+     State('store-comensales-adultos', 'data'),
+     State('store-comensales-niños', 'data')],
 )
-def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adultos, niños, nombres_adultos, nombres_niños):
+
+def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adultos_lista, niños_lista):
     ctx = callback_context
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
     
@@ -1133,60 +1510,43 @@ def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adult
     if trigger_id == 'url' or not trigger_id:
         return "", generar_tarjetas_fiestas()
     
-    # Si viene del botón de actualizar
-    if trigger_id == 'btn-update-fiesta' and n_clicks and fecha:
-        print(f"🔍 CALLBACK MEJORADO: n_clicks={n_clicks}, fecha={fecha}")
-        
-        # Crear UNA SOLA conexión nueva para todo el proceso
+    # Si viene del botón de guardar
+    if trigger_id == 'btn-guardar-cambios' and n_clicks and fecha:
         conn = sqlite3.connect('penya_albenc.db')
         cursor = conn.cursor()
         
         try:
-            print(f"🔍 DATOS A ACTUALIZAR:")
-            print(f"  fecha={fecha}")
-            print(f"  menu='{menu}'")
-            print(f"  adultos={adultos}")
-            print(f"  niños={niños}")
-            print(f"  nombres_adultos='{nombres_adultos}'")
-            print(f"  nombres_niños='{nombres_niños}'")
+            # Convertir listas a strings
+            nombres_adultos = ', '.join(adultos_lista) if adultos_lista else ''
+            nombres_niños = ', '.join(niños_lista) if niños_lista else ''
             
-            # Buscar el ID del registro directamente con la nueva conexión
+            # Buscar el ID del registro
             cursor.execute("SELECT id FROM fiestas WHERE fecha = ?", (fecha,))
             result = cursor.fetchone()
             
             if not result:
-                print("❌ No se encontró el día seleccionado")
                 return "⚠️ No se encontró el día seleccionado", generar_tarjetas_fiestas()
             
             dia_id = result[0]
-            print(f"🔍 ID encontrado: {dia_id}")
             
-            # Actualizar todos los campos en una sola query
+            # Actualizar campos
             cursor.execute("""
                 UPDATE fiestas 
                 SET menu = ?, adultos = ?, niños = ?, nombres_adultos = ?, nombres_niños = ? 
                 WHERE id = ?
-            """, (menu or '', adultos or 0, niños or 0, nombres_adultos or '', nombres_niños or '', dia_id))
+            """, (menu or '', len(adultos_lista), len(niños_lista), nombres_adultos, nombres_niños, dia_id))
             
             conn.commit()
-            print("✅ Todos los campos actualizados")
-            
-            # REGENERAR TARJETAS
             tarjetas_actualizadas = generar_tarjetas_fiestas()
-            print("✅ Tarjetas regeneradas")
             
-            return f"✅ Día {fecha} actualizado exitosamente! 🎉 (Adultos: {adultos}, Niños: {niños})", tarjetas_actualizadas
+            return f"✅ Día {fecha} actualizado! 🎉 (Adultos: {len(adultos_lista)}, Niños: {len(niños_lista)})", tarjetas_actualizadas
             
         except Exception as e:
-            print(f"❌ ERROR GENERAL: {str(e)}")
-            import traceback
-            traceback.print_exc()
             return f"❌ Error actualizando: {str(e)}", generar_tarjetas_fiestas()
-            
         finally:
             conn.close()
     
-    # Fallback - mostrar tarjetas
+    # Fallback
     return "", generar_tarjetas_fiestas()
 
 # Página de inicio
@@ -2207,26 +2567,12 @@ def create_fiestas_page():
                     html.Label("📅 Seleccionar Día:", style={"font-weight": "bold", "margin-bottom": "5px"}),
                     dcc.Dropdown(
                         id='fiesta-dia-selector',
-                        options=[
-                            {'label': f"{i} de agosto 2025", 'value': f"2025-08-{i:02d}"} 
-                            for i in range(8, 18)
-                        ],
+                        options=get_dias_fiestas_con_semana(),
                         placeholder="Selecciona el día a editar",
                         style={"width": "100%"}
-                    )
+                    ),
                 ], style={"margin": "10px", "flex": "1"}),
             ]),
-
-            html.Div([
-                html.Label("👨‍🍳 Cocineros:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                dcc.Dropdown(
-                    id='fiesta-cocineros-selector',
-                    options=get_cocineros_options(),  # Usa la misma función que comidas
-                    placeholder="Selecciona cocineros (múltiple)",
-                    multi=True,
-                    style={"width": "100%"}
-                )
-            ], style={"margin": "10px"}),
             
             html.Div([
                 html.Div([
@@ -2239,55 +2585,78 @@ def create_fiestas_page():
                 ], style={"margin": "10px", "flex": "1"}),
             ]),
             
-            # SECCIÓN MEJORADA - Solo nombres con conteo automático
+            # SECCIÓN DE COMENSALES - Nueva versión con listas visuales
             html.Div([
+                # Adultos
                 html.Div([
-                    html.Label("👥 Nombres de Adultos:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    html.P(id='contador-adultos', children="Total: 0", 
-                           style={"font-weight": "bold", "color": "#9C27B0", "margin": "0 0 5px 0"}),
-                    dcc.Textarea(
-                        id='fiesta-nombres-adultos',
-                        placeholder="Escribe los nombres separados por comas: Juan, María, Pedro...",
-                        style={"width": "100%", "height": "80px", "padding": "8px"}
-                    ),
-                    html.P("💡 Los nombres se cuentan automáticamente", 
-                           style={"font-size": "0.8rem", "color": "#666", "font-style": "italic", "margin": "5px 0 0 0"})
+                    html.Div([
+                        html.H5("👥 Adultos", style={"color": "#9C27B0", "margin": "0"}),
+                        html.Span(id='contador-adultos-nuevo', children="(0)", 
+                                style={"color": "#9C27B0", "font-weight": "bold", "margin-left": "10px"})
+                    ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
+                    
+                    html.Div(id='lista-adultos-visual', children=[], 
+                            style={"min-height": "100px", "border": "2px dashed #ddd", 
+                                "padding": "15px", "border-radius": "8px", "margin-bottom": "10px",
+                                "background": "#fafafa"}),
+                    
+                    html.Div([
+                        dcc.Input(id='input-nuevo-adulto', placeholder="Nombre del adulto...", 
+                                style={"flex": "1", "padding": "8px", "border-radius": "6px", "border": "1px solid #ddd"}),
+                        html.Button("➕ Agregar", id='btn-add-adulto', 
+                                style={
+                                    "background": "#9C27B0", "color": "white", "border": "none",
+                                    "padding": "8px 15px", "margin-left": "10px", "border-radius": "6px",
+                                    "cursor": "pointer", "font-weight": "bold"
+                                })
+                    ], style={"display": "flex", "align-items": "center"})
                 ], style={"margin": "10px", "flex": "1"}),
                 
+                # Niños
                 html.Div([
-                    html.Label("👶 Nombres de Niños:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    html.P(id='contador-niños', children="Total: 0", 
-                           style={"font-weight": "bold", "color": "#FF9800", "margin": "0 0 5px 0"}),
-                    dcc.Textarea(
-                        id='fiesta-nombres-niños',
-                        placeholder="Escribe los nombres separados por comas: Ana, Luis, Carlos...",
-                        style={"width": "100%", "height": "80px", "padding": "8px"}
-                    ),
-                    html.P("💡 Los nombres se cuentan automáticamente", 
-                           style={"font-size": "0.8rem", "color": "#666", "font-style": "italic", "margin": "5px 0 0 0"})
+                    html.Div([
+                        html.H5("👶 Niños", style={"color": "#FF9800", "margin": "0"}),
+                        html.Span(id='contador-niños-nuevo', children="(0)", 
+                                style={"color": "#FF9800", "font-weight": "bold", "margin-left": "10px"})
+                    ], style={"display": "flex", "align-items": "center", "margin-bottom": "10px"}),
+                    
+                    html.Div(id='lista-niños-visual', children=[], 
+                            style={"min-height": "100px", "border": "2px dashed #ddd", 
+                                "padding": "15px", "border-radius": "8px", "margin-bottom": "10px",
+                                "background": "#fafafa"}),
+                    
+                    html.Div([
+                        dcc.Input(id='input-nuevo-niño', placeholder="Nombre del niño...", 
+                                style={"flex": "1", "padding": "8px", "border-radius": "6px", "border": "1px solid #ddd"}),
+                        html.Button("➕ Agregar", id='btn-add-niño', 
+                                style={
+                                    "background": "#FF9800", "color": "white", "border": "none",
+                                    "padding": "8px 15px", "margin-left": "10px", "border-radius": "6px",
+                                    "cursor": "pointer", "font-weight": "bold"
+                                })
+                    ], style={"display": "flex", "align-items": "center"})
                 ], style={"margin": "10px", "flex": "1"}),
-            ], style={"display": "flex", "gap": "10px"}),
-            
-            # Campos ocultos para almacenar los números (necesarios para el callback de actualización)
-            dcc.Store(id='fiesta-adultos', data=0),
-            dcc.Store(id='fiesta-niños', data=0),
-            
+            ], style={"display": "flex", "gap": "20px", "margin": "20px 0"}),
+
+            # Stores para manejar el estado
+            dcc.Store(id='store-comensales-adultos', data=[]),
+            dcc.Store(id='store-comensales-niños', data=[]),
+            dcc.Store(id='store-menu-actual', data=""),
+            dcc.Store(id='store-dia-seleccionado', data=""),
+            dcc.ConfirmDialog(
+                id='confirm-guardar',
+                message='¿Estás seguro de que quieres guardar los cambios?',
+            ),
+
+            # Botones
             html.Div([
-                html.Button('✅ Actualizar Día', id='btn-update-fiesta', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #9C27B0, #7B1FA2)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "15px 10px"
-                           }),
-                
-                html.Button('🔄 Cargar Datos del Día', id='btn-load-fiesta', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "15px 10px"
-                           })
+                html.Button('💾 Guardar Cambios', id='btn-guardar-cambios', n_clicks=0,
+                        style={
+                            "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
+                            "color": "white", "border": "none", "padding": "12px 24px",
+                            "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
+                            "margin": "15px 10px"
+                        })
             ]),
             
             html.Div(id='fiesta-output', style={"margin": "20px 0", "padding": "10px"})
@@ -2578,42 +2947,70 @@ def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimi
     except:
         return [], ""
 
-# Callback para conteo automático de nombres
+# Callback para mostrar confirmación y guardar
 @app.callback(
-    [Output('contador-adultos', 'children'),
-     Output('contador-niños', 'children'),
-     Output('fiesta-adultos', 'data'),
-     Output('fiesta-niños', 'data')],
-    [Input('fiesta-nombres-adultos', 'value'),
-     Input('fiesta-nombres-niños', 'value')],
-    prevent_initial_call=False
+    [Output('confirm-guardar', 'displayed'),
+     Output('fiesta-output', 'children', allow_duplicate=True),
+     Output('tarjetas-fiestas', 'children', allow_duplicate=True)],
+    [Input('btn-guardar-cambios', 'n_clicks'),
+     Input('confirm-guardar', 'submit_n_clicks'),
+     Input('url', 'pathname')],
+    [State('fiesta-dia-selector', 'value'),
+     State('fiesta-menu', 'value'),
+     State('store-comensales-adultos', 'data'),
+     State('store-comensales-niños', 'data')],
+    prevent_initial_call=True
 )
-def contar_nombres_automaticamente(nombres_adultos, nombres_niños):
-    """Contar automáticamente los nombres separados por comas"""
+def manejar_guardar_con_confirmacion(n_clicks_guardar, n_clicks_confirm, pathname, fecha, menu, adultos_lista, niños_lista):
+    ctx = callback_context
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
     
-    def contar_nombres(texto):
-        """Función auxiliar para contar nombres"""
-        if not texto or not texto.strip():
-            return 0
+    # Si viene de cambio de página, solo mostrar tarjetas
+    if trigger_id == 'url':
+        return False, "", generar_tarjetas_fiestas()
+    
+    # Si se hizo clic en "Guardar Cambios", mostrar confirmación
+    if trigger_id == 'btn-guardar-cambios' and n_clicks_guardar:
+        return True, "", generar_tarjetas_fiestas()  # Mostrar diálogo
+    
+    # Si se confirmó el guardado
+    if trigger_id == 'confirm-guardar' and n_clicks_confirm and fecha:
+        conn = sqlite3.connect('penya_albenc.db')
+        cursor = conn.cursor()
         
-        # Separar por comas, limpiar espacios y filtrar strings vacíos
-        nombres = [nombre.strip() for nombre in texto.split(',')]
-        nombres_validos = [nombre for nombre in nombres if nombre]  # Filtrar strings vacíos
-        
-        return len(nombres_validos)
+        try:
+            # Convertir listas a strings
+            nombres_adultos = ', '.join(adultos_lista) if adultos_lista else ''
+            nombres_niños = ', '.join(niños_lista) if niños_lista else ''
+            
+            # Buscar el ID del registro
+            cursor.execute("SELECT id FROM fiestas WHERE fecha = ?", (fecha,))
+            result = cursor.fetchone()
+            
+            if not result:
+                return False, "⚠️ No se encontró el día seleccionado", generar_tarjetas_fiestas()
+            
+            dia_id = result[0]
+            
+            # Actualizar campos
+            cursor.execute("""
+                UPDATE fiestas 
+                SET menu = ?, adultos = ?, niños = ?, nombres_adultos = ?, nombres_niños = ? 
+                WHERE id = ?
+            """, (menu or '', len(adultos_lista), len(niños_lista), nombres_adultos, nombres_niños, dia_id))
+            
+            conn.commit()
+            tarjetas_actualizadas = generar_tarjetas_fiestas()
+            
+            return False, f"✅ Día {fecha} guardado exitosamente! 🎉 (Adultos: {len(adultos_lista)}, Niños: {len(niños_lista)})", tarjetas_actualizadas
+            
+        except Exception as e:
+            return False, f"❌ Error guardando: {str(e)}", generar_tarjetas_fiestas()
+        finally:
+            conn.close()
     
-    # Contar adultos
-    total_adultos = contar_nombres(nombres_adultos)
-    
-    # Contar niños  
-    total_niños = contar_nombres(nombres_niños)
-    
-    return (
-        f"👥 Total: {total_adultos}",
-        f"👶 Total: {total_niños}",
-        total_adultos,
-        total_niños
-    )
+    # Fallback
+    return False, "", generar_tarjetas_fiestas()
 
 @app.callback(
     Output('proximos-eventos-container', 'children'),
