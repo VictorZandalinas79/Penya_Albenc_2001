@@ -6,10 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
+import os
 from datetime import datetime, date, timedelta
 import calendar
-import psycopg2
-import os
+
 
 # Inicializar la app
 is_production = os.environ.get('RENDER') is not None
@@ -47,13 +47,13 @@ server = app.server
 
 # Configurar la base de datos
 def init_db():
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # Tabla de comidas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comidas (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             fecha DATE,
             tipo_servicio TEXT,
             tipo_comida TEXT,
@@ -64,7 +64,7 @@ def init_db():
     # Tabla de lista de compra
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lista_compra (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             fecha DATE,
             objeto TEXT
         )
@@ -73,7 +73,7 @@ def init_db():
     # Tabla de mantenimiento
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS mantenimiento (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             año INTEGER,
             mantenimiento TEXT,
             cadafals TEXT
@@ -83,7 +83,7 @@ def init_db():
     # Tabla de eventos para el calendario
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS eventos (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             fecha DATE,
             evento TEXT,
             tipo TEXT
@@ -93,7 +93,7 @@ def init_db():
     # Tabla de fiestas (agregar después de las otras tablas)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS fiestas (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             fecha DATE,
             cocineros TEXT,
             menu TEXT,
@@ -110,50 +110,38 @@ def init_db():
 
 def migrate_fiestas_table():
     """Agregar columnas faltantes a la tabla fiestas si no existen"""
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    if not DATABASE_URL:  # Solo SQLite local
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    conn = sqlite3.connect('penya_albenc.db')
+    cursor = conn.cursor()
+    
+    try:
+        # Verificar si las columnas ya existen
+        cursor.execute("PRAGMA table_info(fiestas)")
+        columns = [column[1] for column in cursor.fetchall()]
         
-        try:
-            cursor.execute("PRAGMA table_info(fiestas)")
-            columns = [column[1] for column in cursor.fetchall()]
-            
-            if 'nombres_adultos' not in columns:
-                cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
-                print("✅ Columna 'nombres_adultos' agregada")
-            
-            if 'nombres_niños' not in columns:
-                cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
-                print("✅ Columna 'nombres_niños' agregada")
-            
-            conn.commit()
-        except Exception as e:
-            print(f"Error en migración: {e}")
-        finally:
-            conn.close()
-    else:
-        print("🎯 PostgreSQL detectado - migraciones no necesarias")
+        # Agregar columnas faltantes si no existen
+        if 'nombres_adultos' not in columns:
+            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
+            print("✅ Columna 'nombres_adultos' agregada")
+        
+        if 'nombres_niños' not in columns:
+            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
+            print("✅ Columna 'nombres_niños' agregada")
+        
+        conn.commit()
+    except Exception as e:
+        print(f"Error en migración: {e}")
+    finally:
+        conn.close()
 
 # Funciones de base de datos
-def get_db_connection():
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    if DATABASE_URL:
-        # PostgreSQL en producción
-        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
-    else:
-        # SQLite local para desarrollo
-        conn = sqlite3.connect('penya_albenc.db')
-    return conn
-
 def get_data(table):
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     conn.close()
     return df
 
 def add_data(table, data):
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     if table == 'comidas':
@@ -171,14 +159,14 @@ def add_data(table, data):
     conn.close()
 
 def update_data(table, id_record, field, new_value):
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     cursor.execute(f"UPDATE {table} SET {field} = ? WHERE id = ?", (new_value, id_record))
     conn.commit()
     conn.close()
 
 def delete_data(table, id_record):
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     cursor.execute(f"DELETE FROM {table} WHERE id = ?", (id_record,))
     conn.commit()
@@ -186,7 +174,7 @@ def delete_data(table, id_record):
 
 def load_initial_data():
     """Cargar datos iniciales si la base de datos está vacía"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # Verificar si ya hay datos
@@ -414,7 +402,7 @@ def load_eventos_completos():
         }
     }
     
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # BORRAR todos los datos existentes
@@ -506,7 +494,7 @@ def generar_lista_comensales(nombres_str, tipo):
         
 def update_mantenimiento_data():
     """Función para actualizar solo los datos de mantenimiento (útil para actualizaciones)"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # Limpiar datos existentes de mantenimiento
@@ -547,7 +535,7 @@ def update_mantenimiento_data():
 
 def load_fiestas_agosto_2025():
     """Cargar datos fijos de fiestas agosto 2025"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # Verificar si ya hay datos
@@ -810,13 +798,13 @@ def generar_tarjetas_fiestas():
 # Funciones auxiliares para filtros (restauradas)
 def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
     """Buscar comidas por año y/o tipo de comida"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     
     query = "SELECT * FROM comidas WHERE 1=1"
     params = []
     
     if año:
-        query += " AND EXTRACT(YEAR FROM fecha) = %s"  # ← Cambiar aquí
+        query += " AND strftime('%Y', fecha) = ?"
         params.append(str(año))
     
     if tipo_comida:
@@ -871,11 +859,11 @@ def inicializar_cocineros_desde_comidas():
 
 def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
     """Buscar todas las comidas de un año y tipo específico"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, fecha, cocineros FROM comidas 
-        WHERE EXTRACT(YEAR FROM fecha) = %s AND tipo_comida = %s
+        WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
         ORDER BY fecha
     """, (str(año), tipo_comida))
     results = cursor.fetchall()
@@ -993,16 +981,21 @@ def eliminar_cocinero_en_año_tipo(año, tipo_comida, cocinero_eliminar):
 def limpiar_eventos_antiguos():
     """Eliminar eventos que tengan más de un mes de antigüedad"""
     try:
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         cursor = conn.cursor()
         
+        # Fecha límite: hace un mes
         fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         
-        cursor.execute("DELETE FROM comidas WHERE fecha < %s", (fecha_limite,))
+        # Eliminar comidas antiguas
+        cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
         comidas_eliminadas = cursor.rowcount
         
-        cursor.execute("DELETE FROM eventos WHERE fecha < %s", (fecha_limite,))  # ← Cambiar aquí
+        # Eliminar eventos antiguos
+        cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
         eventos_eliminados = cursor.rowcount
+        
+        # No eliminamos mantenimiento porque son tareas anuales
         
         conn.commit()
         conn.close()
@@ -1017,7 +1010,7 @@ def limpiar_eventos_antiguos():
 def get_eventos_calendario():
     """Obtener todos los eventos para el calendario desde comidas y mantenimiento"""
     try:
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         
         # Obtener comidas
         comidas_query = """
@@ -1050,13 +1043,13 @@ def get_eventos_calendario():
 def get_proximos_eventos(limit=5):
     """Obtener los próximos eventos ordenados por fecha"""
     try:
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         query = """
         SELECT fecha, tipo_comida, tipo_servicio, cocineros
         FROM comidas 
-        WHERE fecha >= CURRENT_DATE
+        WHERE fecha >= date('now')
         ORDER BY fecha ASC
-        LIMIT %s
+        LIMIT ?
         """
         df = pd.read_sql_query(query, conn, params=[limit])
         conn.close()
@@ -1519,7 +1512,7 @@ def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adult
     
     # Si viene del botón de guardar
     if trigger_id == 'btn-guardar-cambios' and n_clicks and fecha:
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         cursor = conn.cursor()
         
         try:
@@ -2673,7 +2666,7 @@ def create_fiestas_page():
 
 def limpiar_datos_anteriores():
     """Limpiar datos residuales y resetear con datos limpios"""
-    conn = get_db_connection()
+    conn = sqlite3.connect('penya_albenc.db')
     cursor = conn.cursor()
     
     # Limpiar tablas principales
@@ -2692,7 +2685,7 @@ def create_debug_page():
         fiestas_df = get_data('fiestas')
         
         # Verificar estructura de tabla
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(fiestas)")
         columnas = cursor.fetchall()
@@ -2982,7 +2975,7 @@ def manejar_guardar_con_confirmacion(n_clicks_guardar, n_clicks_confirm, pathnam
     
     # Si se confirmó el guardado
     if trigger_id == 'confirm-guardar' and n_clicks_confirm and fecha:
-        conn = get_db_connection()
+        conn = sqlite3.connect('penya_albenc.db')
         cursor = conn.cursor()
         
         try:
@@ -3077,7 +3070,7 @@ print("🔧 Verificando estructura de tabla fiestas...")
 migrate_fiestas_table()
 
 # Verificar que las columnas existen
-conn = get_db_connection()
+conn = sqlite3.connect('penya_albenc.db')
 cursor = conn.cursor()
 cursor.execute("PRAGMA table_info(fiestas)")
 columnas = [col[1] for col in cursor.fetchall()]

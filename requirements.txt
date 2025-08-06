@@ -5,3 +5,4 @@ dash==2.14.1
 dash-table==5.0.0
 dash-core-components==2.0.0
 dash-html-components==2.0.0
+psycopg2-binary
