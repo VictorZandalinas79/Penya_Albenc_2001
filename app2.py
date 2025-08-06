@@ -6,10 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
-import os
 from datetime import datetime, date, timedelta
 import calendar
-
+import psycopg2
+import os
 
 # Inicializar la app
 is_production = os.environ.get('RENDER') is not None
@@ -47,13 +47,13 @@ server = app.server
 
 # Configurar la base de datos
 def init_db():
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Tabla de comidas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS comidas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             fecha DATE,
             tipo_servicio TEXT,
             tipo_comida TEXT,
@@ -64,7 +64,7 @@ def init_db():
     # Tabla de lista de compra
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS lista_compra (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             fecha DATE,
             objeto TEXT
         )
@@ -73,7 +73,7 @@ def init_db():
     # Tabla de mantenimiento
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS mantenimiento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             año INTEGER,
             mantenimiento TEXT,
             cadafals TEXT
@@ -83,7 +83,7 @@ def init_db():
     # Tabla de eventos para el calendario
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS eventos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             fecha DATE,
             evento TEXT,
             tipo TEXT
@@ -93,7 +93,7 @@ def init_db():
     # Tabla de fiestas (agregar después de las otras tablas)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS fiestas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             fecha DATE,
             cocineros TEXT,
             menu TEXT,
@@ -110,78 +110,117 @@ def init_db():
 
 def migrate_fiestas_table():
     """Agregar columnas faltantes a la tabla fiestas si no existen"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    
-    try:
-        # Verificar si las columnas ya existen
-        cursor.execute("PRAGMA table_info(fiestas)")
-        columns = [column[1] for column in cursor.fetchall()]
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if not DATABASE_URL:  # Solo SQLite local
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # Agregar columnas faltantes si no existen
-        if 'nombres_adultos' not in columns:
-            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
-            print("✅ Columna 'nombres_adultos' agregada")
-        
-        if 'nombres_niños' not in columns:
-            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
-            print("✅ Columna 'nombres_niños' agregada")
-        
-        conn.commit()
-    except Exception as e:
-        print(f"Error en migración: {e}")
-    finally:
-        conn.close()
+        try:
+            cursor.execute("PRAGMA table_info(fiestas)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'nombres_adultos' not in columns:
+                cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
+                print("✅ Columna 'nombres_adultos' agregada")
+            
+            if 'nombres_niños' not in columns:
+                cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
+                print("✅ Columna 'nombres_niños' agregada")
+            
+            conn.commit()
+        except Exception as e:
+            print(f"Error en migración: {e}")
+        finally:
+            conn.close()
+    else:
+        print("🎯 PostgreSQL detectado - migraciones no necesarias")
 
 # Funciones de base de datos
+def get_db_connection():
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL:
+        # PostgreSQL en producción
+        conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    else:
+        # SQLite local para desarrollo
+        conn = sqlite3.connect('penya_albenc.db')
+    return conn
+
 def get_data(table):
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     conn.close()
     return df
 
 def add_data(table, data):
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
-    if table == 'comidas':
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
-    elif table == 'lista_compra':
-        cursor.execute("INSERT INTO lista_compra (fecha, objeto) VALUES (?, ?)", data)
-    elif table == 'mantenimiento':
-        cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
-    elif table == 'eventos':
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", data)
-    elif table == 'fiestas':
-        cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
+    if DATABASE_URL:  # PostgreSQL
+        if table == 'comidas':
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)", data)
+        elif table == 'lista_compra':
+            cursor.execute("INSERT INTO lista_compra (fecha, objeto) VALUES (%s, %s)", data)
+        elif table == 'mantenimiento':
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (%s, %s, %s)", data)
+        elif table == 'eventos':
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)", data)
+        elif table == 'fiestas':
+            cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", data)
+    else:  # SQLite
+        if table == 'comidas':
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
+        elif table == 'lista_compra':
+            cursor.execute("INSERT INTO lista_compra (fecha, objeto) VALUES (?, ?)", data)
+        elif table == 'mantenimiento':
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
+        elif table == 'eventos':
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", data)
+        elif table == 'fiestas':
+            cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
     
     conn.commit()
     conn.close()
 
 def update_data(table, id_record, field, new_value):
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(f"UPDATE {table} SET {field} = ? WHERE id = ?", (new_value, id_record))
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute(f"UPDATE {table} SET {field} = %s WHERE id = %s", (new_value, id_record))
+    else:  # SQLite
+        cursor.execute(f"UPDATE {table} SET {field} = ? WHERE id = ?", (new_value, id_record))
+    
     conn.commit()
     conn.close()
 
 def delete_data(table, id_record):
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(f"DELETE FROM {table} WHERE id = ?", (id_record,))
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute(f"DELETE FROM {table} WHERE id = %s", (id_record,))
+    else:  # SQLite
+        cursor.execute(f"DELETE FROM {table} WHERE id = ?", (id_record,))
+    
     conn.commit()
     conn.close()
 
 def load_initial_data():
     """Cargar datos iniciales si la base de datos está vacía"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     # Verificar si ya hay datos
     cursor.execute("SELECT COUNT(*) FROM comidas")
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
+    
     
     # Datos de comidas (muestra - puedes agregar más desde el archivo que subiste)
     comidas_data = [
@@ -219,12 +258,18 @@ def load_initial_data():
     
     # Insertar datos
     for data in comidas_data:
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
-        # Crear evento en calendario
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", (data[0], data[2], data[1]))
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)", data)
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)", (data[0], data[2], data[1]))
+        else:  # SQLite
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)", data)
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)", (data[0], data[2], data[1]))
     
     for data in mantenimiento_data:
-        cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (%s, %s, %s)", data)
+        else:  # SQLite
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
     
     conn.commit()
     conn.close()
@@ -402,8 +447,9 @@ def load_eventos_completos():
         }
     }
     
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     # BORRAR todos los datos existentes
     cursor.execute("DELETE FROM comidas")
@@ -413,31 +459,55 @@ def load_eventos_completos():
     for año, eventos in eventos_data.items():
         # Sant Antoni - tercer sábado de enero
         fecha_sant_antoni = get_tercer_sabado_enero(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
-                      (fecha_sant_antoni, 'Cena', 'Sant Antoni', eventos['sant_antoni']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
-                      (fecha_sant_antoni, 'Sant Antoni', 'Cena'))
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)",
+                          (fecha_sant_antoni, 'Cena', 'Sant Antoni', eventos['sant_antoni']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)",
+                          (fecha_sant_antoni, 'Sant Antoni', 'Cena'))
+        else:  # SQLite
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                          (fecha_sant_antoni, 'Cena', 'Sant Antoni', eventos['sant_antoni']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                          (fecha_sant_antoni, 'Sant Antoni', 'Cena'))
         
         # Brena St Vicent - sábado cercano al 28 de abril
         fecha_brena = get_sabado_cercano_28_abril(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
-                      (fecha_brena, 'Comida y Cena', 'Brena St Vicent', eventos['brena_st_vicent']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
-                      (fecha_brena, 'Brena St Vicent', 'Comida y Cena'))
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)",
+                          (fecha_brena, 'Comida y Cena', 'Brena St Vicent', eventos['brena_st_vicent']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)",
+                          (fecha_brena, 'Brena St Vicent', 'Comida y Cena'))
+        else:  # SQLite
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                          (fecha_brena, 'Comida y Cena', 'Brena St Vicent', eventos['brena_st_vicent']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                          (fecha_brena, 'Brena St Vicent', 'Comida y Cena'))
         
         # Fira Magdalena - tercer sábado de julio
         fecha_fira = get_tercer_sabado_julio(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
-                      (fecha_fira, 'Comida y Cena', 'Fira Magdalena', eventos['fira_magdalena']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
-                      (fecha_fira, 'Fira Magdalena', 'Comida y Cena'))
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)",
+                          (fecha_fira, 'Comida y Cena', 'Fira Magdalena', eventos['fira_magdalena']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)",
+                          (fecha_fira, 'Fira Magdalena', 'Comida y Cena'))
+        else:  # SQLite
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                          (fecha_fira, 'Comida y Cena', 'Fira Magdalena', eventos['fira_magdalena']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                          (fecha_fira, 'Fira Magdalena', 'Comida y Cena'))
         
         # Penya Taurina - último sábado de mayo
         fecha_penya = get_ultimo_sabado_mayo(año)
-        cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
-                      (fecha_penya, 'Comida', 'Penya Taurina', eventos['penya_taurina']))
-        cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
-                      (fecha_penya, 'Penya Taurina', 'Comida'))
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (%s, %s, %s, %s)",
+                          (fecha_penya, 'Comida', 'Penya Taurina', eventos['penya_taurina']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (%s, %s, %s)",
+                          (fecha_penya, 'Penya Taurina', 'Comida'))
+        else:  # SQLite
+            cursor.execute("INSERT INTO comidas (fecha, tipo_servicio, tipo_comida, cocineros) VALUES (?, ?, ?, ?)",
+                          (fecha_penya, 'Comida', 'Penya Taurina', eventos['penya_taurina']))
+            cursor.execute("INSERT INTO eventos (fecha, evento, tipo) VALUES (?, ?, ?)",
+                          (fecha_penya, 'Penya Taurina', 'Comida'))
     
     conn.commit()
     conn.close()
@@ -493,9 +563,10 @@ def generar_lista_comensales(nombres_str, tipo):
         return lista_elementos
         
 def update_mantenimiento_data():
-    """Función para actualizar solo los datos de mantenimiento (útil para actualizaciones)"""
-    conn = sqlite3.connect('penya_albenc.db')
+    """Función para actualizar solo los datos de mantenimiento"""
+    conn = get_db_connection()
     cursor = conn.cursor()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     # Limpiar datos existentes de mantenimiento
     cursor.execute("DELETE FROM mantenimiento")
@@ -527,7 +598,10 @@ def update_mantenimiento_data():
     
     # Insertar datos actualizados
     for data in mantenimiento_data:
-        cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (%s, %s, %s)", data)
+        else:  # SQLite
+            cursor.execute("INSERT INTO mantenimiento (año, mantenimiento, cadafals) VALUES (?, ?, ?)", data)
     
     conn.commit()
     conn.close()
@@ -535,31 +609,39 @@ def update_mantenimiento_data():
 
 def load_fiestas_agosto_2025():
     """Cargar datos fijos de fiestas agosto 2025"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     # Verificar si ya hay datos
-    cursor.execute("SELECT COUNT(*) FROM fiestas WHERE fecha BETWEEN '2025-08-08' AND '2025-08-17'")
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute("SELECT COUNT(*) FROM fiestas WHERE fecha BETWEEN %s AND %s", ('2025-08-08', '2025-08-17'))
+    else:  # SQLite
+        cursor.execute("SELECT COUNT(*) FROM fiestas WHERE fecha BETWEEN ? AND ?", ('2025-08-08', '2025-08-17'))
+    
     if cursor.fetchone()[0] > 0:
         conn.close()
         return
     
     # Datos fijos COMPLETOS para los 10 días
     fiestas_data = [
-        ('2025-08-08', 'Oscar Vicente, Serafin Montoliu', 'Torrada de carne', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, Carmina Escorihuela, David Roig, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
-        ('2025-08-09', 'Alfonso Roig, Ana Troncho', 'Entrantes y ensaladilla', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
-        ('2025-08-10', 'Miguel A. Monfort, Lucia Carceller', 'Entrantes y ternera guisada', 0, 'Susana Pitarch, Serafin Montoliu, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Vera Montoliu, Saul Montoliu, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
+        ('2025-08-08', 'Oscar Vicente, Serafin Montoliu', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, Carmina Escorihuela, David Roig, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '16:30-Final Frontenis|17:30-Final Futbol-sala|19:00-Chupinazo y pasacalle|22:30-Presentacion|00:00-Discomóvil'),
+        ('2025-08-09', 'Alfonso Roig, Ana Troncho', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y toro|19:00-Tardeo "Kasparov"|21:00-Cena Popular (concurso manteles - AvLosar)|23:30-Toro embolado|00:30-Grupo Zetak'),
+        ('2025-08-10', 'Miguel A. Monfort, Lucia Carceller', '', 0, 'Susana Pitarch, Serafin Montoliu, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Vera Montoliu, Saul Montoliu, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Sevillanas tasca comision|17:00-Recortadores|19:00-Tardeo Rumba 13|22:30-Concurso Emboladores|00:00-Tu Cara Me Suena + Noche Spotify en tasca comisión'),
         ('2025-08-11', 'DIA DE LES PENYES', 'Arroz con secreto y costilla / Guiso de toro', 0, 'Alonso Roqueta, Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', 'DIA DE LAS PEÑAS|14:00-Comida Arroz con secreto y costilla|16:30-Juego de peñas|21:00-Cena Guiso de toro|A continuación Discomóvil plaza toros'),
-        ('2025-08-12', 'Victor Prades, Sara Barcina, J. Fernando Marques', 'Fideua de carne (no lleva pescado)', 0, 'Alonso Roqueta, J. Ramon Barreda, Victor Zandalinas, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
-        ('2025-08-13', 'David Roig, Carmina Escorihuela', 'Caldo con pelotas y carrillada', 0, 'Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
-        ('2025-08-14', 'J.Ramon Barreda, Carolina De Toro', 'Melon con jamon y albondigas', 0, 'Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
-        ('2025-08-15', 'Raul Altaba, Elena Domingo, Victor Zandalinas, Sonia Domingo', 'Entrantes: pulso con patatas, ensalada Cesar y gambas saladas. Principal: Lomo.', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
+        ('2025-08-12', 'Victor Prades, Sara Barcina, J. Fernando Marques', '', 0, 'Alonso Roqueta, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas con charanga|19:00-Tardeo Generación Z|23:00-Toro embolado|00:30-Orquesta Bella Donna y discomóvil'),
+        ('2025-08-13', 'David Roig, Carmina Escorihuela', '', 0, 'Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '17:00-Corro de vacas y entrada de toro|18:00-Bureo Parador|19:30-Tarde de rock tasca|22:00-Grupo Garrama|23:30-Toro Embolado|00:00-Tributo Extremoduro en tasca'),
+        ('2025-08-14', 'J.Ramon Barreda, Carolina De Toro', '', 0, 'Carolina De Toro, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '19:00-Desencajonada de 2 toros y embolada de 1 toro|00:00-Desfile disfraces con charanga y baile con La Freska'),
+        ('2025-08-15', 'Raul Altaba, Elena Domingo, Victor Zandalinas, Sonia Domingo', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '12:00-Especial con vacas|16:30-Corro de vacas|18:00-Prueba de toro Ventanillo|22:30-Ball Pla|00:00-Toro embolado|00:30-Tributo a la Oreja de Van Gogh en plaza de toros'),
         ('2025-08-16', 'Luis Belles, Marta Fusté, Alonso Roqueta, Lara Sorribes', '', 0, 'Serafin Montoliu, Alonso Roqueta, Lara Sorribes, Carolina De Toro, J. Ramon Barreda, Victor Zandalinas, Sonia Domingo, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Óscar Vicente, Sara Barcina, Víctor Prades, Alfonso Roig', 0, 'Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Nuria Monfort, Andrea Monfort, Alex Roig', '14:00-Concurso de paellas en av Losar|17:00-Corro de vacas y entrada de toro|19:00-Tardeo Town Folks|21:00-Cena popular concurso de postres en av Losar|23:00-Toro embolado|00:00-Orquesta Vallparaiso en plaza de toros y discomóvil'),
         ('2025-08-17', 'Francisco Vicente, Sugey Guzman, Diego Tena, Pilar Gimeno', '', 0, 'Susana Pitarch, Serafin Montoliu, Alonso Roqueta, Lara Sorribes, J. Ramon Barreda, Pilar Gimeno Belles, Diego Tena Pitarch, J. Fernando Marques, Marta Fusté, Luis Bellés, Carmina Escorihuela, David Roig, Elena Domingo, Raul Altaba, Francisco Vicente, Sugey Guzman, Lucia Carceller, Miguel A Monfort, Sara Barcina, Víctor Prades, Ana Troncho, Alfonso Roig', 0, 'Vera Montoliu, Saul Montoliu, Raúl Roqueta, Éric Roqueta, Nuria Barreda, Francesc Barreda, Chloe Bellés, Manel Roig, Daniel Altaba, Martina Altaba, Andres Vicente, Nuria Monfort, Andrea Monfort, Elia Roig, Alex Roig', '16:30-Espectaculo de motos|18:00-Grison en plaza de toros|22:30-Correfocs'),
     ]
     
     for data in fiestas_data:
-        cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", data)
+        else:  # SQLite
+            cursor.execute("INSERT INTO fiestas (fecha, cocineros, menu, adultos, nombres_adultos, niños, nombres_niños, programa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", data)
     
     conn.commit()
     conn.close()
@@ -798,17 +880,24 @@ def generar_tarjetas_fiestas():
 # Funciones auxiliares para filtros (restauradas)
 def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
     """Buscar comidas por año y/o tipo de comida"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     query = "SELECT * FROM comidas WHERE 1=1"
     params = []
     
     if año:
-        query += " AND strftime('%Y', fecha) = ?"
+        if DATABASE_URL:  # PostgreSQL
+            query += " AND EXTRACT(YEAR FROM fecha) = %s"
+        else:  # SQLite
+            query += " AND strftime('%Y', fecha) = ?"
         params.append(str(año))
     
     if tipo_comida:
-        query += " AND tipo_comida = ?"
+        if DATABASE_URL:  # PostgreSQL
+            query += " AND tipo_comida = %s"
+        else:  # SQLite
+            query += " AND tipo_comida = ?"
         params.append(tipo_comida)
     
     df = pd.read_sql_query(query, conn, params=params)
@@ -859,16 +948,27 @@ def inicializar_cocineros_desde_comidas():
 
 def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
     """Buscar todas las comidas de un año y tipo específico"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, fecha, cocineros FROM comidas 
-        WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
-        ORDER BY fecha
-    """, (str(año), tipo_comida))
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE EXTRACT(YEAR FROM fecha) = %s AND tipo_comida = %s
+            ORDER BY fecha
+        """, (str(año), tipo_comida))
+    else:  # SQLite
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
+            ORDER BY fecha
+        """, (str(año), tipo_comida))
+    
     results = cursor.fetchall()
     conn.close()
     return results
+
 def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
     """Intercambiar cocineros específicos entre diferentes año/tipo"""
     try:
@@ -981,21 +1081,22 @@ def eliminar_cocinero_en_año_tipo(año, tipo_comida, cocinero_eliminar):
 def limpiar_eventos_antiguos():
     """Eliminar eventos que tengan más de un mes de antigüedad"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
+        DATABASE_URL = os.environ.get('DATABASE_URL')
         
-        # Fecha límite: hace un mes
         fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         
-        # Eliminar comidas antiguas
-        cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
-        comidas_eliminadas = cursor.rowcount
-        
-        # Eliminar eventos antiguos
-        cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
-        eventos_eliminados = cursor.rowcount
-        
-        # No eliminamos mantenimiento porque son tareas anuales
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("DELETE FROM comidas WHERE fecha < %s", (fecha_limite,))
+            comidas_eliminadas = cursor.rowcount
+            cursor.execute("DELETE FROM eventos WHERE fecha < %s", (fecha_limite,))
+            eventos_eliminados = cursor.rowcount
+        else:  # SQLite
+            cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
+            comidas_eliminadas = cursor.rowcount
+            cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
+            eventos_eliminados = cursor.rowcount
         
         conn.commit()
         conn.close()
@@ -1010,7 +1111,7 @@ def limpiar_eventos_antiguos():
 def get_eventos_calendario():
     """Obtener todos los eventos para el calendario desde comidas y mantenimiento"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         
         # Obtener comidas
         comidas_query = """
@@ -1043,14 +1144,26 @@ def get_eventos_calendario():
 def get_proximos_eventos(limit=5):
     """Obtener los próximos eventos ordenados por fecha"""
     try:
-        conn = sqlite3.connect('penya_albenc.db')
-        query = """
-        SELECT fecha, tipo_comida, tipo_servicio, cocineros
-        FROM comidas 
-        WHERE fecha >= date('now')
-        ORDER BY fecha ASC
-        LIMIT ?
-        """
+        conn = get_db_connection()
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        
+        if DATABASE_URL:  # PostgreSQL
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= CURRENT_DATE
+            ORDER BY fecha ASC
+            LIMIT %s
+            """
+        else:  # SQLite
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= date('now')
+            ORDER BY fecha ASC
+            LIMIT ?
+            """
+        
         df = pd.read_sql_query(query, conn, params=[limit])
         conn.close()
         return df
@@ -1512,7 +1625,7 @@ def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adult
     
     # Si viene del botón de guardar
     if trigger_id == 'btn-guardar-cambios' and n_clicks and fecha:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
@@ -2666,7 +2779,7 @@ def create_fiestas_page():
 
 def limpiar_datos_anteriores():
     """Limpiar datos residuales y resetear con datos limpios"""
-    conn = sqlite3.connect('penya_albenc.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Limpiar tablas principales
@@ -2685,12 +2798,26 @@ def create_debug_page():
         fiestas_df = get_data('fiestas')
         
         # Verificar estructura de tabla
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(fiestas)")
-        columnas = cursor.fetchall()
-        cursor.execute("SELECT COUNT(*) FROM fiestas")
-        total_filas = cursor.fetchone()[0]
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'fiestas'
+                ORDER BY ordinal_position
+            """)
+            columnas = cursor.fetchall()
+            cursor.execute("SELECT COUNT(*) FROM fiestas")
+            total_filas = cursor.fetchone()[0]
+        else:  # SQLite
+            cursor.execute("PRAGMA table_info(fiestas)")
+            columnas = cursor.fetchall()
+            cursor.execute("SELECT COUNT(*) FROM fiestas")
+            total_filas = cursor.fetchone()[0]
+        
         conn.close()
         
         return html.Div([
@@ -2975,7 +3102,7 @@ def manejar_guardar_con_confirmacion(n_clicks_guardar, n_clicks_confirm, pathnam
     
     # Si se confirmó el guardado
     if trigger_id == 'confirm-guardar' and n_clicks_confirm and fecha:
-        conn = sqlite3.connect('penya_albenc.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         try:
@@ -2984,7 +3111,10 @@ def manejar_guardar_con_confirmacion(n_clicks_guardar, n_clicks_confirm, pathnam
             nombres_niños = ', '.join(niños_lista) if niños_lista else ''
             
             # Buscar el ID del registro
-            cursor.execute("SELECT id FROM fiestas WHERE fecha = ?", (fecha,))
+            if DATABASE_URL:  # PostgreSQL
+                cursor.execute("SELECT id FROM fiestas WHERE fecha = %s", (fecha,))
+            else:  # SQLite
+                cursor.execute("SELECT id FROM fiestas WHERE fecha = ?", (fecha,))
             result = cursor.fetchone()
             
             if not result:
@@ -3070,12 +3200,29 @@ print("🔧 Verificando estructura de tabla fiestas...")
 migrate_fiestas_table()
 
 # Verificar que las columnas existen
-conn = sqlite3.connect('penya_albenc.db')
+# Verificar que las columnas existen
+conn = get_db_connection()
 cursor = conn.cursor()
-cursor.execute("PRAGMA table_info(fiestas)")
-columnas = [col[1] for col in cursor.fetchall()]
-print(f"📊 Columnas en fiestas: {columnas}")
-conn.close()
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+try:
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'fiestas'
+            ORDER BY ordinal_position
+        """)
+        columnas = [col[0] for col in cursor.fetchall()]
+    else:  # SQLite
+        cursor.execute("PRAGMA table_info(fiestas)")
+        columnas = [col[1] for col in cursor.fetchall()]
+    
+    print(f"📊 Columnas en fiestas: {columnas}")
+except Exception as e:
+    print(f"⚠️ No se pudo verificar columnas: {e}")
+finally:
+    conn.close()
 
 load_fiestas_agosto_2025()
 
