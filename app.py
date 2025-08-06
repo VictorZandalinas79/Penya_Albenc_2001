@@ -811,16 +811,23 @@ def generar_tarjetas_fiestas():
 def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
     """Buscar comidas por año y/o tipo de comida"""
     conn = get_db_connection()
+    DATABASE_URL = os.environ.get('DATABASE_URL')
     
     query = "SELECT * FROM comidas WHERE 1=1"
     params = []
     
     if año:
-        query += " AND EXTRACT(YEAR FROM fecha) = %s"  # ← Cambiar aquí
+        if DATABASE_URL:  # PostgreSQL
+            query += " AND EXTRACT(YEAR FROM fecha) = %s"
+        else:  # SQLite
+            query += " AND strftime('%Y', fecha) = ?"
         params.append(str(año))
     
     if tipo_comida:
-        query += " AND tipo_comida = ?"
+        if DATABASE_URL:  # PostgreSQL
+            query += " AND tipo_comida = %s"
+        else:  # SQLite
+            query += " AND tipo_comida = ?"
         params.append(tipo_comida)
     
     df = pd.read_sql_query(query, conn, params=params)
@@ -873,14 +880,25 @@ def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
     """Buscar todas las comidas de un año y tipo específico"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, fecha, cocineros FROM comidas 
-        WHERE EXTRACT(YEAR FROM fecha) = %s AND tipo_comida = %s
-        ORDER BY fecha
-    """, (str(año), tipo_comida))
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    if DATABASE_URL:  # PostgreSQL
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE EXTRACT(YEAR FROM fecha) = %s AND tipo_comida = %s
+            ORDER BY fecha
+        """, (str(año), tipo_comida))
+    else:  # SQLite
+        cursor.execute("""
+            SELECT id, fecha, cocineros FROM comidas 
+            WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
+            ORDER BY fecha
+        """, (str(año), tipo_comida))
+    
     results = cursor.fetchall()
     conn.close()
     return results
+
 def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
     """Intercambiar cocineros específicos entre diferentes año/tipo"""
     try:
@@ -995,14 +1013,20 @@ def limpiar_eventos_antiguos():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        DATABASE_URL = os.environ.get('DATABASE_URL')
         
         fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
         
-        cursor.execute("DELETE FROM comidas WHERE fecha < %s", (fecha_limite,))
-        comidas_eliminadas = cursor.rowcount
-        
-        cursor.execute("DELETE FROM eventos WHERE fecha < %s", (fecha_limite,))  # ← Cambiar aquí
-        eventos_eliminados = cursor.rowcount
+        if DATABASE_URL:  # PostgreSQL
+            cursor.execute("DELETE FROM comidas WHERE fecha < %s", (fecha_limite,))
+            comidas_eliminadas = cursor.rowcount
+            cursor.execute("DELETE FROM eventos WHERE fecha < %s", (fecha_limite,))
+            eventos_eliminados = cursor.rowcount
+        else:  # SQLite
+            cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
+            comidas_eliminadas = cursor.rowcount
+            cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
+            eventos_eliminados = cursor.rowcount
         
         conn.commit()
         conn.close()
@@ -1051,13 +1075,25 @@ def get_proximos_eventos(limit=5):
     """Obtener los próximos eventos ordenados por fecha"""
     try:
         conn = get_db_connection()
-        query = """
-        SELECT fecha, tipo_comida, tipo_servicio, cocineros
-        FROM comidas 
-        WHERE fecha >= CURRENT_DATE
-        ORDER BY fecha ASC
-        LIMIT %s
-        """
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        
+        if DATABASE_URL:  # PostgreSQL
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= CURRENT_DATE
+            ORDER BY fecha ASC
+            LIMIT %s
+            """
+        else:  # SQLite
+            query = """
+            SELECT fecha, tipo_comida, tipo_servicio, cocineros
+            FROM comidas 
+            WHERE fecha >= date('now')
+            ORDER BY fecha ASC
+            LIMIT ?
+            """
+        
         df = pd.read_sql_query(query, conn, params=[limit])
         conn.close()
         return df
