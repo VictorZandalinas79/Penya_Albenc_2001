@@ -7,3 +7,4 @@ fastparquet==2023.10.1
 gunicorn==21.2.0
 psycopg2-binary
 sqlalchemy
+dash-bootstrap-components
