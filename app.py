@@ -1,25 +1,29 @@
 import dash
+<<<<<<< HEAD
 from dash import dcc, html, Input, Output, State, callback_context, dash_table, ALL
 from dash.exceptions import PreventUpdate
 import dash.dependencies
+=======
+from dash import dcc, html, Input, Output, State, callback_context, dash_table
+from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
+>>>>>>> e79d4fc (cambio a supabase)
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-import sqlite3
 import os
 from datetime import datetime, date, timedelta
 import calendar
 
+<<<<<<< HEAD
+=======
+# IMPORTAR DATA MANAGER
+from data_manager import dm
+>>>>>>> e79d4fc (cambio a supabase)
 
 # Inicializar la app
-is_production = os.environ.get('RENDER') is not None
-
-# Al inicio del archivo, después de crear la app
-app = dash.Dash(__name__, suppress_callback_exceptions=True, 
-                assets_folder='assets',
-                assets_url_path='/assets/')
-
-# AGREGAR ESTO ⬇️
+app = dash.Dash(__name__, 
+                suppress_callback_exceptions=True)
 app.index_string = '''
 <!DOCTYPE html>
 <html>
@@ -27,11 +31,11 @@ app.index_string = '''
         {%metas%}
         <title>Penya L'Albenc</title>
         <link rel="shortcut icon" href="/assets/favicon.ico">
-        <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
         {%css%}
     </head>
-    <body>
+    <body style="margin:0;padding:0;background:#f8fafc;font-family:'Inter',sans-serif;">
         {%app_entry%}
         <footer>
             {%config%}
@@ -42,97 +46,22 @@ app.index_string = '''
 </html>
 '''
 
-# Para Render
 server = app.server
 
-# Configurar la base de datos
-def init_db():
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    
-    # Tabla de comidas
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS comidas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            tipo_servicio TEXT,
-            tipo_comida TEXT,
-            cocineros TEXT
-        )
-    ''')
-    
-    # Tabla de lista de compra
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lista_compra (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            objeto TEXT
-        )
-    ''')
-    
-    # Tabla de mantenimiento
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS mantenimiento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            año INTEGER,
-            mantenimiento TEXT,
-            cadafals TEXT
-        )
-    ''')
-    
-    # Tabla de eventos para el calendario
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS eventos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            evento TEXT,
-            tipo TEXT
-        )
-    ''')
+# ===== FUNCIONES DE UTILIDAD =====
 
-    # Tabla de fiestas (agregar después de las otras tablas)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS fiestas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            cocineros TEXT,
-            menu TEXT,
-            adultos INTEGER DEFAULT 0,
-            nombres_adultos TEXT DEFAULT '',
-            niños INTEGER DEFAULT 0,
-            nombres_niños TEXT DEFAULT '',
-            programa TEXT
-        )
-        ''')
-    
-    conn.commit()
-    conn.close()
-
-def migrate_fiestas_table():
-    """Agregar columnas faltantes a la tabla fiestas si no existen"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    
+def registrar_cambio(tipo_cambio, descripcion, usuario="Anónimo"):
+    """Registrar un cambio en el sistema"""
     try:
-        # Verificar si las columnas ya existen
-        cursor.execute("PRAGMA table_info(fiestas)")
-        columns = [column[1] for column in cursor.fetchall()]
-        
-        # Agregar columnas faltantes si no existen
-        if 'nombres_adultos' not in columns:
-            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_adultos TEXT DEFAULT ''")
-            print("✅ Columna 'nombres_adultos' agregada")
-        
-        if 'nombres_niños' not in columns:
-            cursor.execute("ALTER TABLE fiestas ADD COLUMN nombres_niños TEXT DEFAULT ''")
-            print("✅ Columna 'nombres_niños' agregada")
-        
-        conn.commit()
+        cambios_df = dm.get_data('cambios')
+        nueva_fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        dm.add_data('cambios', (nueva_fecha, tipo_cambio, descripcion, usuario))
+        return True
     except Exception as e:
-        print(f"Error en migración: {e}")
-    finally:
-        conn.close()
+        print(f"Error registrando cambio: {e}")
+        return False
 
+<<<<<<< HEAD
 # Funciones de base de datos
 def get_data(table):
     conn = sqlite3.connect('penya_albenc.db')
@@ -794,483 +723,152 @@ def generar_tarjetas_fiestas():
         import traceback
         traceback.print_exc()
         return [html.P(f"Error cargando datos: {e}", style={"text-align": "center", "color": "red"})]
-
-# Funciones auxiliares para filtros (restauradas)
-def buscar_comidas_por_año_tipo(año=None, tipo_comida=None):
-    """Buscar comidas por año y/o tipo de comida"""
-    conn = sqlite3.connect('penya_albenc.db')
-    
-    query = "SELECT * FROM comidas WHERE 1=1"
-    params = []
-    
-    if año:
-        query += " AND strftime('%Y', fecha) = ?"
-        params.append(str(año))
-    
-    if tipo_comida:
-        query += " AND tipo_comida = ?"
-        params.append(tipo_comida)
-    
-    df = pd.read_sql_query(query, conn, params=params)
-    conn.close()
-    return df
-
-def get_tipos_comida():
-    """Obtener lista única de tipos de comida"""
-    comidas_df = get_data('comidas')
-    if len(comidas_df) > 0:
-        tipos = comidas_df['tipo_comida'].unique().tolist()
-        return [{'label': tipo, 'value': tipo} for tipo in tipos]
-    return []
-
-def get_años_disponibles():
-    """Obtener lista de años disponibles en comidas"""
-    comidas_df = get_data('comidas')
-    if len(comidas_df) > 0:
-        años = sorted(list(set([int(fecha.split('-')[0]) for fecha in comidas_df['fecha']])))
-        return [{'label': str(año), 'value': año} for año in años]
-    return []
-
-def get_cocineros_options():
-    """Obtener lista única de cocineros desde las comidas existentes"""
+=======
+def obtener_ultimos_cambios(n=10):
+    """Obtener los últimos N cambios"""
     try:
-        comidas_df = get_data('comidas')
-        if len(comidas_df) == 0:
-            return []
-        
-        # Extraer todos los cocineros únicos
-        cocineros_set = set()
-        for cocineros_str in comidas_df['cocineros'].dropna():
-            # Separar por comas y limpiar espacios
-            cocineros = [c.strip() for c in str(cocineros_str).split(',')]
-            cocineros_set.update(cocineros)
-        
-        # Remover strings vacíos
-        cocineros_list = sorted([c for c in cocineros_set if c])
-        
-        return [{'label': cocinero, 'value': cocinero} for cocinero in cocineros_list]
-    except Exception as e:
-        print(f"Error obteniendo cocineros: {e}")
-        return []
+        cambios_df = dm.get_data('cambios')
+        if len(cambios_df) > 0:
+            cambios_df['fecha_dt'] = pd.to_datetime(cambios_df['fecha'])
+            return cambios_df.sort_values('fecha_dt', ascending=False).head(n)
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+>>>>>>> e79d4fc (cambio a supabase)
 
-def inicializar_cocineros_desde_comidas():
-    """Función auxiliar para inicializar cocineros (ya no es necesaria con get_cocineros_options)"""
-    pass
-
-def buscar_comidas_por_año_tipo_completas(año, tipo_comida):
-    """Buscar todas las comidas de un año y tipo específico"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT id, fecha, cocineros FROM comidas 
-        WHERE strftime('%Y', fecha) = ? AND tipo_comida = ?
-        ORDER BY fecha
-    """, (str(año), tipo_comida))
-    results = cursor.fetchall()
-    conn.close()
-    return results
-def intercambiar_cocineros_especifico(año1, tipo1, cocinero1, año2, tipo2, cocinero2):
-    """Intercambiar cocineros específicos entre diferentes año/tipo"""
+def get_proximos_eventos(limit=5):
+    """Obtener próximos eventos"""
     try:
-        # Buscar comidas del primer grupo
-        comidas1 = buscar_comidas_por_año_tipo_completas(año1, tipo1)
-        if not comidas1:
-            return f"❌ No se encontraron comidas en {año1} de tipo '{tipo1}'"
+        eventos_df = dm.get_data('eventos')
+        comidas_df = dm.get_data('comidas')
         
-        # Buscar comidas del segundo grupo
-        comidas2 = buscar_comidas_por_año_tipo_completas(año2, tipo2)
-        if not comidas2:
-            return f"❌ No se encontraron comidas en {año2} de tipo '{tipo2}'"
+        eventos_lista = []
         
-        cambios_realizados = 0
+        # Agregar eventos especiales
+        if len(eventos_df) > 0:
+            for _, evento in eventos_df.iterrows():
+                eventos_lista.append({
+                    'fecha': evento['fecha'],
+                    'tipo': evento['evento'],
+                    'descripcion': evento.get('tipo', '')
+                })
         
-        # Intercambiar en el primer grupo: cocinero1 → cocinero2
-        for comida_id, fecha, cocineros_str in comidas1:
-            cocineros = [c.strip() for c in cocineros_str.split(',')]
-            if cocinero1 in cocineros:
-                cocineros[cocineros.index(cocinero1)] = cocinero2
-                nueva_lista = ', '.join(cocineros)
-                update_data('comidas', comida_id, 'cocineros', nueva_lista)
-                cambios_realizados += 1
+        # Agregar comidas
+        if len(comidas_df) > 0:
+            for _, comida in comidas_df.iterrows():
+                eventos_lista.append({
+                    'fecha': comida['fecha'],
+                    'tipo': comida.get('dia', 'Comida'),
+                    'descripcion': f"{comida.get('tipo_comida', '')} - {comida.get('cocineros', '')}"
+                })
         
-        # Intercambiar en el segundo grupo: cocinero2 → cocinero1
-        for comida_id, fecha, cocineros_str in comidas2:
-            cocineros = [c.strip() for c in cocineros_str.split(',')]
-            if cocinero2 in cocineros:
-                cocineros[cocineros.index(cocinero2)] = cocinero1
-                nueva_lista = ', '.join(cocineros)
-                update_data('comidas', comida_id, 'cocineros', nueva_lista)
-                cambios_realizados += 1
+        if eventos_lista:
+            df_eventos = pd.DataFrame(eventos_lista)
+            df_eventos['fecha_dt'] = pd.to_datetime(df_eventos['fecha'])
+            hoy = pd.Timestamp.now().normalize()  # Solo la fecha, sin hora
+            df_eventos = df_eventos[df_eventos['fecha_dt'] >= hoy]
+            df_eventos = df_eventos.sort_values('fecha_dt').head(limit)
+            return df_eventos
         
-        if cambios_realizados > 0:
-            return f"✅ Intercambio exitoso: {cocinero1} ({tipo1} {año1}) ↔ {cocinero2} ({tipo2} {año2}) en {cambios_realizados} comidas"
-        else:
-            return f"⚠️ No se encontraron los cocineros especificados en sus respectivos grupos"
-    except Exception as e:
-        return f"❌ Error en el intercambio: {str(e)}"
-
-def cambiar_cocinero_en_año_tipo(año, tipo_comida, cocinero_antiguo, cocinero_nuevo):
-    """Cambiar un cocinero por otro en todas las comidas de un año y tipo"""
-    try:
-        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
-        if not comidas:
-            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
-        
-        cambios_realizados = 0
-        for comida_id, fecha, cocineros_str in comidas:
-            cocineros = [c.strip() for c in cocineros_str.split(',')]
-            if cocinero_antiguo in cocineros:
-                cocineros[cocineros.index(cocinero_antiguo)] = cocinero_nuevo
-                nueva_lista = ', '.join(cocineros)
-                update_data('comidas', comida_id, 'cocineros', nueva_lista)
-                cambios_realizados += 1
-        
-        if cambios_realizados > 0:
-            return f"✅ {cocinero_antiguo} → {cocinero_nuevo} en {cambios_realizados} comidas de {tipo_comida} ({año})"
-        else:
-            return f"⚠️ {cocinero_antiguo} no encontrado en comidas de {tipo_comida} ({año})"
-    except Exception as e:
-        return f"❌ Error en el cambio: {str(e)}"
-
-def agregar_cocinero_en_año_tipo(año, tipo_comida, nuevo_cocinero):
-    """Agregar un cocinero a todas las comidas de un año y tipo"""
-    try:
-        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
-        if not comidas:
-            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
-        
-        cambios_realizados = 0
-        for comida_id, fecha, cocineros_str in comidas:
-            cocineros = [c.strip() for c in cocineros_str.split(',')]
-            if nuevo_cocinero not in cocineros:
-                cocineros.append(nuevo_cocinero)
-                nueva_lista = ', '.join(cocineros)
-                update_data('comidas', comida_id, 'cocineros', nueva_lista)
-                cambios_realizados += 1
-        
-        if cambios_realizados > 0:
-            return f"✅ {nuevo_cocinero} agregado a {cambios_realizados} comidas de {tipo_comida} ({año})"
-        else:
-            return f"⚠️ {nuevo_cocinero} ya está en todas las comidas de {tipo_comida} ({año})"
-    except Exception as e:
-        return f"❌ Error al agregar: {str(e)}"
-
-def eliminar_cocinero_en_año_tipo(año, tipo_comida, cocinero_eliminar):
-    """Eliminar un cocinero de todas las comidas de un año y tipo"""
-    try:
-        comidas = buscar_comidas_por_año_tipo_completas(año, tipo_comida)
-        if not comidas:
-            return f"❌ No se encontraron comidas en {año} de tipo '{tipo_comida}'"
-        
-        cambios_realizados = 0
-        for comida_id, fecha, cocineros_str in comidas:
-            cocineros = [c.strip() for c in cocineros_str.split(',')]
-            if cocinero_eliminar in cocineros and len(cocineros) > 1:
-                cocineros.remove(cocinero_eliminar)
-                nueva_lista = ', '.join(cocineros)
-                update_data('comidas', comida_id, 'cocineros', nueva_lista)
-                cambios_realizados += 1
-        
-        if cambios_realizados > 0:
-            return f"✅ {cocinero_eliminar} eliminado de {cambios_realizados} comidas de {tipo_comida} ({año})"
-        else:
-            return f"⚠️ No se pudo eliminar {cocinero_eliminar} (no encontrado o es el único cocinero)"
-    except Exception as e:
-        return f"❌ Error al eliminar: {str(e)}"
-
-def limpiar_eventos_antiguos():
-    """Eliminar eventos que tengan más de un mes de antigüedad"""
-    try:
-        conn = sqlite3.connect('penya_albenc.db')
-        cursor = conn.cursor()
-        
-        # Fecha límite: hace un mes
-        fecha_limite = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-        
-        # Eliminar comidas antiguas
-        cursor.execute("DELETE FROM comidas WHERE fecha < ?", (fecha_limite,))
-        comidas_eliminadas = cursor.rowcount
-        
-        # Eliminar eventos antiguos
-        cursor.execute("DELETE FROM eventos WHERE fecha < ?", (fecha_limite,))
-        eventos_eliminados = cursor.rowcount
-        
-        # No eliminamos mantenimiento porque son tareas anuales
-        
-        conn.commit()
-        conn.close()
-        
-        if comidas_eliminadas > 0 or eventos_eliminados > 0:
-            print(f"🧹 Limpieza automática: {comidas_eliminadas} comidas y {eventos_eliminados} eventos eliminados")
-        
-        return f"✅ Limpieza completada: {comidas_eliminadas} comidas y {eventos_eliminados} eventos eliminados"
-    except Exception as e:
-        return f"❌ Error en limpieza: {str(e)}"
-
-def get_eventos_calendario():
-    """Obtener todos los eventos para el calendario desde comidas y mantenimiento"""
-    try:
-        conn = sqlite3.connect('penya_albenc.db')
-        
-        # Obtener comidas
-        comidas_query = """
-        SELECT fecha, tipo_comida as evento, tipo_servicio as tipo, 'comida' as categoria
-        FROM comidas 
-        WHERE fecha >= date('now', '-30 days')
-        ORDER BY fecha
-        """
-        
-        # Obtener mantenimiento (convertir año a fecha aproximada)
-        mantenimiento_query = """
-        SELECT (año || '-01-01') as fecha, mantenimiento as evento, 'Anual' as tipo, 'mantenimiento' as categoria
-        FROM mantenimiento 
-        WHERE año >= strftime('%Y', 'now')
-        ORDER BY año
-        """
-        
-        eventos_comidas = pd.read_sql_query(comidas_query, conn)
-        eventos_mantenimiento = pd.read_sql_query(mantenimiento_query, conn)
-        
-        # Combinar todos los eventos
-        eventos = pd.concat([eventos_comidas, eventos_mantenimiento], ignore_index=True)
-        
-        conn.close()
-        return eventos
+        return pd.DataFrame()
     except Exception as e:
         print(f"Error obteniendo eventos: {e}")
         return pd.DataFrame()
 
-def get_proximos_eventos(limit=5):
-    """Obtener los próximos eventos ordenados por fecha"""
-    try:
-        conn = sqlite3.connect('penya_albenc.db')
-        query = """
-        SELECT fecha, tipo_comida, tipo_servicio, cocineros
-        FROM comidas 
-        WHERE fecha >= date('now')
-        ORDER BY fecha ASC
-        LIMIT ?
-        """
-        df = pd.read_sql_query(query, conn, params=[limit])
-        conn.close()
-        return df
-    except Exception as e:
-        print(f"Error obteniendo próximos eventos: {e}")
-        return pd.DataFrame()
+# ===== ESTILOS INLINE MODERNOS =====
 
-# Versión Ultra Moderna - Dark Theme
-SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 0,
-    "left": 0,
-    "right": 0,
-    "height": "80px",  # ← Más altura para mejor proporción
-    "padding": "0 max(1rem, env(safe-area-inset-left)) 0 max(1rem, env(safe-area-inset-right))",  # ← Soporte PWA
-    "background": """
-        linear-gradient(135deg, 
-            rgba(30, 30, 30, 0.95) 0%, 
-            rgba(45, 45, 45, 0.95) 50%, 
-            rgba(20, 20, 20, 0.95) 100%)
-    """,  # ← Dark glassmorphism
-    "backdropFilter": "blur(20px) saturate(1.2)",  # ← Efecto moderno
-    "borderBottom": "1px solid rgba(255,255,255,0.08)",
-    "color": "rgba(255,255,255,0.95)",
-    "boxShadow": """
-        0 8px 32px rgba(0,0,0,0.12),
-        0 2px 8px rgba(0,0,0,0.08),
-        inset 0 1px 0 rgba(255,255,255,0.05)
-    """,  # ← Sombras premium
-    "zIndex": "1000",
-    "display": "flex",
-    "alignItems": "center",
-    "justifyContent": "space-between",
-    "transition": "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",  # ← Easing premium
-    "WebkitBackdropFilter": "blur(20px) saturate(1.2)",
-    # Soporte para notch de móviles
-    "paddingTop": "env(safe-area-inset-top)",
-}
-
-CONTENT_STYLE = {
-    "marginTop": "100px",  # ← Ajustado
-    "marginLeft": "clamp(0.5rem, 5vw, 4rem)",  # ← Más responsive
-    "marginRight": "clamp(0.5rem, 5vw, 4rem)",
-    "padding": "clamp(2rem, 4vw, 4rem) clamp(1.5rem, 3vw, 3rem)",
-    "background": """
-        linear-gradient(135deg, 
-            rgba(248, 250, 252, 0.98) 0%, 
-            rgba(241, 245, 249, 0.95) 100%)
-    """,  # ← Fondo premium
-    "minHeight": "calc(100vh - 100px)",  # ← Altura exacta
-    "borderRadius": "32px 32px 0 0",  # ← Bordes más redondeados
-    "boxShadow": """
-        0 -10px 40px rgba(0,0,0,0.06),
-        0 -2px 8px rgba(0,0,0,0.02),
-        inset 0 1px 0 rgba(255,255,255,0.8)
-    """,  # ← Sombras premium
-    "position": "relative",
-    "overflow": "hidden",
-    "backgroundImage": """
-        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(120, 200, 255, 0.05) 0%, transparent 50%)
-    """,  # ← Efectos de luz múltiples
-    "transition": "all 0.4s cubic-bezier(0.23, 1, 0.32, 1)",
-    # Animación sutil de entrada
-    "animation": "slideInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)",
-}
-
-
-# Layout del sidebar como navbar horizontal
-# Layout del sidebar como navbar horizontal
-sidebar = html.Div([
-    # Location component
-    dcc.Location(id="url"),
-    
-    # Logo y título (lado izquierdo)
-    html.Div([
-        html.Img(src="/assets/logo.png", style={
-            "width": "50px", "height": "50px", "margin-right": "15px", 
-            "border-radius": "8px", "object-fit": "contain"
-        }),
-        html.H2("Penya L'Albenc", style={
-            "font-size": "1.3rem", "margin": "0", 
-            "font-weight": "600", "letter-spacing": "-0.5px"
-        })
-    ], style={"display": "flex", "align-items": "center"}),
-    
-    # Botón hamburguesa y menú (lado derecho)
-    html.Div([
-        html.Button("☰", id="btn-toggle-sidebar", 
-                    style={
-                        "background": "rgba(255,255,255,0.2)", "border": "none", 
-                        "color": "white", "font-size": "20px", "cursor": "pointer",
-                        "padding": "8px 12px", "border-radius": "6px",
-                        "transition": "all 0.3s ease"
-                    }),
-        
-        # Menú desplegable (inicialmente oculto)
-        html.Div([
-            dcc.Link([
-                html.Div([
-                    html.Span("🏠", style={"margin-right": "10px"}),
-                    html.Span("Inicio")
-                ], style={"display": "flex", "align-items": "center"})
-            ], href="/", className="nav-link-dropdown"),
-            
-            dcc.Link([
-                html.Div([
-                    html.Span("🍽️", style={"margin-right": "10px"}),
-                    html.Span("Comidas")
-                ], style={"display": "flex", "align-items": "center"})
-            ], href="/comidas", className="nav-link-dropdown"),
-            
-            dcc.Link([
-                html.Div([
-                    html.Span("🛒", style={"margin-right": "10px"}),
-                    html.Span("Lista de Compra")
-                ], style={"display": "flex", "align-items": "center"})
-            ], href="/lista-compra", className="nav-link-dropdown"),
-            
-            dcc.Link([
-                html.Div([
-                    html.Span("🔧", style={"margin-right": "10px"}),
-                    html.Span("Mantenimiento")
-                ], style={"display": "flex", "align-items": "center"})
-            ], href="/mantenimiento", className="nav-link-dropdown"),
-            
-            dcc.Link([
-                html.Div([
-                    html.Span("🎉", style={"margin-right": "10px"}),
-                    html.Span("Fiestas")
-                ], style={"display": "flex", "align-items": "center"})
-            ], href="/fiestas", className="nav-link-dropdown"),
-            
-        ], id="dropdown-menu", className="modern-dropdown")  # ← Sin style inline
-
-    ], style={"position": "relative"})
-    
-], id="sidebar", style=SIDEBAR_STYLE)
-
-# Layout principal (UNA SOLA VEZ - al final)
-content = html.Div(id="page-content", style=CONTENT_STYLE)
-
-# Layout de la app (UNA SOLA VEZ - al final, después de content)
-app.layout = html.Div([
-    dcc.Store(id="confirm-action"),
-    sidebar,
-    content
-])
-
-# Callback mejorado para mostrar/ocultar el menú desplegable
-@app.callback(
-    [Output("dropdown-menu", "style"),
-     Output("dropdown-menu", "className")],
-    [Input("btn-toggle-sidebar", "n_clicks"),
-     Input("url", "pathname")],
-    prevent_initial_call=True
-)
-def toggle_dropdown_menu(n_clicks, pathname):
-    ctx = callback_context
-    
-    # Estilos base del menú centrado
-    base_style = {
-        "position": "fixed",
-        "top": "100%",
-        "left": "85%",
-        "transform": "translate(-50%, -50%)",
-        "zIndex": "1003",
-        "background": "linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)",  # ← Gradiente sutil
-        "borderRadius": "24px",  # ← Más redondeado
-        "boxShadow": """
-            0 25px 50px rgba(0,0,0,0.15),
-            0 0 0 1px rgba(255,255,255,0.05),
-            inset 0 1px 0 rgba(255,255,255,0.9)
-        """,  # ← Sombras múltiples premium
-        "border": "1px solid rgba(226, 232, 240, 0.8)",  # ← Borde más sutil
-        "backdropFilter": "blur(20px) saturate(1.1)",  # ← Efecto glassmorphism
-        "minWidth": "280px",
-        "width": "280px",
-        "maxHeight": "50vh",
-        "overflowY": "auto",
-        "animation": "modalSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",  # ← Animación con bounce
-        "flexDirection": "column",
-        "padding": "30px 0",  # ← Más padding vertical
-        # Scroll personalizado
-        "scrollbarWidth": "thin",
-        "scrollbarColor": "#cbd5e1 transparent"
+STYLES = {
+    'navbar': {
+        'position': 'fixed',
+        'top': 0,
+        'left': 0,
+        'right': 0,
+        'height': '70px',
+        'background': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'color': 'white',
+        'display': 'flex',
+        'alignItems': 'center',
+        'justifyContent': 'space-between',
+        'padding': '0 30px',
+        'boxShadow': '0 4px 20px rgba(0,0,0,0.1)',
+        'zIndex': '1000'
+    },
+    'container': {
+        'marginTop': '90px',
+        'padding': '20px',
+        'maxWidth': '1400px',
+        'margin': '90px auto 20px auto'
+    },
+    'card': {
+        'background': 'white',
+        'borderRadius': '16px',
+        'padding': '24px',
+        'marginBottom': '20px',
+        'boxShadow': '0 2px 8px rgba(0,0,0,0.08)',
+        'transition': 'all 0.3s ease'
+    },
+    'button': {
+        'background': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'color': 'white',
+        'border': 'none',
+        'borderRadius': '8px',
+        'padding': '12px 24px',
+        'fontSize': '14px',
+        'fontWeight': '600',
+        'cursor': 'pointer',
+        'transition': 'all 0.3s ease',
+        'boxShadow': '0 4px 12px rgba(102, 126, 234, 0.4)'
+    },
+    'input': {
+        'width': '100%',
+        'padding': '12px',
+        'borderRadius': '8px',
+        'border': '2px solid #e2e8f0',
+        'fontSize': '14px',
+        'transition': 'all 0.3s ease',
+        'marginBottom': '12px'
+    },
+    'title': {
+        'fontSize': '28px',
+        'fontWeight': '700',
+        'color': '#1a202c',
+        'marginBottom': '24px',
+        'display': 'flex',
+        'alignItems': 'center',
+        'gap': '12px'
+    },
+    'subtitle': {
+        'fontSize': '20px',
+        'fontWeight': '600',
+        'color': '#2d3748',
+        'marginBottom': '16px',
+        'display': 'flex',
+        'alignItems': 'center',
+        'gap': '8px'
     }
-    
-    # Si se cambió la página, ocultar el menú
-    if ctx.triggered and ctx.triggered[0]['prop_id'] == 'url.pathname':
-        return {**base_style, "display": "none"}, "modern-dropdown"
-    
-    # Si se hizo clic en las 3 rayas
-    if ctx.triggered and ctx.triggered[0]['prop_id'] == 'btn-toggle-sidebar.n_clicks':
-        if n_clicks and n_clicks % 2 == 1:  # Impar = mostrar
-            return {**base_style, "display": "flex"}, "modern-dropdown show"
-        else:  # Par = ocultar
-            return {**base_style, "display": "none"}, "modern-dropdown"
-    
-    # Por defecto oculto
-    return {**base_style, "display": "none"}, "modern-dropdown"
+}
 
-# Callback para las páginas
-@app.callback(Output("page-content", "children"), [Input("url", "pathname")])
-def render_page_content(pathname):
-    if pathname == "/comidas":
-        return create_comidas_page()
-    elif pathname == "/lista-compra":
-        return create_lista_compra_page()
-    elif pathname == "/mantenimiento":
-        return create_mantenimiento_page()
-    elif pathname == "/fiestas":
-        return create_fiestas_page()
-    elif pathname == "/debug":  # ← AGREGAR ESTO
-        return create_debug_page()
-    else:
-        return create_home_page()
+# ===== LAYOUT =====
 
+def create_navbar():
+    return html.Div([
+        html.Div([
+            html.Div([
+                html.Img(src='/assets/logo.png', style={'height': '50px', 'marginRight': '12px'}),  # ← CAMBIADO
+                html.H1("Penya L'Albenc", style={'margin': '0', 'fontSize': '24px', 'fontWeight': '700'})
+            ], style={'display': 'flex', 'alignItems': 'center'}),
+            
+            html.Div([
+                dcc.Link('🏠 Inicio', href='/', style={'color': 'white', 'textDecoration': 'none', 'fontWeight': '500', 'padding': '0 15px'}),
+                dcc.Link('🍽️ Comidas', href='/comidas', style={'color': 'white', 'textDecoration': 'none', 'fontWeight': '500', 'padding': '0 15px'}),
+                dcc.Link('🛒 Compra', href='/lista-compra', style={'color': 'white', 'textDecoration': 'none', 'fontWeight': '500', 'padding': '0 15px'}),
+                dcc.Link('📅 Eventos', href='/eventos', style={'color': 'white', 'textDecoration': 'none', 'fontWeight': '500', 'padding': '0 15px'}),
+                dcc.Link('🎉 Fiestas', href='/fiestas', style={'color': 'white', 'textDecoration': 'none', 'fontWeight': '500', 'padding': '0 15px'}),
+            ], style={'display': 'flex', 'alignItems': 'center', 'gap': '0'})
+        ], style=STYLES['navbar'])
+    ])
 
+<<<<<<< HEAD
 # Callback para cargar datos automáticamente al seleccionar día
 @app.callback(
     [Output('fiesta-menu', 'value'),
@@ -1550,1016 +1148,167 @@ def actualizar_y_mostrar_fiestas_mejorado(n_clicks, pathname, fecha, menu, adult
     return "", generar_tarjetas_fiestas()
 
 # Página de inicio
+=======
+>>>>>>> e79d4fc (cambio a supabase)
 def create_home_page():
-    # Obtener datos para resumen
-    comidas_df = get_data('comidas')
-    lista_df = get_data('lista_compra')
-    mantenimiento_df = get_data('mantenimiento')
-    eventos_df = get_data('eventos')
+    proximos = get_proximos_eventos(5)
+    print(f"DEBUG: Próximos eventos encontrados: {len(proximos)}")  # ← AGREGAR
+    if len(proximos) > 0:
+        print(proximos[['fecha', 'tipo', 'descripcion']])  # ← AGREGAR
+    cambios = obtener_ultimos_cambios(8)
+    
     
     # Obtener mantenimiento del año actual
     año_actual = datetime.now().year
-    mantenimiento_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual]
-    
-    # Últimos elementos añadidos
-    ultima_comida = comidas_df.tail(1) if len(comidas_df) > 0 else pd.DataFrame()
-    ultima_lista = lista_df.tail(1) if len(lista_df) > 0 else pd.DataFrame()
-    ultimo_mantenimiento = mantenimiento_df.tail(1) if len(mantenimiento_df) > 0 else pd.DataFrame()
-    
-    # Crear calendario mejorado con eventos
-    today = datetime.now()
-    cal = calendar.monthcalendar(today.year, today.month)
-    month_name = calendar.month_name[today.month]
-    
-    # Obtener eventos del mes actual
-    eventos_mes = eventos_df[eventos_df['fecha'].str.contains(f"{today.year}-{today.month:02d}")] if len(eventos_df) > 0 else pd.DataFrame()
-    dias_con_eventos = []
-    if len(eventos_mes) > 0:
-        dias_con_eventos = [int(fecha.split('-')[2]) for fecha in eventos_mes['fecha'].tolist()]
-    
-    # Crear calendario con eventos marcados
-    calendar_rows = []
-    for week in cal:
-        week_cells = []
-        for day in week:
-            if day == 0:
-                week_cells.append(html.Td("", style={"padding": "10px", "border": "1px solid #ddd"}))
-            else:
-                cell_style = {
-                    "padding": "10px", 
-                    "border": "1px solid #ddd",
-                    "text-align": "center",
-                    "cursor": "pointer"
-                }
-                
-                if day == today.day:
-                    cell_style["background"] = "#2196F3"
-                    cell_style["color"] = "white"
-                    cell_style["font-weight"] = "bold"
-                elif day in dias_con_eventos:
-                    cell_style["background"] = "#FF5722"
-                    cell_style["color"] = "white"
-                    cell_style["font-weight"] = "bold"
-                else:
-                    cell_style["background"] = "white"
-                
-                week_cells.append(html.Td(str(day), style=cell_style))
-        calendar_rows.append(html.Tr(week_cells))
-    
-    calendar_table = html.Table([
-        html.Thead([
-            html.Tr([html.Th(f"{month_name} {today.year}", colSpan=7, 
-                           style={"text-align": "center", "background": "#4CAF50", "color": "white", "padding": "15px"})])
-        ]),
-        html.Thead([
-            html.Tr([html.Th(day, style={"background": "#E8F5E8", "padding": "8px", "text-align": "center"}) 
-                    for day in ['L', 'M', 'X', 'J', 'V', 'S', 'D']])
-        ]),
-        html.Tbody(calendar_rows)
-    ], style={"border-collapse": "collapse", "width": "100%", "margin": "20px 0"})
+    mantenimiento_df = dm.get_data('mantenimiento')
+    mant_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual]
     
     return html.Div([
-        html.H1("Bienvenido a Penya L'Albenc", style={
-            "color": "#2E7D32", 
-            "margin-bottom": "30px",
-            "text-align": "center"  # ← AGREGAR ESTA LÍNEA
-        }),
-        
-        # PRIMERA FILA: MANTENIMIENTO ACTUAL EN GRANDE
         html.Div([
-            html.H3("🔧 Mantenimiento del Año", style={"color": "#FF9800", "margin-bottom": "20px", "text-align": "center"}),
+            # Logos
             html.Div([
-                html.Div([
-                    # Logo al lado del título
-                    html.Div([
-                        html.Img(src="/assets/logo2.png", style={
-                            "width": "200px", "height": "200px", "margin-right": "50px", 
-                            "border-radius": "20px", "object-fit": "contain",
-                            "box-shadow": "0 4px 8px rgba(0,0,0,0.2)"
-                        }),
-                        html.H2(f"📅 AÑO {año_actual}", style={"color": "#FF9800", "margin": "0", "font-size": "2.5rem"})
-                    ], style={"display": "flex", "align-items": "center", "justify-content": "center", "margin-bottom": "20px"}),
-                    
-                    html.Div([
-                        html.H4("🔨 MANTENIMIENTO:", style={"color": "#E65100", "margin": "0 0 10px 0", "font-size": "1.3rem"}),
-                        html.P(mantenimiento_actual.iloc[0]['mantenimiento'] if len(mantenimiento_actual) > 0 else "⚠️ Sin datos de mantenimiento", 
-                               style={"margin": "0 0 20px 0", "font-size": "1.1rem", "font-weight": "500", "color": "#333"})
-                    ]),
-                    
-                    html.Div([
-                        html.H4("🏗️ CADAFALS:", style={"color": "#F57C00", "margin": "0 0 10px 0", "font-size": "1.3rem"}),
-                        html.P(mantenimiento_actual.iloc[0]['cadafals'] if len(mantenimiento_actual) > 0 else "⚠️ Sin datos de cadafals", 
-                               style={"margin": "0", "font-size": "1.1rem", "font-weight": "500", "color": "#333"})
-                    ])
-                    
-                ], style={
-                    "background": "linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%)", 
-                    "padding": "40px", "border-radius": "16px",
-                    "box-shadow": "0 8px 20px rgba(0,0,0,0.15)", "text-align": "left",
-                    "border": "3px solid #FF9800", "width": "100%", "max-width": "800px", "margin": "0 auto",
-                    "position": "relative"  # ← AGREGAR ESTO para la segunda opción
-                })
-            ], style={"display": "flex", "justify-content": "center", "margin": "20px 0"})
-        ]),
-        
-        # SEGUNDA FILA: Resumen con contadores
-        html.Div([
-            html.H3("📊 Resumen General", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
-            html.Div([
-                html.Div([
-                    html.H4(f"{len(comidas_df)}", style={"color": "#4CAF50", "margin": "0", "font-size": "2rem"}),
-                    html.P("Comidas planificadas", style={"margin": "5px 0"})
-                ], className="summary-card", style={
-                    "background": "linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%)", 
-                    "padding": "25px", "margin": "10px", "border-radius": "12px",
-                    "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "text-align": "center"
-                }),
-                
-                html.Div([
-                    html.H4(f"{len(lista_df)}", style={"color": "#2196F3", "margin": "0", "font-size": "2rem"}),
-                    html.P("Lista de compra", style={"margin": "5px 0"})
-                ], className="summary-card", style={
-                    "background": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)", 
-                    "padding": "25px", "margin": "10px", "border-radius": "12px",
-                    "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "text-align": "center"
-                }),
-                
-                html.Div([
-                    html.H4(f"{len(mantenimiento_df)}", style={"color": "#FF9800", "margin": "0", "font-size": "2rem"}),
-                    html.P("Años programados", style={"margin": "5px 0"})
-                ], className="summary-card", style={
-                    "background": "linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%)", 
-                    "padding": "25px", "margin": "10px", "border-radius": "12px",
-                    "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "text-align": "center"
-                }),
-                
-                html.Div([
-                    html.H4(f"{len(eventos_df)}", style={"color": "#9C27B0", "margin": "0", "font-size": "2rem"}),
-                    html.P("Eventos programados", style={"margin": "5px 0"})
-                ], className="summary-card", style={
-                    "background": "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)", 
-                    "padding": "25px", "margin": "10px", "border-radius": "12px",
-                    "box-shadow": "0 4px 6px rgba(0,0,0,0.1)", "text-align": "center"
-                }),
-            ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap"}),
-        ]),
-        
-        # TERCERA FILA: Próximos eventos
-        html.Div([
-            html.H3("🔥 Próximos Eventos", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
-            html.Div([
-                # Mostrar próximos eventos dinámicamente
-                html.Div(id="proximos-eventos-container")
-            ])
-        ], style={"margin-top": "30px"}),
-        
-        # CUARTA FILA: Información adicional
-        html.Div([
-            html.H3("ℹ️ Información Adicional", style={"color": "#1976D2", "margin": "40px 0 20px 0"}),
-            html.Div([
-                # Último item lista
-                html.Div([
-                    html.H5("🛒 Último Item Lista", style={"color": "#2196F3", "margin-bottom": "10px"}),
-                    html.P(f"📅 {ultima_lista.iloc[0]['fecha'] if len(ultima_lista) > 0 else 'Ninguna'}", 
-                           style={"margin": "5px 0"}),
-                    html.P(f"📦 {ultima_lista.iloc[0]['objeto'] if len(ultima_lista) > 0 else 'N/A'}", 
-                           style={"margin": "5px 0"})
-                ], style={
-                    "background": "#E8F4FD", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #2196F3", "flex": "1"
-                }),
-                
-                # Calendario del mes
-                html.Div([
-                    html.H5("📅 Calendario del Mes", style={"color": "#4CAF50", "margin-bottom": "10px"}),
-                    calendar_table
-                ], style={
-                    "background": "#F8F9FA", "padding": "20px", "margin": "10px", 
-                    "border-radius": "8px", "border-left": "4px solid #4CAF50", "flex": "2"
-                }),
-            ], style={"display": "flex", "justify-content": "space-around", "flex-wrap": "wrap", "gap": "20px"})
-        ])
-    ])
-          
-
-# Página de comidas (actualizada con selectores de cocineros únicos)
-def create_comidas_page():
-    comidas_df = get_data('comidas')
-    tipos_comida = get_tipos_comida()
-    años_disponibles = get_años_disponibles()
-    cocineros_options = get_cocineros_options()
-    
-    # 1. Ordenar el DataFrame por fecha (de más reciente a más antigua)
-    comidas_df['fecha'] = pd.to_datetime(comidas_df['fecha'])  # Asegurar que es datetime
-    comidas_df = comidas_df.sort_values('fecha', ascending=True)
-    
-    return html.Div([
-        html.H1("🍽️ Gestión de Comidas", style={
-            "color": "#2E7D32", 
-            "margin-bottom": "20px",
-            "fontSize": "24px",
-            "textAlign": "center"
-        }),
-        
-        # Tabla de comidas responsive
-        html.H3("📋 Lista de Comidas", style={
-            "color": "#2E7D32", 
-            "margin": "10px 0 8px 0",
-            "fontSize": "18px"
-        }),
-        html.Div(
-            dash_table.DataTable(
-                id='tabla-comidas',
-                data=comidas_df.to_dict('records'),
-                columns=[
-                    {"name": "🥘 Tipo", "id": "tipo_comida", "type": "text", "editable": True},
-                    {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
-                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                    {"name": "🍽️ Servicio", "id": "tipo_servicio", "type": "text", "editable": True}
-                ],
-                sort_by=[{"column_id": "fecha", "direction": "asc"}],
-                row_deletable=True,
-                editable=True,
-                style_table={
-                    'overflowX': 'auto',
-                    'minWidth': '100%',
-                    'maxWidth': '100%'
-                },
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '8px',
-                    'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '12px',
-                    'minWidth': '80px',
-                    'width': '120px',
-                    'maxWidth': '200px',
-                    'whiteSpace': 'normal',
-                    'lineHeight': '15px'
-                },
-                style_header={
-                    'backgroundColor': '#4CAF50',
-                    'color': 'white',
-                    'fontWeight': 'bold',
-                    'textAlign': 'center',
-                    'fontSize': '13px',
-                    'padding': '8px'
-                },
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto'
-                },
-                style_data_conditional=[
-                    {
-                        'if': {'row_index': 'odd'},
-                        'backgroundColor': '#F8F9FA'
-                    },
-                    {
-                        'if': {'column_id': 'cocineros'},
-                        'backgroundColor': '#E8F5E8',
-                        'color': '#2E7D32'
-                    }
-                ],
-                sort_action="native",
-                filter_action="native",
-                page_size=10,
-                page_action='native',
-                fixed_rows={'headers': True}
-            ),
-            style={
-                'width': '100%',
-                'overflow': 'auto',
-                'border': '1px solid #ddd',
-                'borderRadius': '8px',
-                'marginBottom': '15px'
-            }
-        ),
-        
-        # Gestión de cocineros (responsive)
-        html.Div([
-            html.H3("👨‍🍳 Gestión de Cocineros", style={
-                "color": "#1976D2", 
-                "margin-bottom": "10px",
-                "fontSize": "18px"
-            }),
-            html.Div([
-                dcc.Input(
-                    id='nuevo-cocinero-nombre',
-                    placeholder="Nombre del cocinero",
-                    type='text',
-                    style={
-                        "padding": "8px", 
-                        "width": "100%", 
-                        "margin": "5px 0",
-                        "borderRadius": "6px",
-                        "border": "1px solid #ddd"
-                    }
-                ),
-                html.Button('➕ Agregar Cocinero', id='btn-add-nuevo-cocinero', n_clicks=0,
-                    style={
-                        "background": "#9C27B0", 
-                        "color": "white", 
-                        "border": "none",
-                        "padding": "10px", 
-                        "width": "100%",
-                        "borderRadius": "6px", 
-                        "margin": "5px 0", 
-                        "cursor": "pointer"
-                    }
-                )
-            ], style={"marginBottom": "10px"}),
-            html.P("💡 Agrega nuevos cocineros a la lista maestra", 
-                style={
-                    "color": "#666", 
-                    "fontStyle": "italic", 
-                    "margin": "5px 0",
-                    "fontSize": "12px"
-                }
-            )
-        ], style={
-            "background": "#F3E5F5", 
-            "padding": "15px", 
-            "borderRadius": "8px", 
-            "margin": "15px 0"
-        }),
-        
-        # Formulario para agregar comida (responsive)
-        html.Div([
-            html.H3("➕ Agregar Comida", style={
-                "color": "#4CAF50",
-                "fontSize": "18px",
-                "marginBottom": "10px"
-            }),
-            html.Div([
-                # Fecha
-                html.Div([
-                    html.Label("📅 Fecha:", style={
-                        "fontWeight": "bold", 
-                        "marginBottom": "5px",
-                        "fontSize": "14px"
+                    html.Img(src='/assets/logo2.png', style={
+                        'height': '120px', 'margin': '0 20px',
+                        'objectFit': 'contain', 'filter': 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
                     }),
-                    dcc.DatePickerSingle(
-                        id='comida-fecha',
-                        date=date.today(),
-                        display_format='DD/MM/YYYY',
-                        style={"width": "100%"}
-                    )
-                ], style={"margin": "10px 0"}),
-                
-                # Tipo de servicio
-                html.Div([
-                    html.Label("🍽️ Servicio:", style={
-                        "fontWeight": "bold", 
-                        "marginBottom": "5px",
-                        "fontSize": "14px"
-                    }),
-                    dcc.Dropdown(
-                        id='comida-servicio',
-                        options=[
-                            {'label': '🌅 Comida', 'value': 'Comida'},
-                            {'label': '🌙 Cena', 'value': 'Cena'},
-                            {'label': '🌅🌙 Comida y Cena', 'value': 'Comida y Cena'}
-                        ],
-                        placeholder="Selecciona servicio",
-                        style={"width": "100%"}
-                    )
-                ], style={"margin": "10px 0"}),
-                
-                # Tipo de comida
-                html.Div([
-                    html.Label("🥘 Tipo:", style={
-                        "fontWeight": "bold", 
-                        "marginBottom": "5px",
-                        "fontSize": "14px"
-                    }),
-                    dcc.Input(
-                        id='comida-tipo', 
-                        placeholder="Ej: Comida Normal, Sant Antoni...", 
-                        type='text',
-                        style={
-                            "width": "100%", 
-                            "padding": "8px",
-                            "borderRadius": "6px",
-                            "border": "1px solid #ddd"
-                        }
-                    )
-                ], style={"margin": "10px 0"}),
-                
-                # Cocineros
-                html.Div([
-                    html.Label("👨‍🍳 Cocineros:", style={
-                        "fontWeight": "bold", 
-                        "marginBottom": "5px",
-                        "fontSize": "14px"
-                    }),
-                    dcc.Dropdown(
-                        id='comida-cocineros-selector',
-                        options=cocineros_options,
-                        placeholder="Selecciona cocineros",
-                        multi=True,
-                        style={"width": "100%"}
-                    )
-                ], style={"margin": "10px 0"}),
-                
-                # Botón
-                html.Button('✅ Agregar Comida', id='btn-add-comida', n_clicks=0,
-                    style={
-                        "background": "linear-gradient(45deg, #4CAF50, #45a049)", 
-                        "color": "white", 
-                        "border": "none", 
-                        "padding": "12px",
-                        "width": "100%",
-                        "borderRadius": "8px", 
-                        "fontWeight": "bold", 
-                        "cursor": "pointer",
-                        "margin": "10px 0",
-                        "fontSize": "14px"
-                    }
-                )
-            ], style={"padding": "10px 0"})
-        ], style={
-            "background": "#F8F9FA", 
-            "padding": "15px", 
-            "borderRadius": "8px", 
-            "margin": "15px 0"
-        }),
-        
-        # Panel avanzado (responsive)
-        html.Div([
-            html.H3("🔄 Gestión Avanzada", style={
-                "color": "#1976D2", 
-                "marginBottom": "15px",
-                "fontSize": "18px"
-            }),
-            html.P("💡 Modifica cocineros en múltiples comidas", 
-                style={
-                    "color": "#666", 
-                    "fontStyle": "italic", 
-                    "marginBottom": "15px",
-                    "fontSize": "14px"
-                }
-            ),
-            
-            # Filtros
-            html.Div([
-                html.H5("🎯 Filtros", style={
-                    "color": "#9C27B0", 
-                    "marginBottom": "10px",
-                    "fontSize": "16px"
-                }),
-                html.Div([
-                    html.Div([
-                        html.Label("📅 Año:", style={
-                            "fontWeight": "bold", 
-                            "color": "#9C27B0",
-                            "fontSize": "14px"
-                        }),
-                        dcc.Dropdown(
-                            id='filter-año',
-                            options=años_disponibles,
-                            placeholder="Año",
-                            style={"width": "100%"}
-                        )
-                    ], style={"margin": "10px 0", "width": "100%"}),
-                    
-                    html.Div([
-                        html.Label("🥘 Tipo:", style={
-                            "fontWeight": "bold", 
-                            "color": "#9C27B0",
-                            "fontSize": "14px"
-                        }),
-                        dcc.Dropdown(
-                            id='filter-tipo',
-                            options=tipos_comida,
-                            placeholder="Tipo de comida",
-                            style={"width": "100%"}
-                        )
-                    ], style={"margin": "10px 0", "width": "100%"})
-                ])
             ], style={
-                "background": "#F3E5F5", 
-                "padding": "15px", 
-                "borderRadius": "8px", 
-                "margin": "15px 0"
+                'display': 'flex',
+                'justifyContent': 'center',
+                'alignItems': 'center',
+                'marginBottom': '30px',
+                'flexWrap': 'wrap',
+                'gap': '20px'
             }),
             
-            # Operaciones
+            # Mantenimiento del Año
             html.Div([
-                # Cambiar cocinero
+                html.H3(f"🔧 Mantenimiento {año_actual}", style=STYLES['subtitle']),
                 html.Div([
-                    html.H5("🔄 Cambiar Cocinero", style={
-                        "color": "#FF9800", 
-                        "marginBottom": "10px",
-                        "fontSize": "16px"
-                    }),
                     html.Div([
-                        dcc.Dropdown(
-                            id='cambiar-cocinero-antiguo',
-                            options=cocineros_options,
-                            placeholder="Actual",
-                            style={"width": "100%", "margin": "5px 0"}
-                        ),
-                        dcc.Dropdown(
-                            id='cambiar-cocinero-nuevo',
-                            options=cocineros_options,
-                            placeholder="Nuevo",
-                            style={"width": "100%", "margin": "5px 0"}
-                        ),
-                        html.Button('🔄 Cambiar', id='btn-cambiar-cocinero', n_clicks=0,
-                            style={
-                                "background": "#FF9800", 
-                                "color": "white", 
-                                "border": "none",
-                                "padding": "10px", 
-                                "width": "100%",
-                                "borderRadius": "6px", 
-                                "margin": "5px 0", 
-                                "cursor": "pointer",
-                                "fontSize": "14px"
-                            }
-                        )
+                        html.H4("🔨 Mantenimiento:", style={'margin': '0 0 8px 0', 'color': '#ed8936', 'fontSize': '16px'}),
+                        html.P(mant_actual.iloc[0]['mantenimiento'] if len(mant_actual) > 0 else 'Sin datos', 
+                              style={'margin': '0 0 16px 0', 'fontSize': '14px', 'color': '#2d3748', 'fontWeight': '500'})
+                    ]),
+                    html.Div([
+                        html.H4("🏗️ Cadafals:", style={'margin': '0 0 8px 0', 'color': '#ed8936', 'fontSize': '16px'}),
+                        html.P(mant_actual.iloc[0]['cadafals'] if len(mant_actual) > 0 else 'Sin datos', 
+                              style={'margin': '0', 'fontSize': '14px', 'color': '#2d3748', 'fontWeight': '500'})
                     ])
                 ], style={
-                    "background": "#FFF3E0", 
-                    "padding": "15px", 
-                    "borderRadius": "8px", 
-                    "margin": "10px 0"
-                }),
-                
-                # Agregar cocinero
-                html.Div([
-                    html.H5("➕ Agregar Cocinero", style={
-                        "color": "#4CAF50", 
-                        "marginBottom": "10px",
-                        "fontSize": "16px"
-                    }),
-                    html.Div([
-                        dcc.Dropdown(
-                            id='agregar-cocinero',
-                            options=cocineros_options,
-                            placeholder="Selecciona cocinero",
-                            style={"width": "100%", "margin": "5px 0"}
-                        ),
-                        html.Button('➕ Agregar', id='btn-agregar-cocinero', n_clicks=0,
-                            style={
-                                "background": "#4CAF50", 
-                                "color": "white", 
-                                "border": "none",
-                                "padding": "10px", 
-                                "width": "100%",
-                                "borderRadius": "6px", 
-                                "margin": "5px 0", 
-                                "cursor": "pointer",
-                                "fontSize": "14px"
-                            }
-                        )
-                    ])
-                ], style={
-                    "background": "#E8F5E8", 
-                    "padding": "15px", 
-                    "borderRadius": "8px", 
-                    "margin": "10px 0"
-                }),
-                
-                # Eliminar cocinero
-                html.Div([
-                    html.H5("➖ Eliminar Cocinero", style={
-                        "color": "#F44336", 
-                        "marginBottom": "10px",
-                        "fontSize": "16px"
-                    }),
-                    html.Div([
-                        dcc.Dropdown(
-                            id='eliminar-cocinero',
-                            options=cocineros_options,
-                            placeholder="Selecciona cocinero",
-                            style={"width": "100%", "margin": "5px 0"}
-                        ),
-                        html.Button('➖ Eliminar', id='btn-eliminar-cocinero', n_clicks=0,
-                            style={
-                                "background": "#F44336", 
-                                "color": "white", 
-                                "border": "none",
-                                "padding": "10px", 
-                                "width": "100%",
-                                "borderRadius": "6px", 
-                                "margin": "5px 0", 
-                                "cursor": "pointer",
-                                "fontSize": "14px"
-                            }
-                        )
-                    ])
-                ], style={
-                    "background": "#FFEBEE", 
-                    "padding": "15px", 
-                    "borderRadius": "8px", 
-                    "margin": "10px 0"
-                }),
-                
-                # Intercambio específico
-                html.Div([
-                    html.H5("🔄 Intercambio Específico", style={
-                        "color": "#9C27B0", 
-                        "marginBottom": "10px",
-                        "fontSize": "16px"
-                    }),
-                    html.Div([
-                        # Año 1
-                        html.Div([
-                            html.Label("📅 Año 1:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-año1',
-                                options=años_disponibles,
-                                placeholder="Selecciona año",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Tipo 1
-                        html.Div([
-                            html.Label("🥘 Tipo 1:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-tipo1',
-                                options=tipos_comida,
-                                placeholder="Selecciona tipo",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Cocinero 1
-                        html.Div([
-                            html.Label("👨‍🍳 Cocinero 1:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-cocinero1',
-                                options=cocineros_options,
-                                placeholder="Selecciona cocinero",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Año 2
-                        html.Div([
-                            html.Label("📅 Año 2:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-año2',
-                                options=años_disponibles,
-                                placeholder="Selecciona año",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Tipo 2
-                        html.Div([
-                            html.Label("🥘 Tipo 2:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-tipo2',
-                                options=tipos_comida,
-                                placeholder="Selecciona tipo",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Cocinero 2
-                        html.Div([
-                            html.Label("👨‍🍳 Cocinero 2:", style={
-                                "fontWeight": "bold", 
-                                "color": "#9C27B0",
-                                "fontSize": "14px"
-                            }),
-                            dcc.Dropdown(
-                                id='int-cocinero2',
-                                options=cocineros_options,
-                                placeholder="Selecciona cocinero",
-                                style={"width": "100%", "margin": "5px 0"}
-                            )
-                        ], style={"margin": "10px 0"}),
-                        
-                        # Botón de intercambio
-                        html.Button('🔄 Intercambiar', id='btn-intercambiar-especifico', n_clicks=0,
-                            style={
-                                "background": "#9C27B0", 
-                                "color": "white", 
-                                "border": "none",
-                                "padding": "10px", 
-                                "width": "100%",
-                                "borderRadius": "6px", 
-                                "margin": "5px 0", 
-                                "cursor": "pointer",
-                                "fontSize": "14px"
-                            }
-                        )
-                    ])
-                ], style={
-                    "background": "#F3E5F5", 
-                    "padding": "15px", 
-                    "borderRadius": "8px", 
-                    "margin": "10px 0"
-                }),
-            ])
-        ], style={
-            "background": "#F5F5F5", 
-            "padding": "15px", 
-            "borderRadius": "8px", 
-            "margin": "15px 0"
-        }),
-        
-        # Mensajes
-        html.Div(id='comida-output', style={
-            "margin": "15px 0", 
-            "padding": "10px",
-            "fontSize": "14px"
-        })
-    ], style={
-        "padding": "10px",
-        "maxWidth": "100%",
-        "overflowX": "hidden"
-    })
-
-# Página de lista de compra
-def create_lista_compra_page():
-    lista_df = get_data('lista_compra')
-    
-    return html.Div([
-        html.H1("🛒 Lista de Compra", style={"color": "#2E7D32", "margin-bottom": "20px", "fontSize": "24px"}),
-        
-        # Tabla de lista con diseño responsive
-        html.H3("📋 Lista de Compras", style={"color": "#2E7D32", "margin": "15px 0 10px 0", "fontSize": "18px"}),
-        html.Div(
-            dash_table.DataTable(
-                id='tabla-lista',
-                data=lista_df.to_dict('records'),
-                columns=[
-                    {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
-                    {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True}
-                ],
-                row_deletable=True,
-                editable=True,
-                style_table={
-                    'overflowX': 'auto',
-                    'minWidth': '100%',
-                    'maxWidth': '100%',
-                    'marginBottom': '20px'
-                },
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '8px',
-                    'fontFamily': 'Arial, sans-serif',
-                    'minWidth': '80px',
-                    'width': '120px',
-                    'maxWidth': '200px',
-                    'whiteSpace': 'normal',
-                    'fontSize': '12px',
-                    'lineHeight': '15px'
-                },
-                style_header={
-                    'backgroundColor': '#2196F3',
-                    'color': 'white',
-                    'fontWeight': 'bold',
-                    'textAlign': 'center',
-                    'fontSize': '13px',
-                    'padding': '8px'
-                },
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto'
-                },
-                style_data_conditional=[
-                    {
-                        'if': {'row_index': 'odd'},
-                        'backgroundColor': '#F8F9FA'
-                    },
-                    {
-                        'if': {'column_id': 'objeto'},
-                        'backgroundColor': '#E3F2FD',
-                        'color': '#1976D2'
-                    }
-                ],
-                sort_action="native",
-                filter_action="native",
-                page_size=10,  # Menos filas por página en móvil
-                page_action='native',
-                fixed_rows={'headers': True}
-            ),
-            style={
-                'width': '100%',
-                'overflow': 'auto',
-                'border': '1px solid #ddd',
-                'borderRadius': '8px',
-                'marginBottom': '15px'
-            }
-        ),
-        
-        # Formulario para agregar - Adaptado para móvil
-        html.Div([
-            html.H3("➕ Agregar Nuevo Item", style={"color": "#2196F3", "fontSize": "18px", "marginBottom": "10px"}),
+                    'background': 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                    'padding': '20px',
+                    'borderRadius': '12px',
+                    'border': '2px solid #fed7aa'
+                })
+            ], style=STYLES['card']),
+            
+            # Próximos eventos
             html.Div([
-                # Fecha en su propia fila
+                html.H3("📅 Próximos Eventos", style=STYLES['subtitle']),
                 html.Div([
-                    html.Label("📅 Fecha:", style={"font-weight": "bold", "margin-bottom": "5px", "fontSize": "14px"}),
-                    dcc.DatePickerSingle(
-                        id='lista-fecha',
-                        date=date.today(),
-                        display_format='DD/MM/YYYY',
-                        style={"width": "100%", "marginBottom": "10px"}
-                    )
-                ], style={"width": "100%", "marginBottom": "10px"}),
-                
-                # Objeto en su propia fila
-                html.Div([
-                    html.Label("📦 Objeto a Comprar:", style={"font-weight": "bold", "margin-bottom": "5px", "fontSize": "14px"}),
-                    dcc.Input(
-                        id='lista-objeto', 
-                        placeholder="Ej: Tomates, Pan, Aceite...", 
-                        type='text',
-                        style={"width": "100%", "padding": "8px", "marginBottom": "10px"}
-                    )
-                ], style={"width": "100%", "marginBottom": "10px"}),
-                
-                # Botón centrado
-                html.Div(
-                    html.Button('✅ Agregar Item', id='btn-add-lista', n_clicks=0,
-                               style={
-                                   "background": "linear-gradient(45deg, #2196F3, #1976D2)", 
-                                   "color": "white", 
-                                   "border": "none", 
-                                   "padding": "10px 20px",
-                                   "border-radius": "8px", 
-                                   "font-weight": "bold", 
-                                   "cursor": "pointer",
-                                   "width": "100%",
-                                   "fontSize": "14px"
-                               }),
-                    style={"width": "100%"}
-                )
-            ], style={"display": "flex", "flexDirection": "column"})  # Cambiado a columna para móvil
-        ], style={
-            "background": "#F8F9FA", 
-            "padding": "15px", 
-            "border-radius": "8px", 
-            "margin": "15px 0",
-            "fontSize": "14px"
-        }),
-        
-        html.Div(id='lista-output', style={
-            "margin": "15px 0", 
-            "padding": "10px",
-            "fontSize": "14px"
-        })
-    ], style={"padding": "10px"})  # Padding general para el contenedor principal
-
-# Página de mantenimiento
-def create_mantenimiento_page():
-    mant_df = get_data('mantenimiento')
-    
-    return html.Div([
-        html.H1("🔧 Mantenimiento", style={"color": "#2E7D32", "margin-bottom": "30px"}),
-        
-        # Tabla de mantenimiento con diseño responsive
-        html.H3("📋 Tareas de Mantenimiento", style={"color": "#2E7D32", "margin": "20px 0 15px 0"}),
-        html.Div(
-            dash_table.DataTable(
-                id='tabla-mant',
-                data=mant_df.to_dict('records'),
-                columns=[
-                    {"name": "📅 Año", "id": "año", "type": "numeric", "editable": True},
-                    {"name": "🔨 Mantenimiento", "id": "mantenimiento", "type": "text", "editable": True},
-                    {"name": "🏗️ Cadafals", "id": "cadafals", "type": "text", "editable": True}
-                ],
-                row_deletable=True,
-                editable=True,
-                style_table={
-                    'overflowX': 'auto',
-                    'minWidth': '100%',
-                    'maxWidth': '100%'
-                },
-                style_cell={
-                    'textAlign': 'left',
-                    'padding': '8px',
-                    'fontFamily': 'Arial, sans-serif',
-                    'minWidth': '100px',
-                    'width': '150px',
-                    'maxWidth': '200px',
-                    'whiteSpace': 'normal',
-                    'fontSize': '12px'
-                },
-                style_header={
-                    'backgroundColor': '#FF9800',
-                    'color': 'white',
-                    'fontWeight': 'bold',
-                    'textAlign': 'center',
-                    'fontSize': '12px'
-                },
-                style_data={
-                    'whiteSpace': 'normal',
-                    'height': 'auto'
-                },
-                style_data_conditional=[
-                    {
-                        'if': {'row_index': 'odd'},
-                        'backgroundColor': '#F8F9FA'
-                    },
-                    {
-                        'if': {'column_id': 'mantenimiento'},
-                        'backgroundColor': '#FFF3E0',
-                        'color': '#E65100'
-                    },
-                    {
-                        'if': {'column_id': 'cadafals'},
-                        'backgroundColor': '#FFF8E1',
-                        'color': '#F57C00'
-                    }
-                ],
-                sort_action="native",
-                filter_action="native",
-                page_size=15,
-                page_action='native',
-                fixed_rows={'headers': True}
-            ),
-            style={
-                'width': '100%',
-                'overflow': 'auto',
-                'marginBottom': '20px',
-                'border': '1px solid #ddd',
-                'borderRadius': '8px'
-            }
-        ),
-        
-        # Formulario para agregar (se mantiene igual)
-        html.Div([
-            html.H3("➕ Agregar Tarea de Mantenimiento", style={"color": "#FF9800"}),
+                    html.Div([
+                        html.Div([
+                            html.Span("📌", style={'fontSize': '24px', 'marginRight': '12px'}),
+                            html.Div([
+                                html.H4(html.Strong(row['tipo']), style={'margin': '0', 'fontSize': '16px', 'fontWeight': '700', 'color': '#2d3748'}),
+                                html.P(f"{datetime.strptime(row['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y')} - {row['descripcion']}", 
+                                      style={'margin': '4px 0 0 0', 'fontSize': '14px', 'color': '#718096'})
+                            ])
+                        ], style={'display': 'flex', 'alignItems': 'center', 'padding': '16px', 'background': '#f7fafc', 'borderRadius': '8px', 'marginBottom': '8px'})
+                    ]) for _, row in proximos.iterrows()
+                ] if len(proximos) > 0 else [html.P("No hay eventos próximos", style={'color': '#a0aec0', 'fontStyle': 'italic'})])
+            ], style=STYLES['card']),
+            
+            # Últimos cambios
             html.Div([
+                html.H3("🔔 Últimos Cambios en la App", style=STYLES['subtitle']),
                 html.Div([
-                    html.Label("📅 Año:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='mant-año', 
-                        placeholder="2025", 
-                        type='number', 
-                        value=datetime.now().year,
-                        style={"width": "100%", "padding": "8px"}
-                    )
-                ], style={"margin": "10px", "flex": "1"}),
-                
-                html.Div([
-                    html.Label("🔨 Mantenimiento:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='mant-mantenimiento', 
-                        placeholder="Descripción del mantenimiento", 
-                        type='text',
-                        style={"width": "100%", "padding": "8px"}
-                    )
-                ], style={"margin": "10px", "flex": "2"}),
-                
-                html.Div([
-                    html.Label("🏗️ Cadafals:", style={"font-weight": "bold", "margin-bottom": "5px"}),
-                    dcc.Input(
-                        id='mant-cadafals', 
-                        placeholder="Responsables de cadafals", 
-                        type='text',
-                        style={"width": "100%", "padding": "8px"}
-                    )
-                ], style={"margin": "10px", "flex": "2"}),
-                
-                html.Button('✅ Agregar Tarea', id='btn-add-mant', n_clicks=0,
-                           style={
-                               "background": "linear-gradient(45deg, #FF9800, #F57C00)", 
-                               "color": "white", "border": "none", "padding": "12px 24px",
-                               "border-radius": "8px", "font-weight": "bold", "cursor": "pointer",
-                               "margin": "10px", "align-self": "end"
-                           })
-            ], style={"display": "flex", "flex-wrap": "wrap", "align-items": "end", "gap": "10px"})
-        ], style={"background": "#F8F9FA", "padding": "20px", "border-radius": "12px", "margin": "20px 0"}),
-        
-        html.Div(id='mant-output', style={"margin": "20px 0", "padding": "10px"})
+                    html.Div([
+                        html.Div([
+                            html.Span("✓", style={'fontSize': '20px', 'marginRight': '12px', 'color': '#48bb78'}),
+                            html.Div([
+                                html.P(f"{row['tipo_cambio']}: {row['descripcion']}", 
+                                      style={'margin': '0', 'fontSize': '14px', 'color': '#2d3748', 'fontWeight': '500'}),
+                                html.P(datetime.strptime(row['fecha'], '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y %H:%M'), 
+                                      style={'margin': '4px 0 0 0', 'fontSize': '12px', 'color': '#a0aec0'})
+                            ])
+                        ], style={'display': 'flex', 'alignItems': 'start', 'padding': '12px', 'background': '#f0fff4', 'borderRadius': '8px', 'marginBottom': '8px', 'borderLeft': '3px solid #48bb78'})
+                    ]) for _, row in cambios.iterrows()
+                ] if len(cambios) > 0 else [html.P("No hay cambios registrados", style={'color': '#a0aec0', 'fontStyle': 'italic'})])
+            ], style=STYLES['card']),
+            
+        ], style=STYLES['container'])
     ])
+
+def limpiar_comidas_antiguas():
+    """Borrar automáticamente comidas de años anteriores al actual"""
+    try:
+        año_actual = datetime.now().year
+        comidas_df = dm.get_data('comidas')
+        
+        if len(comidas_df) > 0:
+            comidas_df['fecha_dt'] = pd.to_datetime(comidas_df['fecha'])
+            comidas_df['año'] = comidas_df['fecha_dt'].dt.year
+            
+            antes = len(comidas_df)
+            comidas_df = comidas_df[comidas_df['año'] >= año_actual]
+            despues = len(comidas_df)
+            
+            if antes > despues:
+                # Eliminar columnas temporales
+                comidas_df = comidas_df.drop(['fecha_dt', 'año'], axis=1)
+                dm.save_data('comidas', comidas_df)
+                eliminadas = antes - despues
+                print(f"🗑️ Limpieza automática: {eliminadas} comidas antiguas eliminadas")
+                registrar_cambio('Sistema', f'Limpieza automática: {eliminadas} comidas antiguas eliminadas')
+                return True
+        return False
+    except Exception as e:
+        print(f"Error en limpieza automática: {e}")
+        return False
 
 def create_fiestas_page():
+    fiestas_df = dm.get_data('fiestas')
+    
+    # Filtrar solo agosto 2025
+    fiestas_agosto = fiestas_df[
+        (fiestas_df['fecha'] >= '2025-08-08') & 
+        (fiestas_df['fecha'] <= '2025-08-17')
+    ].sort_values('fecha') if len(fiestas_df) > 0 else pd.DataFrame()
+    
+    tarjetas = []
+    for _, dia in fiestas_agosto.iterrows():
+        fecha_obj = datetime.strptime(dia['fecha'], '%Y-%m-%d')
+        dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        
+        eventos = dia['programa'].split('|') if dia['programa'] else []
+        
+        tarjeta = html.Div([
+            html.H4(f"{dias_semana[fecha_obj.weekday()]} {fecha_obj.day} de Agosto", 
+                   style={'color': '#667eea', 'marginBottom': '12px', 'fontSize': '18px'}),
+            html.Div([
+                html.Strong("Cocineros: "), dia['cocineros']
+            ], style={'marginBottom': '8px'}),
+            html.Div([
+                html.Strong("Menú: "), dia['menu'] if dia['menu'] else 'No especificado'
+            ], style={'marginBottom': '8px'}),
+            html.Div([
+                html.Strong("Adultos: "), f"{len(dia['nombres_adultos'].split(',')) if dia['nombres_adultos'] else 0}"
+            ], style={'marginBottom': '8px'}),
+            html.Div([
+                html.Strong("Niños: "), f"{len(dia['nombres_niños'].split(',')) if dia['nombres_niños'] else 0}"
+            ], style={'marginBottom': '12px'}),
+            html.Div([
+                html.Strong("Programa:"),
+                html.Ul([html.Li(ev.strip()) for ev in eventos])
+            ])
+        ], style={**STYLES['card'], 'border': '2px solid #667eea', 'marginBottom': '16px'})
+        
+        tarjetas.append(tarjeta)
+    
     return html.Div([
-        html.H1("🎉 Fiestas 2025 - Vilafranca", style={"color": "#2E7D32", "margin-bottom": "30px"}),
-        
-        # Mostrar etiquetas por día
-        html.Div(id='tarjetas-fiestas'),
-        
-        # Formulario de edición MEJORADO
         html.Div([
+<<<<<<< HEAD
             html.H3("✏️ Editar Día", style={"color": "#9C27B0", "margin-bottom": "20px"}),
             
             html.Div([
@@ -2662,291 +1411,277 @@ def create_fiestas_page():
             html.Div(id='fiesta-output', style={"margin": "20px 0", "padding": "10px"})
             
         ], style={"margin-top": "30px", "padding": "25px", "background": "#F8F9FA", "border-radius": "12px"})
+=======
+            html.H2("Fiestas Agosto 2025 - Vilafranca", style=STYLES['title']),
+            html.P("Datos de solo lectura", style={'color': '#718096', 'fontStyle': 'italic', 'marginBottom': '20px'}),
+            html.Div(tarjetas if tarjetas else [html.P("No hay datos de fiestas")])
+        ], style=STYLES['container'])
+>>>>>>> e79d4fc (cambio a supabase)
     ])
 
-def limpiar_datos_anteriores():
-    """Limpiar datos residuales y resetear con datos limpios"""
-    conn = sqlite3.connect('penya_albenc.db')
-    cursor = conn.cursor()
+def create_comidas_page():
+    comidas_df = dm.get_data('comidas')
+    print(f"DEBUG: Total comidas cargadas: {len(comidas_df)}")
+    cocineros_unicos = set()
     
-    # Limpiar tablas principales
-    cursor.execute("DELETE FROM comidas")
-    cursor.execute("DELETE FROM eventos") 
-    cursor.execute("DELETE FROM fiestas")
+    for _, row in comidas_df.iterrows():
+        if pd.notna(row.get('cocineros')):
+            cocineros_unicos.update([c.strip() for c in str(row['cocineros']).split(',')])
     
-    conn.commit()
-    conn.close()
-    print("🧹 Datos anteriores limpiados")
+    cocineros_options = [{'label': c, 'value': c} for c in sorted(cocineros_unicos)]
+    
+    return html.Div([
+        html.Div([
+            html.H2("🍽️ Gestión de Comidas", style=STYLES['title']),
+            
+            # TABLA DE COMIDAS
+            html.Div([
+                html.H3("📋 Comidas Planificadas", style=STYLES['subtitle']),
+                dash_table.DataTable(
+                    id='tabla-comidas',
+                    data=comidas_df.to_dict('records'),
+                    columns=[
+                        {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                        {"name": "🎉 Día", "id": "dia", "type": "text", "editable": True},
+                        {"name": "🍽️ Tipo", "id": "tipo_comida", "type": "text", "editable": True},
+                        {"name": "👨‍🍳 Cocineros", "id": "cocineros", "type": "text", "editable": True},
+                    ],
+                    row_deletable=True,
+                    editable=True,
+                    sort_action="native",
+                    filter_action="native",
+                    page_size=25,  
+                    style_table={'overflowX': 'auto'},
+                    style_cell={
+                        'textAlign': 'left',
+                        'padding': '12px',
+                        'fontSize': '14px',
+                        'fontFamily': 'Inter, sans-serif'
+                    },
+                    style_header={
+                        'backgroundColor': '#667eea',
+                        'color': 'white',
+                        'fontWeight': '600',
+                        'border': 'none'
+                    },
+                    style_data={
+                        'border': 'none',
+                        'borderBottom': '1px solid #e2e8f0'
+                    },
+                    style_data_conditional=[
+                        {'if': {'row_index': 'odd'}, 'backgroundColor': '#f7fafc'}
+                    ]
+                )
+            ], style=STYLES['card']),
+            
+            # GESTIÓN POR DÍA ESPECÍFICO (PRIMERO)
+            html.Div([
+                html.H3("🎯 Modificar Cocineros de un Día", style=STYLES['subtitle']),
+                
+                html.Label("1️⃣ Seleccionar día:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                dcc.Dropdown(
+                    id='selector-dia',
+                    options=[
+                        {'label': 'Sant Antoni', 'value': 'sant_antoni'},
+                        {'label': 'Brena St Vicent', 'value': 'brena_st_vicent'},
+                        {'label': 'Fira Magdalena', 'value': 'fira_magdalena'},
+                        {'label': 'Penya Taurina', 'value': 'penya_taurina'}
+                    ],
+                    placeholder="Seleccionar día",
+                    style={'marginBottom': '16px'}
+                ),
+                
+                html.Label("2️⃣ Seleccionar fecha:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                dcc.Dropdown(
+                    id='selector-fecha-dia',
+                    placeholder="Primero selecciona un día",
+                    style={'marginBottom': '16px'}
+                ),
+                
+                html.Div(id='info-comida-seleccionada', style={'marginBottom': '16px'}),
+                
+                html.Label("3️⃣ Acción:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                dcc.Dropdown(
+                    id='accion-cocinero',
+                    options=[
+                        {'label': '➕ Agregar cocinero', 'value': 'agregar'},
+                        {'label': '➖ Eliminar cocinero', 'value': 'eliminar'},
+                        {'label': '🔄 Intercambiar cocinero', 'value': 'intercambiar'}
+                    ],
+                    placeholder="Seleccionar acción",
+                    style={'marginBottom': '12px'}
+                ),
+                
+                html.Div(id='campos-accion'),
+                
+                html.Button('✅ Ejecutar', id='btn-ejecutar-accion', style=STYLES['button']),
+                html.Div(id='output-accion', style={'marginTop': '12px'})
+            ], style=STYLES['card']),
+            
+            # GESTIÓN GLOBAL DE COCINEROS
+            html.Div([
+                html.H3("🔄 Gestión Global de Cocineros", style=STYLES['subtitle']),
+                
+                html.Div([
+                    html.Label("Intercambiar en TODAS las comidas:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                    dcc.Dropdown(id='inter-cocinero1', options=cocineros_options, placeholder="Cocinero 1", style={'marginBottom': '8px'}),
+                    dcc.Dropdown(id='inter-cocinero2', options=cocineros_options, placeholder="Cocinero 2", style={'marginBottom': '8px'}),
+                    html.Button('Intercambiar', id='btn-intercambiar', style={**STYLES['button'], 'background': 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)'}),
+                ], style={'marginBottom': '20px'}),
+                
+                html.Div([
+                    html.Label("Agregar a TODAS las comidas:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                    dcc.Input(id='agregar-cocinero-nombre', placeholder="Nombre del cocinero", style=STYLES['input']),
+                    html.Button('Agregar a todas', id='btn-agregar-cocinero-todas', style={**STYLES['button'], 'background': 'linear-gradient(135deg, #4299e1 0%, #3182ce 100%)'}),
+                ], style={'marginBottom': '20px'}),
+                
+                html.Div([
+                    html.Label("Eliminar de TODAS las comidas:", style={'fontWeight': '600', 'marginBottom': '8px', 'display': 'block'}),
+                    dcc.Dropdown(id='eliminar-cocinero-select', options=cocineros_options, placeholder="Seleccionar cocinero", style={'marginBottom': '8px'}),
+                    html.Button('Eliminar de todas', id='btn-eliminar-cocinero-todas', style={**STYLES['button'], 'background': 'linear-gradient(135deg, #f56565 0%, #e53e3e 100%)'}),
+                ]),
+                
+                html.Div(id='output-intercambio', style={'marginTop': '12px'})
+            ], style=STYLES['card']),
+            
+            # AGREGAR NUEVA COMIDA (AL FINAL)
+            html.Div([
+                html.H3("➕ Agregar Nueva Comida", style=STYLES['subtitle']),
+                dcc.DatePickerSingle(id='nueva-fecha', date=date.today(), display_format='DD/MM/YYYY'),
+                dcc.Input(id='nuevo-dia', placeholder="Día (ej: sant_antoni)", style=STYLES['input']),
+                dcc.Dropdown(
+                    id='nuevo-servicio',
+                    options=[
+                        {'label': '🌅 Comida', 'value': 'Comida'},
+                        {'label': '🌙 Cena', 'value': 'Cena'},
+                        {'label': '🌅🌙 Comida y Cena', 'value': 'Comida y Cena'}
+                    ],
+                    placeholder="Tipo de comida",
+                    style={'marginBottom': '12px'}
+                ),
+                dcc.Dropdown(id='nuevos-cocineros', options=cocineros_options, multi=True, placeholder="Seleccionar cocineros", style={'marginBottom': '12px'}),
+                html.Button('✅ Agregar Comida', id='btn-agregar-comida', style=STYLES['button']),
+                html.Div(id='output-comida', style={'marginTop': '12px'})
+            ], style=STYLES['card']),
+            
+        ], style=STYLES['container'])
+    ])
 
-def create_debug_page():
-    """Página temporal para debuggear la base de datos"""
-    try:
-        # Obtener datos de fiestas
-        fiestas_df = get_data('fiestas')
-        
-        # Verificar estructura de tabla
-        conn = sqlite3.connect('penya_albenc.db')
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(fiestas)")
-        columnas = cursor.fetchall()
-        cursor.execute("SELECT COUNT(*) FROM fiestas")
-        total_filas = cursor.fetchone()[0]
-        conn.close()
-        
-        return html.Div([
-            html.H1("🐛 Debug Base de Datos", style={"color": "#F44336"}),
+def create_lista_compra_page():
+    lista_df = dm.get_data('lista_compra')
+    
+    return html.Div([
+        html.Div([
+            html.H2("🛒 Lista de Compra", style=STYLES['title']),
             
-            html.H3("📊 Estructura de tabla fiestas:"),
-            html.Pre(str(columnas), style={"background": "#f5f5f5", "padding": "10px"}),
+            # Tabla
+            html.Div([
+                html.H3("📝 Items", style=STYLES['subtitle']),
+                dash_table.DataTable(
+                    id='tabla-lista',
+                    data=lista_df.to_dict('records'),
+                    columns=[
+                        {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                        {"name": "📦 Objeto", "id": "objeto", "type": "text", "editable": True},
+                    ],
+                    row_deletable=True,
+                    editable=True,
+                    sort_action="native",
+                    page_size=20,
+                    style_table={'overflowX': 'auto'},
+                    style_cell={
+                        'textAlign': 'left',
+                        'padding': '12px',
+                        'fontSize': '14px',
+                        'fontFamily': 'Inter, sans-serif'
+                    },
+                    style_header={
+                        'backgroundColor': '#48bb78',
+                        'color': 'white',
+                        'fontWeight': '600',
+                        'border': 'none'
+                    },
+                    style_data={
+                        'border': 'none',
+                        'borderBottom': '1px solid #e2e8f0'
+                    },
+                    style_data_conditional=[
+                        {'if': {'row_index': 'odd'}, 'backgroundColor': '#f7fafc'}
+                    ]
+                )
+            ], style=STYLES['card']),
             
-            html.H3(f"📈 Total filas: {total_filas}"),
+            # Agregar item
+            html.Div([
+                html.H3("➕ Agregar Item", style=STYLES['subtitle']),
+                dcc.DatePickerSingle(id='lista-nueva-fecha', date=date.today(), display_format='DD/MM/YYYY'),
+                dcc.Input(id='lista-nuevo-objeto', placeholder="Objeto a comprar", style=STYLES['input']),
+                html.Button('✅ Agregar', id='btn-agregar-lista', style=STYLES['button']),
+                html.Div(id='output-lista', style={'marginTop': '12px'})
+            ], style=STYLES['card']),
             
-            html.H3("📋 Datos completos:"),
-            dash_table.DataTable(
-                data=fiestas_df.to_dict('records'),
-                columns=[{"name": col, "id": col} for col in fiestas_df.columns],
-                style_table={'overflowX': 'auto'},
-                page_size=20
-            ),
-            
-            html.H3("🔍 Datos específicos agosto:"),
-            html.Pre(str(fiestas_df[
-                (fiestas_df['fecha'] >= '2025-08-08') & 
-                (fiestas_df['fecha'] <= '2025-08-17')
-            ].to_dict('records')), style={"background": "#f5f5f5", "padding": "10px", "white-space": "pre-wrap"})
-        ])
-        
-    except Exception as e:
-        return html.Div([
-            html.H1("❌ Error en Debug"),
-            html.P(f"Error: {str(e)}")
-        ])
+        ], style=STYLES['container'])
+    ])
 
-# Callbacks para comidas (actualizado con selectores únicos)
-@app.callback(
-    [Output('tabla-comidas', 'data'), Output('comida-output', 'children')],
-    [Input('btn-add-comida', 'n_clicks'), 
-     Input('btn-cambiar-cocinero', 'n_clicks'),
-     Input('btn-agregar-cocinero', 'n_clicks'),
-     Input('btn-eliminar-cocinero', 'n_clicks'),
-     Input('btn-intercambiar-especifico', 'n_clicks'),
-     Input('tabla-comidas', 'data_previous'),
-     Input('tabla-comidas', 'data')],
-    [State('comida-fecha', 'date'), State('comida-servicio', 'value'),
-     State('comida-tipo', 'value'), State('comida-cocineros-selector', 'value'),
-     State('filter-año', 'value'), State('filter-tipo', 'value'),
-     State('cambiar-cocinero-antiguo', 'value'), State('cambiar-cocinero-nuevo', 'value'),
-     State('agregar-cocinero', 'value'), State('eliminar-cocinero', 'value'),
-     State('int-año1', 'value'), State('int-tipo1', 'value'), State('int-cocinero1', 'value'),
-     State('int-año2', 'value'), State('int-tipo2', 'value'), State('int-cocinero2', 'value')],
-    prevent_initial_call=True
-)
-def update_comidas_con_selectores(n_add, n_cambiar, n_agregar, n_eliminar, n_intercambio,
-                                 previous_data, current_data, fecha, servicio, tipo, cocineros_lista, 
-                                 filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo,
-                                 nuevo_cocinero, cocinero_eliminar,
-                                 int_año1, int_tipo1, int_cocinero1, int_año2, int_tipo2, int_cocinero2):
-    ctx = callback_context
+def create_eventos_page():
+    eventos_df = dm.get_data('eventos')
     
-    if not ctx.triggered:
-        try:
-            return get_data('comidas').to_dict('records'), ""
-        except:
-            return [], ""
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    # Agregar nueva comida (CON SELECTOR)
-    if trigger_id == 'btn-add-comida' and n_add > 0:
-        if fecha and servicio and tipo and cocineros_lista:
-            # Convertir lista de cocineros a string separado por comas
-            cocineros_str = ', '.join(cocineros_lista)
-            add_data('comidas', (fecha, servicio, tipo, cocineros_str))
-            add_data('eventos', (fecha, tipo, servicio))
-            return get_data('comidas').to_dict('records'), f"✅ Comida agregada exitosamente! 🎉"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Por favor completa todos los campos."
-    
-    # Cambiar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-cambiar-cocinero' and n_cambiar > 0:
-        if filter_año and filter_tipo and cocinero_antiguo and cocinero_nuevo:
-            resultado = cambiar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_antiguo, cocinero_nuevo)
-            return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y ambos cocineros."
-    
-    # Agregar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-agregar-cocinero' and n_agregar > 0:
-        if filter_año and filter_tipo and nuevo_cocinero:
-            resultado = agregar_cocinero_en_año_tipo(filter_año, filter_tipo, nuevo_cocinero)
-            return get_data('comidas').to_dict('records'), f"➕ {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
-    
-    # Eliminar cocinero en año + tipo (CON SELECTOR)
-    elif trigger_id == 'btn-eliminar-cocinero' and n_eliminar > 0:
-        if filter_año and filter_tipo and cocinero_eliminar:
-            resultado = eliminar_cocinero_en_año_tipo(filter_año, filter_tipo, cocinero_eliminar)
-            return get_data('comidas').to_dict('records'), f"➖ {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Selecciona año, tipo y cocinero."
-    
-    # NUEVO: Intercambio específico entre diferentes grupos
-    elif trigger_id == 'btn-intercambiar-especifico' and n_intercambio > 0:
-        if int_año1 and int_tipo1 and int_cocinero1 and int_año2 and int_tipo2 and int_cocinero2:
-            resultado = intercambiar_cocineros_especifico(
-                int_año1, int_tipo1, int_cocinero1,
-                int_año2, int_tipo2, int_cocinero2
-            )
-            return get_data('comidas').to_dict('records'), f"🔄 {resultado}"
-        else:
-            return get_data('comidas').to_dict('records'), "⚠️ Completa todos los campos para el intercambio específico."
-    
-    # Detectar edición directa en la tabla
-    elif trigger_id == 'tabla-comidas' and previous_data is not None and current_data is not None:
-        if len(current_data) < len(previous_data):
-            # Fila eliminada
-            current_ids = [row['id'] for row in current_data]
-            deleted_id = None
-            for row in previous_data:
-                if row['id'] not in current_ids:
-                    deleted_id = row['id']
-                    break
+    return html.Div([
+        html.Div([
+            html.H2("📅 Eventos Especiales", style=STYLES['title']),
             
-            if deleted_id:
-                delete_data('comidas', deleted_id)
-                return get_data('comidas').to_dict('records'), f"🗑️ Comida eliminada exitosamente!"
-        
-        elif len(current_data) == len(previous_data):
-            # Posible edición de celda
-            for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
-                for key in prev_row.keys():
-                    if prev_row[key] != curr_row[key]:
-                        update_data('comidas', curr_row['id'], key, curr_row[key])
-                        return get_data('comidas').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
-    
-    try:
-        return get_data('comidas').to_dict('records'), ""
-    except:
-        return [], ""
-
-# Callback para actualizar opciones dinámicamente
-@app.callback(
-    [Output('filter-tipo', 'options'),
-     Output('int-tipo1', 'options'),
-     Output('int-tipo2', 'options')],
-    [Input('tabla-comidas', 'data')],
-    prevent_initial_call=True
-)
-def update_filter_options(data):
-    tipos = get_tipos_comida()
-    return tipos, tipos, tipos
-
-# Callbacks para lista de compra (sin cambios, solo protección)
-@app.callback(
-    [Output('tabla-lista', 'data'), Output('lista-output', 'children')],
-    [Input('btn-add-lista', 'n_clicks'), 
-     Input('tabla-lista', 'data_previous'),
-     Input('tabla-lista', 'data')],
-    [State('lista-fecha', 'date'), State('lista-objeto', 'value')],
-    prevent_initial_call=True
-)
-def update_lista_protegido(n_clicks, previous_data, current_data, fecha, objeto):
-    ctx = callback_context
-    
-    if not ctx.triggered:
-        try:
-            return get_data('lista_compra').to_dict('records'), ""
-        except:
-            return [], ""
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if trigger_id == 'btn-add-lista' and n_clicks > 0:
-        if fecha and objeto:
-            add_data('lista_compra', (fecha, objeto))
-            return get_data('lista_compra').to_dict('records'), f"✅ Item agregado exitosamente! 🛒"
-        else:
-            return get_data('lista_compra').to_dict('records'), "⚠️ Por favor completa todos los campos."
-    
-    elif trigger_id == 'tabla-lista' and previous_data is not None and current_data is not None:
-        if len(current_data) < len(previous_data):
-            current_ids = [row['id'] for row in current_data]
-            deleted_id = None
-            for row in previous_data:
-                if row['id'] not in current_ids:
-                    deleted_id = row['id']
-                    break
+            # Tabla
+            html.Div([
+                html.H3("🎉 Eventos Registrados", style=STYLES['subtitle']),
+                dash_table.DataTable(
+                    id='tabla-eventos',
+                    data=eventos_df.to_dict('records'),
+                    columns=[
+                        {"name": "📅 Fecha", "id": "fecha", "type": "datetime", "editable": True},
+                        {"name": "🎊 Evento", "id": "evento", "type": "text", "editable": True},
+                        {"name": "📝 Tipo", "id": "tipo", "type": "text", "editable": True},
+                    ],
+                    row_deletable=True,
+                    editable=True,
+                    sort_action="native",
+                    page_size=15,
+                    style_table={'overflowX': 'auto'},
+                    style_cell={
+                        'textAlign': 'left',
+                        'padding': '12px',
+                        'fontSize': '14px',
+                        'fontFamily': 'Inter, sans-serif'
+                    },
+                    style_header={
+                        'backgroundColor': '#ed8936',
+                        'color': 'white',
+                        'fontWeight': '600',
+                        'border': 'none'
+                    },
+                    style_data={
+                        'border': 'none',
+                        'borderBottom': '1px solid #e2e8f0'
+                    },
+                    style_data_conditional=[
+                        {'if': {'row_index': 'odd'}, 'backgroundColor': '#f7fafc'}
+                    ]
+                )
+            ], style=STYLES['card']),
             
-            if deleted_id:
-                delete_data('lista_compra', deleted_id)
-                return get_data('lista_compra').to_dict('records'), f"🗑️ Item eliminado exitosamente!"
-        
-        elif len(current_data) == len(previous_data):
-            for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
-                for key in prev_row.keys():
-                    if prev_row[key] != curr_row[key]:
-                        update_data('lista_compra', curr_row['id'], key, curr_row[key])
-                        return get_data('lista_compra').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
-    
-    try:
-        return get_data('lista_compra').to_dict('records'), ""
-    except:
-        return [], ""
-
-# Callbacks para mantenimiento (sin cambios, solo protección)
-@app.callback(
-    [Output('tabla-mant', 'data'), Output('mant-output', 'children')],
-    [Input('btn-add-mant', 'n_clicks'), 
-     Input('tabla-mant', 'data_previous'),
-     Input('tabla-mant', 'data')],
-    [State('mant-año', 'value'), State('mant-mantenimiento', 'value'),
-     State('mant-cadafals', 'value')],
-    prevent_initial_call=True
-)
-def update_mant_protegido(n_clicks, previous_data, current_data, año, mantenimiento, cadafals):
-    ctx = callback_context
-    
-    if not ctx.triggered:
-        try:
-            return get_data('mantenimiento').to_dict('records'), ""
-        except:
-            return [], ""
-    
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
-    if trigger_id == 'btn-add-mant' and n_clicks > 0:
-        if año and mantenimiento and cadafals:
-            add_data('mantenimiento', (año, mantenimiento, cadafals))
-            return get_data('mantenimiento').to_dict('records'), f"✅ Tarea agregada exitosamente! 🔧"
-        else:
-            return get_data('mantenimiento').to_dict('records'), "⚠️ Por favor completa todos los campos."
-    
-    elif trigger_id == 'tabla-mant' and previous_data is not None and current_data is not None:
-        if len(current_data) < len(previous_data):
-            current_ids = [row['id'] for row in current_data]
-            deleted_id = None
-            for row in previous_data:
-                if row['id'] not in current_ids:
-                    deleted_id = row['id']
-                    break
+            # Agregar evento
+            html.Div([
+                html.H3("➕ Agregar Evento", style=STYLES['subtitle']),
+                dcc.DatePickerSingle(id='evento-nueva-fecha', date=date.today(), display_format='DD/MM/YYYY'),
+                dcc.Input(id='evento-nuevo-nombre', placeholder="Nombre del evento", style=STYLES['input']),
+                dcc.Input(id='evento-nuevo-tipo', placeholder="Tipo/Descripción", style=STYLES['input']),
+                html.Button('✅ Agregar Evento', id='btn-agregar-evento', style=STYLES['button']),
+                html.Div(id='output-evento', style={'marginTop': '12px'})
+            ], style=STYLES['card']),
             
-            if deleted_id:
-                delete_data('mantenimiento', deleted_id)
-                return get_data('mantenimiento').to_dict('records'), f"🗑️ Tarea eliminada exitosamente!"
-        
-        elif len(current_data) == len(previous_data):
-            for i, (prev_row, curr_row) in enumerate(zip(previous_data, current_data)):
-                for key in prev_row.keys():
-                    if prev_row[key] != curr_row[key]:
-                        update_data('mantenimiento', curr_row['id'], key, curr_row[key])
-                        return get_data('mantenimiento').to_dict('records'), f"✏️ Campo '{key}' actualizado!"
-    
-    try:
-        return get_data('mantenimiento').to_dict('records'), ""
-    except:
-        return [], ""
+        ], style=STYLES['container'])
+    ])
 
+<<<<<<< HEAD
 # Callback para mostrar confirmación y guardar
 @app.callback(
     [Output('confirm-guardar', 'displayed'),
@@ -3011,86 +1746,432 @@ def manejar_guardar_con_confirmacion(n_clicks_guardar, n_clicks_confirm, pathnam
     
     # Fallback
     return False, "", generar_tarjetas_fiestas()
+=======
+# ===== CALLBACKS =====
+>>>>>>> e79d4fc (cambio a supabase)
 
 @app.callback(
-    Output('proximos-eventos-container', 'children'),
+    Output('page-content', 'children'),
     [Input('url', 'pathname')]
 )
-def update_proximos_eventos(pathname):
-    if pathname != '/':
+def display_page(pathname):
+    if pathname == '/comidas':
+        return create_comidas_page()
+    elif pathname == '/lista-compra':
+        return create_lista_compra_page()
+    elif pathname == '/eventos':
+        return create_eventos_page()
+    elif pathname == '/fiestas':
+        return create_fiestas_page()
+    else:
+        return create_home_page()
+
+# Callback para comidas
+@app.callback(
+    [Output('tabla-comidas', 'data'),
+     Output('output-comida', 'children'),
+     Output('confirm-delete', 'displayed'),
+     Output('store-datos-borrar', 'data')],
+    [Input('btn-agregar-comida', 'n_clicks'),
+     Input('btn-intercambiar', 'n_clicks'),
+     Input('tabla-comidas', 'data'),
+     Input('confirm-delete', 'submit_n_clicks')],
+    [State('tabla-comidas', 'data_previous'),
+     State('store-datos-borrar', 'data'),
+     State('nueva-fecha', 'date'),
+     State('nuevo-dia', 'value'),
+     State('nuevo-servicio', 'value'),
+     State('nuevos-cocineros', 'value'),
+     State('inter-cocinero1', 'value'),
+     State('inter-cocinero2', 'value')],
+    prevent_initial_call=True
+)
+def update_comidas(n_add, n_inter, current_data, confirm_clicks, previous_data, 
+                   datos_borrar, fecha, tipo, servicio, cocineros, coc1, coc2):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if trigger == 'btn-agregar-comida' and all([fecha, tipo, servicio, cocineros]):
+        cocineros_str = ', '.join(cocineros)
+        dm.add_data('comidas', (fecha, tipo, servicio, cocineros_str))
+        registrar_cambio('Comida', f'Agregada: {tipo} - {fecha}')
+        return dm.get_data('comidas').to_dict('records'), "✅ Comida agregada correctamente", False, None
+    
+    elif trigger == 'btn-intercambiar' and coc1 and coc2:
+        comidas_df = dm.get_data('comidas')
+        cambios = 0
+        for idx, row in comidas_df.iterrows():
+            if pd.notna(row['cocineros']):
+                cocineros_lista = [c.strip() for c in row['cocineros'].split(',')]
+                if coc1 in cocineros_lista:
+                    cocineros_lista = [coc2 if c == coc1 else c for c in cocineros_lista]
+                    comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+                    cambios += 1
+                elif coc2 in cocineros_lista:
+                    cocineros_lista = [coc1 if c == coc2 else c for c in cocineros_lista]
+                    comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+                    cambios += 1
+        
+        dm.save_data('comidas', comidas_df)
+        registrar_cambio('Cocineros', f'Intercambiados: {coc1} ↔ {coc2}')
+        return comidas_df.to_dict('records'), f"✅ Intercambiados en {cambios} comidas", False, None
+    
+    elif trigger == 'confirm-delete' and datos_borrar:
+        # Usuario confirmó - borrar usando los datos guardados en el store
+        registrar_cambio('Comida', 'Eliminada una comida')
+        dm.save_data('comidas', pd.DataFrame(datos_borrar))
+        return datos_borrar, "✅ Comida eliminada", False, None
+    
+    elif trigger == 'tabla-comidas':
+        if previous_data is not None and len(current_data) < len(previous_data):
+            # Se intentó borrar - guardar datos y mostrar confirmación
+            return previous_data, "", True, current_data  # ← Guardar current_data en store
+        elif previous_data is not None and current_data != previous_data:
+            # Edición
+            registrar_cambio('Comida', 'Modificada una comida')
+            dm.save_data('comidas', pd.DataFrame(current_data))
+            return current_data, "", False, None
+    
+    return dm.get_data('comidas').to_dict('records'), "", False, None
+
+# Callback para lista de compra
+@app.callback(
+    [Output('tabla-lista', 'data'),
+     Output('output-lista', 'children')],
+    [Input('btn-agregar-lista', 'n_clicks'),
+     Input('tabla-lista', 'data'),
+     Input('tabla-lista', 'data_previous')],
+    [State('lista-nueva-fecha', 'date'),
+     State('lista-nuevo-objeto', 'value')],
+    prevent_initial_call=True
+)
+def update_lista(n_add, current_data, previous_data, fecha, objeto):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if trigger == 'btn-agregar-lista' and fecha and objeto:
+        dm.add_data('lista_compra', (fecha, objeto))
+        registrar_cambio('Lista Compra', f'Agregado: {objeto}')
+        return dm.get_data('lista_compra').to_dict('records'), "✅ Item agregado"
+    
+    elif trigger == 'tabla-lista':
+        if previous_data is not None and current_data != previous_data:
+            if len(current_data) < len(previous_data):
+                registrar_cambio('Lista Compra', 'Eliminado un item')
+            else:
+                registrar_cambio('Lista Compra', 'Modificado un item')
+            
+            dm.save_data('lista_compra', pd.DataFrame(current_data))
+            return current_data, ""
+    
+    return dm.get_data('lista_compra').to_dict('records'), ""
+
+# Callback para mostrar campos según acción
+@app.callback(
+    Output('campos-accion-dia', 'children'),
+    [Input('accion-dia-especifico', 'value')],
+    [State('tabla-comidas', 'data')]
+)
+def mostrar_campos_accion(accion, comidas_data):
+    if not accion:
         return []
     
-    proximos_df = get_proximos_eventos(5)
+    comidas_df = pd.DataFrame(comidas_data) if comidas_data else dm.get_data('comidas')
+    cocineros_unicos = set()
+    for _, row in comidas_df.iterrows():
+        if pd.notna(row.get('cocineros')):
+            cocineros_unicos.update([c.strip() for c in str(row['cocineros']).split(',')])
+    cocineros_options = [{'label': c, 'value': c} for c in sorted(cocineros_unicos)]
     
-    if len(proximos_df) == 0:
-        return [html.P("No hay eventos próximos", style={"text-align": "center", "color": "#666"})]
+    if accion == 'agregar':
+        return [
+            dcc.Input(id='dia-nuevo-cocinero', placeholder="Nombre del cocinero", style=STYLES['input'])
+        ]
+    elif accion == 'eliminar':
+        return [
+            dcc.Dropdown(id='dia-cocinero-eliminar', options=cocineros_options, placeholder="Cocinero a eliminar", style={'marginBottom': '12px'})
+        ]
+    elif accion == 'intercambiar':
+        return [
+            dcc.Dropdown(id='dia-cocinero-origen', options=cocineros_options, placeholder="Cocinero actual", style={'marginBottom': '8px'}),
+            dcc.Dropdown(id='dia-cocinero-destino', options=cocineros_options, placeholder="Nuevo cocinero", style={'marginBottom': '8px'})
+        ]
+    return []
+
+# Callback para ejecutar acción en día específico
+@app.callback(
+    [Output('output-dia-especifico', 'children'),
+     Output('tabla-comidas', 'data', allow_duplicate=True)],
+    [Input('btn-ejecutar-dia-especifico', 'n_clicks')],
+    [State('selector-dia-especifico', 'value'),
+     State('fecha-dia-especifico', 'date'),
+     State('accion-dia-especifico', 'value'),
+     State('dia-nuevo-cocinero', 'value'),
+     State('dia-cocinero-eliminar', 'value'),
+     State('dia-cocinero-origen', 'value'),
+     State('dia-cocinero-destino', 'value')],
+    prevent_initial_call=True
+)
+def ejecutar_accion_dia(n_clicks, dia, fecha, accion, nuevo_coc, elim_coc, origen_coc, destino_coc):
+    if not n_clicks or not dia or not fecha or not accion:
+        raise PreventUpdate
     
-    eventos_cards = []
-    for _, evento in proximos_df.iterrows():
-        # Formatear fecha a D-M-A
-        try:
-            from datetime import datetime
-            fecha_obj = datetime.strptime(evento['fecha'], '%Y-%m-%d')
-            fecha_formateada = fecha_obj.strftime('%d-%m-%Y')
-        except:
-            fecha_formateada = evento['fecha']
-        
-        card = html.Div([
-            html.H5(f"🎉 {evento['tipo_comida']}", style={"color": "#FF5722", "margin-bottom": "8px"}),
-            html.P(f"📅 {fecha_formateada}", style={"margin": "5px 0", "font-weight": "bold"}),
-            html.P(f"🍽️ {evento['tipo_servicio']}", style={"margin": "5px 0"}),
-            html.P(f"👨‍🍳 {evento['cocineros']}", style={"margin": "5px 0", "font-size": "0.9rem", "color": "#666"})
-        ], style={
-            "background": "linear-gradient(135deg, #FFF3E0 0%, #FFCC80 100%)",
-            "padding": "15px", "margin": "10px", "border-radius": "8px",
-            "border-left": "4px solid #FF9800", "box-shadow": "0 2px 4px rgba(0,0,0,0.1)",
-            "flex": "1", "min-width": "280px"
-        })
-        eventos_cards.append(card)
+    comidas_df = dm.get_data('comidas')
     
-    return html.Div(eventos_cards, style={"display": "flex", "flex-wrap": "wrap", "gap": "10px"})
+    # Filtrar por día y fecha
+    mask = (comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)
+    
+    if not mask.any():
+        return f"⚠️ No se encontró comida para {dia} en {fecha}", comidas_df.to_dict('records')
+    
+    idx = comidas_df[mask].index[0]
+    cocineros_str = comidas_df.at[idx, 'cocineros']
+    cocineros_lista = [c.strip() for c in cocineros_str.split(',')]
+    
+    if accion == 'agregar' and nuevo_coc:
+        if nuevo_coc not in cocineros_lista:
+            cocineros_lista.append(nuevo_coc)
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'Agregado {nuevo_coc} a {dia} del {fecha}')
+            return f"✅ {nuevo_coc} agregado a {dia}", comidas_df.to_dict('records')
+        return f"⚠️ {nuevo_coc} ya está en esta comida", comidas_df.to_dict('records')
+    
+    elif accion == 'eliminar' and elim_coc:
+        if elim_coc in cocineros_lista and len(cocineros_lista) > 1:
+            cocineros_lista.remove(elim_coc)
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'Eliminado {elim_coc} de {dia} del {fecha}')
+            return f"✅ {elim_coc} eliminado de {dia}", comidas_df.to_dict('records')
+        return f"⚠️ No se puede eliminar (no encontrado o es el único)", comidas_df.to_dict('records')
+    
+    elif accion == 'intercambiar' and origen_coc and destino_coc:
+        if origen_coc in cocineros_lista:
+            cocineros_lista = [destino_coc if c == origen_coc else c for c in cocineros_lista]
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'Intercambiado {origen_coc} → {destino_coc} en {dia} del {fecha}')
+            return f"✅ {origen_coc} → {destino_coc} en {dia}", comidas_df.to_dict('records')
+        return f"⚠️ {origen_coc} no encontrado en esta comida", comidas_df.to_dict('records')
+    
+    raise PreventUpdate
 
-# Inicializar la base de datos y cargar datos
-init_db()  # Primero crear tablas si no existen
-migrate_fiestas_table()  # Luego migrar columnas faltantes
-update_mantenimiento_data()  # Cargar datos de mantenimiento <-- AÑADIR ESTO
-load_eventos_completos()  # Después cargar datos principales
-load_fiestas_agosto_2025()  # Finalmente datos específicos de fiestas
+# Callback para eventos
+@app.callback(
+    [Output('tabla-eventos', 'data'),
+     Output('output-evento', 'children')],
+    [Input('btn-agregar-evento', 'n_clicks'),
+     Input('tabla-eventos', 'data'),
+     Input('tabla-eventos', 'data_previous')],
+    [State('evento-nueva-fecha', 'date'),
+     State('evento-nuevo-nombre', 'value'),
+     State('evento-nuevo-tipo', 'value')],  # ← SOLO ESTOS STATES
+    prevent_initial_call=True
+)
+def update_eventos(n_add, current_data, previous_data, fecha, nombre, tipo):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if trigger == 'btn-agregar-evento' and fecha and nombre:
+        dm.add_data('eventos', (fecha, nombre, tipo or ''))
+        registrar_cambio('Eventos', f'Agregado: {nombre}')
+        return dm.get_data('eventos').to_dict('records'), "✅ Evento agregado"
+    
+    elif trigger == 'tabla-eventos':
+        if previous_data is not None and current_data != previous_data:
+            if len(current_data) < len(previous_data):
+                registrar_cambio('Eventos', 'Eliminado un evento')
+            else:
+                registrar_cambio('Eventos', 'Modificado un evento')
+            
+            dm.save_data('eventos', pd.DataFrame(current_data))
+            return current_data, ""
+    
+    return dm.get_data('eventos').to_dict('records'), ""
 
-# AGREGAR ESTA LÍNEA ⬇️
-migrate_fiestas_table()
+# Callback para cargar fechas según día seleccionado
+@app.callback(
+    Output('selector-fecha-dia', 'options'),
+    [Input('selector-dia', 'value')]
+)
+def cargar_fechas_dia(dia):
+    if not dia:
+        return []
+    
+    comidas_df = dm.get_data('comidas')
+    fechas_dia = comidas_df[comidas_df['dia'] == dia]['fecha'].tolist()
+    
+    return [{'label': f, 'value': f} for f in sorted(fechas_dia)]
 
-# Ejecutar limpieza automática al iniciar
-print("🚀 Iniciando aplicación Penya L'Albenc...")
-resultado_limpieza = limpiar_eventos_antiguos()
-print(f"🧹 {resultado_limpieza}")
+# Callback para mostrar info de comida seleccionada
+@app.callback(
+    Output('info-comida-seleccionada', 'children'),
+    [Input('selector-fecha-dia', 'value')],
+    [State('selector-dia', 'value')]
+)
+def mostrar_info_comida(fecha, dia):
+    if not fecha or not dia:
+        return []
+    
+    comidas_df = dm.get_data('comidas')
+    comida = comidas_df[(comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)]
+    
+    if len(comida) == 0:
+        return []
+    
+    row = comida.iloc[0]
+    return html.Div([
+        html.Strong("Cocineros actuales: "),
+        html.Span(row['cocineros'], style={'color': '#667eea', 'fontWeight': '600'})
+    ], style={'padding': '12px', 'background': '#f7fafc', 'borderRadius': '8px'})
 
-# Forzar migración de columnas faltantes
-print("🔧 Verificando estructura de tabla fiestas...")
-migrate_fiestas_table()
+# Callback para mostrar campos según acción
+@app.callback(
+    Output('campos-accion', 'children'),
+    [Input('accion-cocinero', 'value')],
+    [State('tabla-comidas', 'data')]
+)
+def mostrar_campos(accion, comidas_data):
+    if not accion:
+        return []
+    
+    comidas_df = pd.DataFrame(comidas_data) if comidas_data else dm.get_data('comidas')
+    cocineros_unicos = set()
+    for _, row in comidas_df.iterrows():
+        if pd.notna(row.get('cocineros')):
+            cocineros_unicos.update([c.strip() for c in str(row['cocineros']).split(',')])
+    cocineros_options = [{'label': c, 'value': c} for c in sorted(cocineros_unicos)]
+    
+    if accion == 'agregar':
+        return dcc.Input(id='nuevo-cocinero-dia', placeholder="Nombre del cocinero", style=STYLES['input'])
+    elif accion == 'eliminar':
+        return dcc.Dropdown(id='eliminar-cocinero-dia', options=cocineros_options, placeholder="Cocinero a eliminar", style={'marginBottom': '12px'})
+    elif accion == 'intercambiar':
+        return [
+            dcc.Dropdown(id='cocinero-origen-dia', options=cocineros_options, placeholder="Cocinero actual", style={'marginBottom': '8px'}),
+            dcc.Dropdown(id='cocinero-destino-dia', options=cocineros_options, placeholder="Nuevo cocinero", style={'marginBottom': '8px'})
+        ]
+    return []
 
-# Verificar que las columnas existen
-conn = sqlite3.connect('penya_albenc.db')
-cursor = conn.cursor()
-cursor.execute("PRAGMA table_info(fiestas)")
-columnas = [col[1] for col in cursor.fetchall()]
-print(f"📊 Columnas en fiestas: {columnas}")
-conn.close()
+# Callback para ejecutar acción
+@app.callback(
+    [Output('output-accion', 'children'),
+     Output('tabla-comidas', 'data', allow_duplicate=True),
+     Output('info-comida-seleccionada', 'children', allow_duplicate=True)],
+    [Input('btn-ejecutar-accion', 'n_clicks')],
+    [State('selector-dia', 'value'),
+     State('selector-fecha-dia', 'value'),
+     State('accion-cocinero', 'value'),
+     State('nuevo-cocinero-dia', 'value'),
+     State('eliminar-cocinero-dia', 'value'),
+     State('cocinero-origen-dia', 'value'),
+     State('cocinero-destino-dia', 'value')],
+    prevent_initial_call=True
+)
+def ejecutar_accion(n_clicks, dia, fecha, accion, nuevo, eliminar, origen, destino):
+    if not n_clicks or not dia or not fecha or not accion:
+        raise PreventUpdate
+    
+    comidas_df = dm.get_data('comidas')
+    mask = (comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)
+    
+    if not mask.any():
+        return "⚠️ No se encontró la comida", comidas_df.to_dict('records'), []
+    
+    idx = comidas_df[mask].index[0]
+    cocineros_lista = [c.strip() for c in comidas_df.at[idx, 'cocineros'].split(',')]
+    
+    if accion == 'agregar' and nuevo:
+        if nuevo not in cocineros_lista:
+            cocineros_lista.append(nuevo)
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'Agregado {nuevo} a {dia} - {fecha}')
+            info = html.Div([html.Strong("Cocineros actuales: "), html.Span(', '.join(cocineros_lista), style={'color': '#667eea', 'fontWeight': '600'})], 
+                          style={'padding': '12px', 'background': '#f7fafc', 'borderRadius': '8px'})
+            return f"✅ {nuevo} agregado", comidas_df.to_dict('records'), info
+        return f"⚠️ {nuevo} ya está", comidas_df.to_dict('records'), []
+    
+    elif accion == 'eliminar' and eliminar:
+        if eliminar in cocineros_lista and len(cocineros_lista) > 1:
+            cocineros_lista.remove(eliminar)
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'Eliminado {eliminar} de {dia} - {fecha}')
+            info = html.Div([html.Strong("Cocineros actuales: "), html.Span(', '.join(cocineros_lista), style={'color': '#667eea', 'fontWeight': '600'})], 
+                          style={'padding': '12px', 'background': '#f7fafc', 'borderRadius': '8px'})
+            return f"✅ {eliminar} eliminado", comidas_df.to_dict('records'), info
+        return "⚠️ No se puede eliminar", comidas_df.to_dict('records'), []
+    
+    elif accion == 'intercambiar' and origen and destino:
+        if origen in cocineros_lista:
+            cocineros_lista = [destino if c == origen else c for c in cocineros_lista]
+            comidas_df.at[idx, 'cocineros'] = ', '.join(cocineros_lista)
+            dm.save_data('comidas', comidas_df)
+            registrar_cambio('Cocineros', f'{origen} → {destino} en {dia} - {fecha}')
+            info = html.Div([html.Strong("Cocineros actuales: "), html.Span(', '.join(cocineros_lista), style={'color': '#667eea', 'fontWeight': '600'})], 
+                          style={'padding': '12px', 'background': '#f7fafc', 'borderRadius': '8px'})
+            return f"✅ {origen} → {destino}", comidas_df.to_dict('records'), info
+        return f"⚠️ {origen} no encontrado", comidas_df.to_dict('records'), []
+    
+    raise PreventUpdate
 
-load_fiestas_agosto_2025()
+# Store para guardar datos temporales del borrado
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+    dcc.Store(id='store-datos-borrar'),  
+    dcc.ConfirmDialog(
+        id='confirm-delete',
+        message='¿Estás seguro de eliminar esta comida?',
+    ),
+    create_navbar(),
+    html.Div(id='page-content')
+])
+
+
+# ===== INICIALIZACIÓN =====
 
 if __name__ == '__main__':
-    import os
+    print("=" * 60)
+    print("🚀 PENYA L'ALBENC - Versión Moderna")
+    print("=" * 60)
+    
+    # VERIFICAR DATOS CARGADOS
+    print("\n📊 VERIFICACIÓN DE DATOS:")
+    for tabla in ['comidas', 'eventos', 'lista_compra', 'mantenimiento', 'fiestas']:
+        df = dm.get_data(tabla)
+        print(f"  • {tabla}: {len(df)} filas")
+        if len(df) > 0:
+            print(f"    Columnas: {list(df.columns)}")
+    print("=" * 60)
+    
+    # Asegurar que existe la tabla de cambios
+    try:
+        cambios_df = dm.get_data('cambios')
+        if len(cambios_df) == 0:
+            registrar_cambio('Sistema', 'Aplicación inicializada')
+    except:
+        pass
+    
+    # LIMPIEZA AUTOMÁTICA
+    print("\n🧹 Ejecutando limpieza automática de comidas antiguas...")
+    limpiar_comidas_antiguas()
+    
     port = int(os.environ.get('PORT', 8050))
     debug = os.environ.get('DEBUG', 'True').lower() == 'true'
     
-    print(f"🌐 Servidor iniciado en puerto {port}")
-    print("📊 Base de datos inicializada correctamente")
-    print("✨ ¡Aplicación lista para usar!")
-    print("🧹 Limpiando datos anteriores...")
-    limpiar_datos_anteriores()  # ← AGREGAR ESTO
-    load_eventos_completos()
-    load_fiestas_agosto_2025()
-
+    print(f"🌐 Puerto: {port}")
+    print(f"🛠️ Debug: {debug}")
+    print("=" * 60)
     
     app.run_server(debug=debug, host='0.0.0.0', port=port)
