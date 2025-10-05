@@ -21,6 +21,8 @@ from data_manager import dm
 app = dash.Dash(__name__, 
                 suppress_callback_exceptions=True,
                 external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.config.suppress_callback_exceptions = True
 app.index_string = '''
 <!DOCTYPE html>
 <html>
@@ -274,13 +276,14 @@ def create_menu_dropdown():
     return html.Div(
         id="menu-dropdown",
         className="modern-dropdown",
-        style={"display": "none"}, # Oculto por defecto
+        style={"display": "none"},
         children=[
             dcc.Link([html.Span("🏠"), " Inicio"], href="/", className="nav-link-dropdown"),
             dcc.Link([html.Span("🍽️"), " Comidas"], href="/comidas", className="nav-link-dropdown"),
             dcc.Link([html.Span("🛒"), " Compra"], href="/lista-compra", className="nav-link-dropdown"),
             dcc.Link([html.Span("📅"), " Eventos"], href="/eventos", className="nav-link-dropdown"),
             dcc.Link([html.Span("🎉"), " Fiestas"], href="/fiestas", className="nav-link-dropdown"),
+            dcc.Link([html.Span("🔧"), " Mantenimiento"], href="/mantenimiento", className="nav-link-dropdown"),  # ← NUEVO
         ]
     )
 
@@ -361,6 +364,31 @@ def create_home_page():
         ]),
     ])
 
+def create_mantenimiento_page():
+    mant_df = dm.get_data('mantenimiento')
+    return dbc.Container([
+        html.H2("🔧 Registro de Mantenimiento", className="text-center my-4 fw-bold"),
+
+        dbc.Card(className="mb-4 glass-container", children=[
+            dbc.CardHeader(html.H4("📋 Historial por Años", className="m-0")),
+            dbc.ListGroup(
+                [
+                    dbc.ListGroupItem([
+                        html.Div(className="d-flex w-100 align-items-center", children=[
+                            html.Div("📅", className="me-3 fs-4 text-primary"),
+                            html.Div([
+                                html.H6(f"Año {row['año']}", className="mb-1 fw-bold"),
+                                html.P(f"Mantenimiento: {row['mantenimiento']}", className="mb-1 text-muted small"),
+                                html.P(f"Cadafals: {row['cadafals']}", className="mb-0 text-muted small"),
+                            ]),
+                        ])
+                    ], action=True) for _, row in mant_df.sort_values('año', ascending=True).iterrows()
+                ] if not mant_df.empty else [dbc.ListGroupItem("No hay datos de mantenimiento.", className="text-muted")],
+                flush=True
+            )
+        ]),
+    ], className="mt-5")
+
 def create_fiestas_page():
     return dbc.Container([
         html.H2("🎉 Fiestas de Agosto 2025", className="text-center my-4 fw-bold"),
@@ -411,35 +439,38 @@ def create_fiestas_page():
 
 def create_comidas_page():
     comidas_df = dm.get_data('comidas')
+    año_actual = datetime.now().year
+    
+    # Para el selector de días: TODAS las comidas (todos los años)
     dias_unicos = comidas_df['dia'].unique() if not comidas_df.empty else []
     opciones_dias = [{'label': dia.replace('_', ' ').title(), 'value': dia} for dia in sorted(dias_unicos)]
 
     return dbc.Container([
         html.H2("🍽️ Gestión de Comidas", className="text-center my-4 fw-bold"),
         
+        dcc.ConfirmDialog(id='confirm-eliminar-comida', message='¿Seguro que quieres eliminar esta comida?'),
+        dcc.Store(id='store-año-comidas', data=año_actual),
+        
+        # Navegación por años
+        dbc.Card(className="mb-3 glass-container", body=True, children=[
+            html.Div(className="d-flex justify-content-between align-items-center", children=[
+                dbc.Button("←", id='btn-año-anterior', color="primary", outline=True),
+                html.H4(id='display-año-actual', children=f"Año {año_actual}", className="m-0"),
+                dbc.Button("→", id='btn-año-siguiente', color="primary", outline=True),
+            ])
+        ]),
+        
         dbc.Card(className="mb-4 glass-container", children=[
             dbc.CardHeader(html.H4("📋 Comidas Planificadas", className="m-0")),
-            dbc.CardBody(
-                dash_table.DataTable(
-                    id='tabla-comidas', 
-                    data=comidas_df.to_dict('records'),
-                    columns=[
-                        {"name": "Fecha", "id": "fecha"}, {"name": "Día", "id": "dia"},
-                        {"name": "Cocineros", "id": "cocineros"}
-                    ],
-                    editable=True, row_deletable=True, sort_action="native", page_size=15,
-                    style_table={'overflowX': 'auto'},
-                ),
-                className="p-0"
-            )
-        ]), # Aquí estaba el error del 'responsive=True', ya corregido.
+            html.Div(id='lista-comidas-container')
+        ]),
         
         dbc.Card(body=True, className="mb-4 glass-container", children=[
             html.H3("🎯 Modificar Cocineros", className="mb-3"),
             dbc.Row([
                 dbc.Col(md=6, className="mb-2 mb-md-0", children=[
                     html.Label("1. Selecciona el día:", className="fw-bold"),
-                    dcc.Dropdown(id='comida-dia-selector', options=opciones_dias, placeholder="Ej: Sant Antoni...")
+                    dcc.Dropdown(id='comida-dia-selector', options=opciones_dias, placeholder="Ej: Sant Antoni...")  # ← Con opciones_dias
                 ]),
                 dbc.Col(md=6, children=[
                     html.Label("2. Selecciona la fecha:", className="fw-bold"),
@@ -447,11 +478,8 @@ def create_comidas_page():
                 ]),
             ]),
             
-            # --- INICIO DE LA SECCIÓN CORREGIDA ---
-            # Este Div estaba vacío en tu código. Ahora tiene el contenido correcto.
             html.Div(id='panel-acciones-comida', className="mt-4", style={'display': 'none'}, children=[
                 dbc.Alert(id='info-cocineros-actuales', color="info"),
-                
                 html.Label("3. Elige una acción:", className="fw-bold mt-3"),
                 dcc.Dropdown(
                     id='comida-accion-selector',
@@ -462,13 +490,35 @@ def create_comidas_page():
                     ],
                     placeholder="Selecciona qué quieres hacer..."
                 ),
-                
-                html.Div(id='campos-accion-comida', className="mt-3 p-3", style={'backgroundColor': 'rgba(255,255,255,0.5)', 'borderRadius': '8px'}),
-                
+                html.Div(id='campos-accion-comida', className="mt-3 p-3", 
+                         style={'backgroundColor': 'rgba(255,255,255,0.5)', 'borderRadius': '8px'},
+                         children=[
+                             html.Div([
+                                 html.Label("Nuevo cocinero:", className="fw-bold"),
+                                 dbc.Input(id='comida-nuevo-cocinero-input', placeholder="Nombre del cocinero a añadir")
+                             ], style={'display': 'none'}),
+                             html.Div([
+                                 html.Label("Cocinero a eliminar:", className="fw-bold"),
+                                 dcc.Dropdown(id='comida-eliminar-cocinero-select', options=[])
+                             ], style={'display': 'none'}),
+                             html.Div([
+                                 html.Label("3. Selecciona el OTRO día primero:", className="fw-bold"),
+                                 dcc.Dropdown(id='intercambio-otra-comida-select', options=[]),
+                                 dbc.Row([
+                                     dbc.Col(md=6, children=[
+                                         html.Label("1. Cocinero de ESTE día:", className="fw-bold mt-3"),
+                                         dcc.Dropdown(id='intercambio-cocinero-origen', options=[])
+                                     ]),
+                                     dbc.Col(md=6, children=[
+                                         html.Label("2. Cocinero del OTRO día:", className="fw-bold mt-3"),
+                                         dcc.Dropdown(id='intercambio-cocinero-destino', disabled=True)
+                                     ])
+                                 ]),
+                             ], style={'display': 'none'}),
+                             html.P("Selecciona una acción para continuar.", className="text-muted")
+                         ]),
                 dbc.Button("✅ Ejecutar Acción", id='btn-ejecutar-comida-accion', color="success", className="mt-3 w-100"),
             ]),
-            # --- FIN DE LA SECCIÓN CORREGIDA ---
-            
             html.Div(id='output-accion-comida', className="mt-3")
         ]),
     ], className="mt-5")
@@ -478,23 +528,27 @@ def create_lista_compra_page():
     return dbc.Container([
         html.H2("🛒 Lista de Compra", className="text-center my-4 fw-bold"),
         
-        # Tarjeta que contiene la tabla
+        dcc.ConfirmDialog(id='confirm-eliminar-item', message='¿Seguro que quieres eliminar este item?'),
+        
         dbc.Card(className="mb-4 glass-container", children=[
             dbc.CardHeader(html.H4("📝 Items en la Lista", className="m-0")),
-            # ESTE ES EL CAMBIO MÁS IMPORTANTE
-            # Envolvemos la tabla en una CardBody y hacemos la tarjeta responsiva
-            dbc.CardBody(
-                dash_table.DataTable(
-                    id='tabla-lista', data=lista_df.to_dict('records'),
-                    columns=[{"name": "Fecha", "id": "fecha"}, {"name": "Objeto", "id": "objeto"}],
-                    editable=True, row_deletable=True, sort_action="native", page_size=20,
-                    style_table={'overflowX': 'auto'},
-                ),
-                className="p-0" # Quita el padding para que la tabla ocupe todo
+            dbc.ListGroup(
+                [
+                    dbc.ListGroupItem([
+                        html.Div(className="d-flex w-100 align-items-center justify-content-between", children=[
+                            html.Div([
+                                html.H6(row['objeto'], className="mb-1 fw-bold"),
+                                html.Small(f"Fecha: {row['fecha']}", className="text-muted"),
+                            ]),
+                            dbc.Button("✕", id={'type': 'btn-eliminar-item', 'index': row['id']}, 
+                                     color="danger", size="sm", outline=True)
+                        ])
+                    ], action=True) for _, row in lista_df.iterrows()
+                ] if not lista_df.empty else [dbc.ListGroupItem("La lista está vacía.", className="text-muted")],
+                flush=True
             )
-        ], ), # <-- ¡ESTA PROPIEDAD ES LA MAGIA!
+        ]),
         
-        # Tarjeta para agregar items
         dbc.Card(body=True, className="glass-container", children=[
             html.H3("➕ Agregar Item", className="mb-3"),
             dcc.DatePickerSingle(id='lista-nueva-fecha', date=date.today(), className="mb-2"),
@@ -508,19 +562,28 @@ def create_eventos_page():
     eventos_df = dm.get_data('eventos')
     return dbc.Container([
         html.H2("📅 Eventos Especiales", className="text-center my-4 fw-bold"),
+        
+        dcc.ConfirmDialog(id='confirm-eliminar-evento', message='¿Seguro que quieres eliminar este evento?'),
 
         dbc.Card(className="mb-4 glass-container", children=[
             dbc.CardHeader(html.H4("🎉 Eventos Registrados", className="m-0")),
-            dbc.CardBody(
-                dash_table.DataTable(
-                    id='tabla-eventos', data=eventos_df.to_dict('records'),
-                    columns=[{"name": "Fecha", "id": "fecha"}, {"name": "Evento", "id": "evento"}, {"name": "Tipo", "id": "tipo"}],
-                    editable=True, row_deletable=True, sort_action="native", page_size=20,
-                    style_table={'overflowX': 'auto'},
-                ),
-                className="p-0"
+            dbc.ListGroup(
+                [
+                    dbc.ListGroupItem([
+                        html.Div(className="d-flex w-100 align-items-center justify-content-between", children=[
+                            html.Div([
+                                html.H6(row['evento'], className="mb-1 fw-bold"),
+                                html.P(f"Tipo: {row['tipo']}", className="mb-1 text-muted small"),
+                                html.Small(f"Fecha: {row['fecha']}", className="text-muted"),
+                            ]),
+                            dbc.Button("✕", id={'type': 'btn-eliminar-evento', 'index': row['id']}, 
+                                     color="danger", size="sm", outline=True)
+                        ])
+                    ], action=True) for _, row in eventos_df.iterrows()
+                ] if not eventos_df.empty else [dbc.ListGroupItem("No hay eventos.", className="text-muted")],
+                flush=True
             )
-        ], ),
+        ]),
 
         dbc.Card(body=True, className="glass-container", children=[
             html.H3("➕ Agregar Evento", className="mb-3"),
@@ -543,6 +606,7 @@ def display_page(pathname):
     elif pathname == '/lista-compra': return create_lista_compra_page()
     elif pathname == '/eventos': return create_eventos_page()
     elif pathname == '/fiestas': return create_fiestas_page()
+    elif pathname == '/mantenimiento': return create_mantenimiento_page()  # ← NUEVO
     else: return create_home_page()
 
 # ---- Callbacks de Fiestas (Página Interactiva) ----
@@ -594,6 +658,137 @@ def cargar_datos_fiesta(fecha_seleccionada):
         f"({len(niños)})"
     )
 
+# EVENTOS - Guardar ID y mostrar confirm
+@app.callback(
+    [Output('store-id-eliminar-evento', 'data'),
+     Output('confirm-eliminar-evento', 'displayed')],
+    Input({'type': 'btn-eliminar-evento', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def guardar_id_evento(n_clicks):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks):
+        raise PreventUpdate
+    
+    button_id = ctx.triggered_id['index']
+    return button_id, True
+
+@app.callback(
+    Output('page-content', 'children', allow_duplicate=True),
+    Input('confirm-eliminar-evento', 'submit_n_clicks'),
+    [State('store-id-eliminar-evento', 'data'),
+     State('url', 'pathname')],
+    prevent_initial_call=True
+)
+def eliminar_evento_confirmado(submit, evento_id, pathname):
+    if submit and evento_id:
+        eventos_df = dm.get_data('eventos')
+        eventos_df = eventos_df[eventos_df['id'] != evento_id]
+        dm.save_data('eventos', eventos_df)
+        registrar_cambio('Eventos', f'Evento ID {evento_id} eliminado')
+        return create_eventos_page() if pathname == '/eventos' else dash.no_update
+    raise PreventUpdate
+
+# COMIDAS - Guardar ID y mostrar confirm
+@app.callback(
+    [Output('store-id-eliminar-comida', 'data'),
+     Output('confirm-eliminar-comida', 'displayed')],
+    Input({'type': 'btn-eliminar-comida', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def guardar_id_comida(n_clicks):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks):
+        raise PreventUpdate
+    
+    button_id = ctx.triggered_id['index']
+    return button_id, True
+
+@app.callback(
+    Output('page-content', 'children', allow_duplicate=True),
+    Input('confirm-eliminar-comida', 'submit_n_clicks'),
+    [State('store-id-eliminar-comida', 'data'),
+     State('url', 'pathname')],
+    prevent_initial_call=True
+)
+def eliminar_comida_confirmada(submit, comida_id, pathname):
+    if submit and comida_id:
+        comidas_df = dm.get_data('comidas')
+        comidas_df = comidas_df[comidas_df['id'] != comida_id]
+        dm.save_data('comidas', comidas_df)
+        registrar_cambio('Comidas', f'Comida ID {comida_id} eliminada')
+        return create_comidas_page() if pathname == '/comidas' else dash.no_update
+    raise PreventUpdate
+
+# ITEMS COMPRA - Guardar ID y mostrar confirm
+@app.callback(
+    [Output('store-id-eliminar-item', 'data'),
+     Output('confirm-eliminar-item', 'displayed')],
+    Input({'type': 'btn-eliminar-item', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def guardar_id_item(n_clicks):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks):
+        raise PreventUpdate
+    
+    button_id = ctx.triggered_id['index']
+    return button_id, True
+
+@app.callback(
+    Output('page-content', 'children', allow_duplicate=True),
+    Input('confirm-eliminar-item', 'submit_n_clicks'),
+    [State('store-id-eliminar-item', 'data'),
+     State('url', 'pathname')],
+    prevent_initial_call=True
+)
+def eliminar_item_confirmado(submit, item_id, pathname):
+    if submit and item_id:
+        lista_df = dm.get_data('lista_compra')
+        lista_df = lista_df[lista_df['id'] != item_id]
+        dm.save_data('lista_compra', lista_df)
+        registrar_cambio('Lista', f'Item ID {item_id} eliminado')
+        return create_lista_compra_page() if pathname == '/lista-compra' else dash.no_update
+    raise PreventUpdate
+
+
+@app.callback(
+    [Output('page-content', 'children', allow_duplicate=True),
+     Output('output-lista', 'children')],
+    Input('btn-agregar-lista', 'n_clicks'),
+    [State('lista-nueva-fecha', 'date'),
+     State('lista-nuevo-objeto', 'value'),
+     State('url', 'pathname')],
+    prevent_initial_call=True
+)
+def agregar_item_lista(n_clicks, fecha, objeto, pathname):
+    if not n_clicks or not objeto:
+        raise PreventUpdate
+    
+    dm.add_data('lista_compra', (fecha, objeto))
+    registrar_cambio('Lista Compra', f'Item añadido: {objeto}')
+    
+    return create_lista_compra_page() if pathname == '/lista-compra' else dash.no_update, dbc.Alert(f"✅ '{objeto}' añadido", color="success", duration=3000)
+
+@app.callback(
+    [Output('page-content', 'children', allow_duplicate=True),
+     Output('output-evento', 'children')],
+    Input('btn-agregar-evento', 'n_clicks'),
+    [State('evento-nueva-fecha', 'date'),
+     State('evento-nuevo-nombre', 'value'),
+     State('evento-nuevo-tipo', 'value'),
+     State('url', 'pathname')],
+    prevent_initial_call=True
+)
+def agregar_evento(n_clicks, fecha, nombre, tipo, pathname):
+    if not n_clicks or not nombre:
+        raise PreventUpdate
+    
+    dm.add_data('eventos', (fecha, nombre, tipo or ''))
+    registrar_cambio('Eventos', f'Evento añadido: {nombre}')
+    
+    return create_eventos_page() if pathname == '/eventos' else dash.no_update, dbc.Alert(f"✅ '{nombre}' añadido", color="success", duration=3000)
+
 # CALLBACK 1: Habilita y llena el dropdown de fechas cuando se elige un tipo de comida.
 @app.callback(
     [Output('comida-fecha-selector', 'options'),
@@ -639,88 +834,94 @@ def mostrar_panel_acciones(fecha, dia): # <-- CAMBIO
     Output('campos-accion-comida', 'children'),
     Input('comida-accion-selector', 'value'),
     [State('comida-fecha-selector', 'value'),
-     State('comida-dia-selector', 'value')] # <-- CAMBIO
+     State('comida-dia-selector', 'value')]
 )
-def renderizar_campos_accion(accion, fecha, dia): # <-- CAMBIO
-    if not accion:
-        return html.P("Selecciona una acción para continuar.", className="text-muted")
-        
+def renderizar_campos_accion(accion, fecha, dia):
     comidas_df = dm.get_data('comidas')
-    # La consulta ahora usa 'dia'
-    comida_actual = comidas_df[(comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)] # <-- CAMBIO
     
-    if comida_actual.empty:
-        return dbc.Alert("Error interno. Recarga la página.", color="danger")
+    # Valores por defecto si no hay selección
+    opciones_cocineros_actuales = []
+    opciones_otras_comidas = []
+    
+    if dia and fecha:
+        comida_actual = comidas_df[(comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)]
         
-    cocineros_actuales = [c.strip() for c in comida_actual.iloc[0]['cocineros'].split(',')]
-    opciones_cocineros_actuales = [{'label': c, 'value': c} for c in cocineros_actuales]
+        if not comida_actual.empty:
+            cocineros_actuales = [c.strip() for c in comida_actual.iloc[0]['cocineros'].split(',')]
+            opciones_cocineros_actuales = [{'label': c, 'value': c} for c in cocineros_actuales]
+            
+            otras_comidas = comidas_df.drop(comida_actual.index)
+            opciones_otras_comidas = [
+                {'label': f"{row['dia'].replace('_', ' ').title()} del {row['fecha']}", 'value': row['id']}
+                for index, row in otras_comidas.iterrows()
+            ]
 
-    if accion == 'agregar':
-        return [
+    # SIEMPRE renderizar TODOS los campos, solo cambiar visibilidad
+    return html.Div([
+        # Campo agregar
+        html.Div([
             html.Label("Nuevo cocinero:", className="fw-bold"),
             dbc.Input(id='comida-nuevo-cocinero-input', placeholder="Nombre del cocinero a añadir")
-        ]
-    
-    elif accion == 'eliminar':
-        return [
+        ], style={'display': 'block' if accion == 'agregar' else 'none'}),
+        
+        # Campo eliminar
+        html.Div([
             html.Label("Cocinero a eliminar:", className="fw-bold"),
             dcc.Dropdown(id='comida-eliminar-cocinero-select', options=opciones_cocineros_actuales)
-        ]
+        ], style={'display': 'block' if accion == 'eliminar' else 'none'}),
         
-    elif accion == 'intercambiar':
-        otras_comidas = comidas_df.drop(comida_actual.index)
-        # Etiqueta mejorada para el selector de la otra comida
-        opciones_otras_comidas = [
-            {'label': f"{row['dia'].replace('_', ' ').title()} del {row['fecha']}", 'value': row['id']}
-            for index, row in otras_comidas.iterrows()
-        ]
-        
-        return [
+        # Campos intercambiar
+        html.Div([
+            html.Label("3. Selecciona el OTRO día primero:", className="fw-bold"),
+            dcc.Dropdown(id='intercambio-otra-comida-select', options=opciones_otras_comidas),
+            
             dbc.Row([
                 dbc.Col(md=6, children=[
-                    html.Label("1. Cocinero de ESTE día:", className="fw-bold"),
+                    html.Label("1. Cocinero de ESTE día:", className="fw-bold mt-3"),
                     dcc.Dropdown(id='intercambio-cocinero-origen', options=opciones_cocineros_actuales)
                 ]),
                 dbc.Col(md=6, children=[
-                    html.Label("2. Cocinero del OTRO día:", className="fw-bold"),
+                    html.Label("2. Cocinero del OTRO día:", className="fw-bold mt-3"),
                     dcc.Dropdown(id='intercambio-cocinero-destino', disabled=True)
                 ])
             ]),
-            html.Label("3. Selecciona el OTRO día con el que intercambiar:", className="fw-bold mt-3"),
-            dcc.Dropdown(id='intercambio-otra-comida-select', options=opciones_otras_comidas),
-        ]
+        ], style={'display': 'block' if accion == 'intercambiar' else 'none'}),
         
-    return None
+        # Mensaje si no hay acción seleccionada
+        html.P("Selecciona una acción para continuar.", 
+               className="text-muted", 
+               style={'display': 'block' if not accion else 'none'})
+    ])
 
 # Llena la lista de cocineros del "otro día" cuando este es seleccionado.
 @app.callback(
     [Output('intercambio-cocinero-destino', 'options'),
-     Output('intercambio-cocinero-destino', 'disabled')],
+     Output('intercambio-cocinero-destino', 'disabled'),
+     Output('intercambio-cocinero-destino', 'value')],  # ← Añade esto
     Input('intercambio-otra-comida-select', 'value'),
     prevent_initial_call=True
 )
 def actualizar_cocineros_destino_intercambio(id_otra_comida):
     if not id_otra_comida:
-        return [], True
+        return [], True, None
         
     comidas_df = dm.get_data('comidas')
     otra_comida = comidas_df[comidas_df['id'] == id_otra_comida]
     
     if otra_comida.empty:
-        return [], True
+        return [], True, None
         
     cocineros_destino = [c.strip() for c in otra_comida.iloc[0]['cocineros'].split(',')]
     opciones = [{'label': c, 'value': c} for c in cocineros_destino]
-    return opciones, False
-
+    return opciones, False, None  # ← Resetea el valor del segundo dropdown
 
 
 # CALLBACK 5: El callback final que ejecuta la lógica de Agregar, Eliminar o Intercambiar.
 @app.callback(
-    [Output('tabla-comidas', 'data', allow_duplicate=True),
+    [Output('page-content', 'children', allow_duplicate=True),
      Output('output-accion-comida', 'children')],
     Input('btn-ejecutar-comida-accion', 'n_clicks'),
-    [State('comida-dia-selector', 'value'), # <-- CAMBIO
+    [State('comida-dia-selector', 'value'),
      State('comida-fecha-selector', 'value'),
      State('comida-accion-selector', 'value'),
      State('comida-nuevo-cocinero-input', 'value'),
@@ -730,51 +931,47 @@ def actualizar_cocineros_destino_intercambio(id_otra_comida):
      State('intercambio-otra-comida-select', 'value')],
     prevent_initial_call=True
 )
-def ejecutar_accion_comida(n_clicks, dia, fecha, accion, # <-- CAMBIO
+def ejecutar_accion_comida(n_clicks, dia, fecha, accion,
                            nuevo_cocinero, cocinero_a_eliminar,
                            cocinero_origen, cocinero_destino, id_otra_comida):
     if not n_clicks:
         raise PreventUpdate
 
     comidas_df = dm.get_data('comidas')
-    # Localizamos la fila usando 'dia'
-    idx_actual = comidas_df.index[(comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)].tolist() # <-- CAMBIO
+    idx_actual = comidas_df.index[(comidas_df['dia'] == dia) & (comidas_df['fecha'] == fecha)].tolist()
     if not idx_actual:
-        return dash.no_update, dbc.Alert("Error: No se encontró la comida original.", color="danger")
+        return dash.no_update, dbc.Alert("Error: No se encontró la comida.", color="danger")
     idx_actual = idx_actual[0]
     
-    msg = "" # Inicializamos la variable de mensaje
+    msg = ""
 
-    # --- LÓGICA PARA AGREGAR ---
     if accion == 'agregar' and nuevo_cocinero:
         cocineros_list = [c.strip() for c in comidas_df.loc[idx_actual, 'cocineros'].split(',')]
         if nuevo_cocinero in cocineros_list:
             return dash.no_update, dbc.Alert(f"'{nuevo_cocinero}' ya está en la lista.", color="warning")
         cocineros_list.append(nuevo_cocinero)
         comidas_df.loc[idx_actual, 'cocineros'] = ', '.join(cocineros_list)
-        msg = f"'{nuevo_cocinero}' añadido a {dia.replace('_',' ').title()} del {fecha}."
+        msg = f"'{nuevo_cocinero}' añadido."
 
-    # --- LÓGICA PARA ELIMINAR ---
     elif accion == 'eliminar' and cocinero_a_eliminar:
         cocineros_list = [c.strip() for c in comidas_df.loc[idx_actual, 'cocineros'].split(',')]
         if cocinero_a_eliminar not in cocineros_list:
-            return dash.no_update, dbc.Alert(f"Error: '{cocinero_a_eliminar}' no se encontró.", color="danger")
+            return dash.no_update, dbc.Alert(f"'{cocinero_a_eliminar}' no encontrado.", color="danger")
         cocineros_list.remove(cocinero_a_eliminar)
         comidas_df.loc[idx_actual, 'cocineros'] = ', '.join(cocineros_list)
-        msg = f"'{cocinero_a_eliminar}' eliminado de {dia.replace('_',' ').title()} del {fecha}."
+        msg = f"'{cocinero_a_eliminar}' eliminado."
 
-    # --- LÓGICA PARA INTERCAMBIAR ---
     elif accion == 'intercambiar' and cocinero_origen and cocinero_destino and id_otra_comida:
         idx_otra = comidas_df.index[comidas_df['id'] == id_otra_comida].tolist()
         if not idx_otra:
-            return dash.no_update, dbc.Alert("Error: No se encontró la otra comida.", color="danger")
+            return dash.no_update, dbc.Alert("Otra comida no encontrada.", color="danger")
         idx_otra = idx_otra[0]
 
         cocineros_origen_list = [c.strip() for c in comidas_df.loc[idx_actual, 'cocineros'].split(',')]
         cocineros_destino_list = [c.strip() for c in comidas_df.loc[idx_otra, 'cocineros'].split(',')]
 
         if cocinero_origen not in cocineros_origen_list or cocinero_destino not in cocineros_destino_list:
-            return dash.no_update, dbc.Alert("Error: Cocinero no encontrado en su lista respectiva.", color="danger")
+            return dash.no_update, dbc.Alert("Cocinero no encontrado en su lista.", color="danger")
             
         cocineros_origen_list.remove(cocinero_origen)
         cocineros_origen_list.append(cocinero_destino)
@@ -784,14 +981,72 @@ def ejecutar_accion_comida(n_clicks, dia, fecha, accion, # <-- CAMBIO
         
         comidas_df.loc[idx_actual, 'cocineros'] = ', '.join(sorted(cocineros_origen_list))
         comidas_df.loc[idx_otra, 'cocineros'] = ', '.join(sorted(cocineros_destino_list))
-        msg = f"Intercambio realizado: {cocinero_origen} ↔️ {cocinero_destino}."
+        msg = f"Intercambio: {cocinero_origen} ↔️ {cocinero_destino}."
     else:
         return dash.no_update, dbc.Alert("Faltan datos para realizar la acción.", color="warning")
 
     dm.save_data('comidas', comidas_df)
     registrar_cambio('Cocineros', msg)
     
-    return comidas_df.to_dict('records'), dbc.Alert(f"✅ Éxito: {msg}", color="success")
+    dm.save_data('comidas', comidas_df)
+    registrar_cambio('Cocineros', msg)
+    return create_comidas_page(), dbc.Alert(f"✅ {msg}", color="success", duration=3000)
+
+# Navegar años
+@app.callback(
+    [Output('store-año-comidas', 'data'),
+     Output('display-año-actual', 'children')],
+    [Input('btn-año-anterior', 'n_clicks'),
+     Input('btn-año-siguiente', 'n_clicks')],
+    State('store-año-comidas', 'data'),
+    prevent_initial_call=True
+)
+def cambiar_año(n_ant, n_sig, año_actual):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if button_id == 'btn-año-anterior':
+        nuevo_año = año_actual - 1
+    else:
+        nuevo_año = año_actual + 1
+    
+    return nuevo_año, f"Año {nuevo_año}"
+
+# Actualizar lista de comidas según año
+@app.callback(
+    Output('lista-comidas-container', 'children'),
+    Input('store-año-comidas', 'data')
+)
+def actualizar_lista_comidas(año):
+    comidas_df = dm.get_data('comidas')
+    
+    if not comidas_df.empty:
+        comidas_df['año'] = pd.to_datetime(comidas_df['fecha']).dt.year
+        comidas_año = comidas_df[comidas_df['año'] == año].sort_values('fecha')
+    else:
+        comidas_año = pd.DataFrame()
+    
+    if comidas_año.empty:
+        return dbc.ListGroup([
+            dbc.ListGroupItem(f"No hay comidas registradas para {año}.", className="text-muted")
+        ], flush=True)
+    
+    return dbc.ListGroup([
+        dbc.ListGroupItem([
+            html.Div(className="d-flex w-100 align-items-center justify-content-between", children=[
+                html.Div([
+                    html.H6(f"{row['dia'].replace('_', ' ').title()}", className="mb-1 fw-bold"),
+                    html.P(f"Fecha: {row['fecha']}", className="mb-1 text-muted small"),
+                    html.P(f"Cocineros: {row['cocineros']}", className="mb-0 small"),
+                ]),
+                dbc.Button("✕", id={'type': 'btn-eliminar-comida', 'index': row['id']}, 
+                         color="danger", size="sm", outline=True)
+            ])
+        ], action=True) for _, row in comidas_año.iterrows()
+    ], flush=True)
 
 @app.callback(
     [Output('store-comensales-adultos', 'data', allow_duplicate=True), Output('lista-adultos-visual', 'children', allow_duplicate=True),
@@ -869,17 +1124,25 @@ def eliminar_comensal(n_clicks, adultos, niños):
     return adultos, niños, crear_lista_visual(adultos, 'adulto', '👤'), crear_lista_visual(niños, 'niño', '👶'), f"({len(adultos)})", f"({len(niños)})"
 
 @app.callback(
-    [Output('confirm-guardar', 'displayed'), Output('fiesta-output', 'children', allow_duplicate=True),
+    [Output('confirm-guardar', 'displayed'), 
+     Output('fiesta-output', 'children', allow_duplicate=True),
      Output('tarjetas-fiestas', 'children', allow_duplicate=True)],
-    [Input('btn-guardar-cambios', 'n_clicks'), Input('confirm-guardar', 'submit_n_clicks'), Input('url', 'pathname')],
-    [State('fiesta-dia-selector', 'value'), State('fiesta-menu', 'value'),
-     State('store-comensales-adultos', 'data'), State('store-comensales-niños', 'data')],
+    [Input('btn-guardar-cambios', 'n_clicks'), 
+     Input('confirm-guardar', 'submit_n_clicks')],  # ← QUITA Input('url', 'pathname')
+    [State('fiesta-dia-selector', 'value'), 
+     State('fiesta-menu', 'value'),
+     State('store-comensales-adultos', 'data'), 
+     State('store-comensales-niños', 'data')],
     prevent_initial_call=True
 )
-def manejar_guardado_fiesta(n_guardar, n_confirm, pathname, fecha, menu, adultos, niños):
+def manejar_guardado_fiesta(n_guardar, n_confirm, fecha, menu, adultos, niños):
     ctx_id = callback_context.triggered_id
-    if ctx_id == 'url': return False, "", generar_tarjetas_fiestas()
-    if ctx_id == 'btn-guardar-cambios': return True, "", dash.no_update
+    
+    # ELIMINA estas líneas:
+    # if ctx_id == 'url': return False, "", generar_tarjetas_fiestas()
+    
+    if ctx_id == 'btn-guardar-cambios': 
+        return True, "", dash.no_update
     
     if ctx_id == 'confirm-guardar' and n_confirm and fecha:
         try:
@@ -900,7 +1163,7 @@ def manejar_guardado_fiesta(n_guardar, n_confirm, pathname, fecha, menu, adultos
         except Exception as e:
             return False, f"❌ Error al guardar: {e}", generar_tarjetas_fiestas()
             
-    return False, "", generar_tarjetas_fiestas()
+    raise PreventUpdate
 
 
 # =======================
@@ -912,6 +1175,9 @@ app.layout = html.Div([
     # Stores y Confirm Dialogs (componentes no visibles, sin cambios)
     dcc.Store(id='store-comensales-adultos', data=[]),
     dcc.Store(id='store-comensales-niños', data=[]),
+    dcc.Store(id='store-id-eliminar-comida', data=None),
+    dcc.Store(id='store-id-eliminar-item', data=None),
+    dcc.Store(id='store-id-eliminar-evento', data=None),
     dcc.ConfirmDialog(id='confirm-guardar', message='¿Guardar los cambios realizados?'),
     
     # --- NUEVA ESTRUCTURA VISUAL ---
