@@ -859,11 +859,12 @@ def descargar_pdf_reunion(n_clicks, reuniones):
      Output('store-mantenimiento', 'data'),
      Output('store-lista-compra', 'data'),
      Output('store-cambios', 'data'),
-     Output('store-reuniones', 'data')],  # <-- Asegúrate que este Output está presente
+     Output('store-reuniones', 'data'),
+     Output('store-data-loaded-signal', 'data')], # <-- NUEVO OUTPUT
     [Input('url', 'pathname')]
 )
 def cargar_datos_cache(pathname):
-    """Cargar todos los datos una sola vez"""
+    """Cargar todos los datos una sola vez y enviar señal"""
     return (
         dm.get_data('comidas').to_dict('records'),
         dm.get_data('eventos').to_dict('records'),
@@ -871,7 +872,8 @@ def cargar_datos_cache(pathname):
         dm.get_data('mantenimiento').to_dict('records'),
         dm.get_data('lista_compra').to_dict('records'),
         dm.get_data('cambios').to_dict('records'),
-        dm.get_data('reuniones').to_dict('records')  # <-- ESTA LÍNEA FALTABA EN TU RETURN
+        dm.get_data('reuniones').to_dict('records'),
+        True # <-- NUEVA SEÑAL: "¡Datos cargados!"
     )
 
 @app.callback(
@@ -914,17 +916,22 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
 # ---- Router Principal ----
 @app.callback(
     Output('page-content', 'children'),
-    [Input('url', 'pathname')],
-    [State('store-comidas', 'data'),
+    [Input('store-data-loaded-signal', 'data')], # <-- NUEVO TRIGGER
+    [State('url', 'pathname'), # <-- La URL ahora es un State
+     State('store-comidas', 'data'),
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
      State('store-mantenimiento', 'data'),
      State('store-lista-compra', 'data'),
      State('store-cambios', 'data'),
-     State('store-reuniones', 'data')]  # ← AGREGAR ESTA LÍNEA
+     State('store-reuniones', 'data')]
 )
-def display_page(pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):  # ← AGREGAR 'reuniones'
-    # Crear diccionario con todos los datos cacheados
+def display_page(data_loaded_signal, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
+    if not data_loaded_signal:
+        # No hacer nada si la señal aún no se ha enviado
+        raise PreventUpdate
+    
+    # El resto de tu función se queda exactamente igual
     cache = {
         'comidas': comidas or [],
         'eventos': eventos or [],
@@ -932,7 +939,7 @@ def display_page(pathname, comidas, eventos, fiestas, mant, lista, cambios, reun
         'mantenimiento': mant or [],
         'lista_compra': lista or [],
         'cambios': cambios or [],
-        'reuniones': reuniones or []  # ← AGREGAR ESTA LÍNEA
+        'reuniones': reuniones or []
     }
     
     if pathname == '/comidas': return create_comidas_page(cache)
@@ -1590,6 +1597,7 @@ app.layout = html.Div([
     dcc.Store(id='store-lista-compra', data=None, storage_type='session'),
     dcc.Store(id='store-cambios', data=None, storage_type='session'),
     dcc.Store(id='store-reuniones', data=None, storage_type='session'),
+    dcc.Store(id='store-data-loaded-signal'),
 
     
     # --- NUEVA ESTRUCTURA VISUAL ---
