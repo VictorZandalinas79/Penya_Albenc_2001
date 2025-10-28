@@ -11,6 +11,15 @@ from datetime import datetime, date, timedelta
 import calendar
 import dash_bootstrap_components as dbc
 from dash import ALL, callback_context, dash_table, dcc, html
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import simpleSplit
+import io
+import base64
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+
 
 # IMPORTAR DATA MANAGER
 # Asumimos que tienes un archivo data_manager.py con un objeto `dm`
@@ -283,16 +292,52 @@ def create_menu_dropdown():
             dcc.Link([html.Span("🛒"), " Compra"], href="/lista-compra", className="nav-link-dropdown"),
             dcc.Link([html.Span("📅"), " Eventos"], href="/eventos", className="nav-link-dropdown"),
             dcc.Link([html.Span("🎉"), " Fiestas"], href="/fiestas", className="nav-link-dropdown"),
-            dcc.Link([html.Span("🔧"), " Mantenimiento"], href="/mantenimiento", className="nav-link-dropdown"),  # ← NUEVO
+            dcc.Link([html.Span("🔧"), " Mantenimiento"], href="/mantenimiento", className="nav-link-dropdown"), 
+            dcc.Link([html.Span("🤝"), " Reuniones"], href="/reuniones", className="nav-link-dropdown"),
         ]
     )
 
-def create_home_page():
-    # --- La lógica para obtener los datos no cambia ---
-    proximos = get_proximos_eventos(5)
-    cambios = obtener_ultimos_cambios(8)
+def create_home_page(cache):
+    # Usar datos del caché
+    eventos_df = pd.DataFrame(cache['eventos'])
+    comidas_df = pd.DataFrame(cache['comidas'])
+    cambios_df = pd.DataFrame(cache['cambios'])
+    mantenimiento_df = pd.DataFrame(cache['mantenimiento'])
+    
+    # Calcular próximos eventos desde el caché
+    eventos_lista = []
+    if not eventos_df.empty:
+        for _, evento in eventos_df.iterrows():
+            eventos_lista.append({
+                'fecha': evento['fecha'],
+                'tipo': evento['evento'],
+                'descripcion': evento.get('tipo', '')
+            })
+    
+    if not comidas_df.empty:
+        for _, comida in comidas_df.iterrows():
+            dia_formateado = (comida.get('dia') or 'Comida').replace('_', ' ').title()
+            eventos_lista.append({
+                'fecha': comida['fecha'],
+                'tipo': dia_formateado,
+                'descripcion': f"({comida.get('tipo_comida', '')}) Cocinan: {comida.get('cocineros', 'N/A')}"
+            })
+    
+    proximos = pd.DataFrame()
+    if eventos_lista:
+        df_eventos = pd.DataFrame(eventos_lista)
+        df_eventos['fecha_dt'] = pd.to_datetime(df_eventos['fecha'])
+        hoy = pd.Timestamp.now().normalize()
+        df_eventos = df_eventos[df_eventos['fecha_dt'] >= hoy]
+        proximos = df_eventos.sort_values('fecha_dt').head(5)
+    
+    # Calcular últimos cambios desde el caché
+    cambios = pd.DataFrame()
+    if not cambios_df.empty:
+        cambios_df['fecha_dt'] = pd.to_datetime(cambios_df['fecha'])
+        cambios = cambios_df.sort_values('fecha_dt', ascending=False).head(8)
+    
     año_actual = datetime.now().year
-    mantenimiento_df = dm.get_data('mantenimiento')
     mant_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual] if not mantenimiento_df.empty else pd.DataFrame()
     
     # --- El layout se reconstruye con componentes Bootstrap y clases CSS modernas ---
@@ -364,8 +409,79 @@ def create_home_page():
         ]),
     ])
 
-def create_mantenimiento_page():
-    mant_df = dm.get_data('mantenimiento')
+def create_reuniones_page(cache):
+    reuniones_df = pd.DataFrame(cache['reuniones'])
+    
+    return dbc.Container([
+        html.H2("🤝 Acta de Reuniones", className="text-center my-4 fw-bold"),
+        
+        # Editor tipo Word
+        dbc.Card(className="mb-4", style={'backgroundColor': '#fff', 'border': '1px solid #ddd', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}, children=[
+            dbc.CardBody([
+                # Fecha
+                html.Div([
+                    html.Label("📅 Fecha de la reunión:", className="fw-bold mb-2"),
+                    dcc.DatePickerSingle(id='reunion-fecha', date=date.today(), style={'marginBottom': '20px'})
+                ]),
+                
+                # Editor de temas (estilo documento)
+                html.Div([
+                    html.Label("📝 Temas tratados:", className="fw-bold mb-2"),
+                    dcc.Textarea(
+                        id='reunion-temas',
+                        placeholder="Escribe aquí los temas tratados usando formato Markdown...",
+                        style={'width': '100%', 'height': '300px', 'fontFamily': 'monospace'}
+                    ),
+                    html.P(
+                        "Puedes usar Markdown: **texto en negrita**, *texto en cursiva*, o empezar una línea con - para crear una lista.",
+                        className="text-muted small mt-1"
+                    )
+                ], className="mb-4"),
+                
+                # Asistentes
+                html.Div([
+                    html.Label("👥 Asistentes (separados por coma):", className="fw-bold mb-2"),
+                    dbc.Input(
+                        id='reunion-asistentes',
+                        placeholder="Juan Pérez, María García, Pedro López...",
+                        style={'fontSize': '16px', 'padding': '10px'}
+                    )
+                ], className="mb-4"),
+                
+                # Botón guardar
+                dbc.Button("💾 Guardar Acta", id='btn-guardar-reunion', color="success", size="lg", className="w-100"),
+                html.Div(id='output-reunion', className="mt-3")
+            ])
+        ]),
+        
+        # Listado de reuniones guardadas
+        dbc.Card(className="mb-4 glass-container", children=[
+            dbc.CardHeader(html.H4("📋 Actas Anteriores", className="m-0")),
+            dbc.ListGroup(
+                [crear_item_reunion(row) for _, row in reuniones_df.iterrows()]
+                if not reuniones_df.empty else [html.P("No hay reuniones registradas", className="p-3 text-muted")]
+            , flush=True)
+        ])
+    ])
+
+def crear_item_reunion(row):
+    return dbc.ListGroupItem([
+        html.Div(className="d-flex w-100 justify-content-between align-items-center", children=[
+            html.Div([
+                html.H6(f"📅 {row['fecha']}", className="mb-1 fw-bold"),
+                html.Small(f"👥 {row['asistentes']}", className="text-muted")
+            ], style={'cursor': 'pointer'}, id={'type': 'ver-reunion', 'index': row['id']}),
+            html.Div([
+                dbc.Button("📥 PDF", id={'type': 'btn-pdf-reunion', 'index': row['id']}, 
+                          size="sm", color="primary", className="me-2"),
+                dbc.Button("✕", id={'type': 'btn-eliminar-reunion', 'index': row['id']}, 
+                          size="sm", color="danger", outline=True)
+            ])
+        ])
+    ])
+
+def create_mantenimiento_page(cache):
+    mant_df = pd.DataFrame(cache['mantenimiento'])
     return dbc.Container([
         html.H2("🔧 Registro de Mantenimiento", className="text-center my-4 fw-bold"),
 
@@ -389,7 +505,7 @@ def create_mantenimiento_page():
         ]),
     ], className="mt-5")
 
-def create_fiestas_page():
+def create_fiestas_page(cache):
     return dbc.Container([
         html.H2("🎉 Fiestas de Agosto 2025", className="text-center my-4 fw-bold"),
         
@@ -437,8 +553,8 @@ def create_fiestas_page():
         html.Div(id='tarjetas-fiestas', className="mt-4")
     ], className="mt-5")
 
-def create_comidas_page():
-    comidas_df = dm.get_data('comidas')
+def create_comidas_page(cache):
+    comidas_df = pd.DataFrame(cache['comidas'])
     año_actual = datetime.now().year
     
     # Para el selector de días: TODAS las comidas (todos los años)
@@ -523,8 +639,8 @@ def create_comidas_page():
         ]),
     ], className="mt-5")
 
-def create_lista_compra_page():
-    lista_df = dm.get_data('lista_compra')
+def create_lista_compra_page(cache):
+    lista_df = pd.DataFrame(cache['lista_compra'])
     return dbc.Container([
         html.H2("🛒 Lista de Compra", className="text-center my-4 fw-bold"),
         
@@ -558,8 +674,8 @@ def create_lista_compra_page():
         ])
     ], className="mt-5")
 
-def create_eventos_page():
-    eventos_df = dm.get_data('eventos')
+def create_eventos_page(cache):
+    eventos_df = pd.DataFrame(cache['eventos'])
     return dbc.Container([
         html.H2("📅 Eventos Especiales", className="text-center my-4 fw-bold"),
         
@@ -595,27 +711,245 @@ def create_eventos_page():
         ])
     ], className="mt-5")
 
+@app.callback(
+    [Output('store-id-eliminar-reunion', 'data'),
+     Output('confirm-eliminar-reunion', 'displayed')],
+    Input({'type': 'btn-eliminar-reunion', 'index': ALL}, 'n_clicks'),
+    prevent_initial_call=True
+)
+def marcar_reunion_eliminar(n_clicks):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks):
+        raise PreventUpdate
+    
+    reunion_id = ctx.triggered_id['index']
+    return reunion_id, True
+
+@app.callback(
+    Output('page-content', 'children', allow_duplicate=True),
+    Input('confirm-eliminar-reunion', 'submit_n_clicks'),
+    [State('store-id-eliminar-reunion', 'data'),
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data'),
+     State('store-reuniones', 'data')],
+    prevent_initial_call=True
+)
+def eliminar_reunion_confirmado(submit, reunion_id, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
+    if submit and reunion_id:
+        reuniones_df = dm.get_data('reuniones')
+        reuniones_df = reuniones_df[reuniones_df['id'] != reunion_id]
+        dm.save_data('reuniones', reuniones_df)
+        
+        cache = {
+            'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
+            'mantenimiento': mant or [], 'lista_compra': lista or [], 'cambios': cambios or [],
+            'reuniones': reuniones_df.to_dict('records')
+        }
+        return create_reuniones_page(cache)
+    raise PreventUpdate
+
+@app.callback(
+    [Output('modal-editar-reunion', 'is_open'),
+     Output('modal-reunion-fecha', 'date'),
+     Output('modal-reunion-temas', 'value'),
+     Output('modal-reunion-asistentes', 'value'),
+     Output('store-reunion-editando', 'data')],
+    [Input({'type': 'ver-reunion', 'index': ALL}, 'n_clicks'),
+     Input('btn-cerrar-modal-reunion', 'n_clicks')],
+    [State('store-reuniones', 'data')],
+    prevent_initial_call=True
+)
+def toggle_modal_reunion(ver_clicks, cerrar, reuniones):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered_id
+    
+    if trigger == 'btn-cerrar-modal-reunion':
+        return False, None, "", "", None
+    
+    if isinstance(trigger, dict) and trigger['type'] == 'ver-reunion':
+        reunion_id = trigger['index']
+        reunion = next((r for r in reuniones if r['id'] == reunion_id), None)
+        if reunion:
+            return True, reunion['fecha'], reunion['temas'], reunion['asistentes'], reunion_id
+    
+    raise PreventUpdate
+
+@app.callback(
+    Output('download-pdf', 'data'),
+    Input({'type': 'btn-pdf-reunion', 'index': ALL}, 'n_clicks'),
+    State('store-reuniones', 'data'),
+    prevent_initial_call=True
+)
+def descargar_pdf_reunion(n_clicks, reuniones):
+    ctx = callback_context
+    if not ctx.triggered or not any(n_clicks):
+        raise PreventUpdate
+    
+    reunion_id = ctx.triggered_id['index']
+    reunion = next((r for r in reuniones if r['id'] == reunion_id), None)
+    
+    if not reunion:
+        raise PreventUpdate
+
+    # Preparamos el contenido en un buffer de memoria
+    buffer = io.BytesIO()
+    
+    # 1. Crear el documento con tamaño A4 y márgenes
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=inch, leftMargin=inch,
+                            topMargin=inch, bottomMargin=inch)
+
+    # 2. Preparar los estilos de texto (título, cuerpo, etc.)
+    styles = getSampleStyleSheet()
+    style_h1 = styles['h1']
+    style_h1.alignment = 1 # 0=izquierda, 1=centro, 2=derecha
+    style_body = styles['BodyText']
+    style_body.leading = 14 # Espacio entre líneas
+    
+    # 3. Crear el "Story" (la secuencia de elementos en el PDF)
+    story = []
+
+    # Título
+    story.append(Paragraph("Acta de Reunión - Penya L'Albenc", style_h1))
+    story.append(Spacer(1, 0.25 * inch))
+
+    # Fecha
+    fecha_str = f"<b>Fecha:</b> {reunion['fecha']}"
+    story.append(Paragraph(fecha_str, style_body))
+    story.append(Spacer(1, 0.2 * inch))
+    
+    # Asistentes (con ajuste de línea automático)
+    asistentes_str = f"<b>Asistentes:</b> {reunion.get('asistentes', 'No registrados')}"
+    story.append(Paragraph(asistentes_str, style_body))
+    story.append(Spacer(1, 0.4 * inch))
+    
+    # Temas tratados (convirtiendo Markdown simple a HTML para el PDF)
+    story.append(Paragraph("<b>Temas Tratados:</b>", style_body))
+    
+    temas_markdown = reunion.get('temas', 'Sin temas.')
+    # Convertimos saltos de línea en <br/> para que Paragraph los entienda
+    temas_html = temas_markdown.replace('\n', '<br/>')
+    
+    story.append(Paragraph(temas_html, style_body))
+
+    # 4. Construir el PDF
+    doc.build(story)
+    
+    buffer.seek(0)
+    
+    return dcc.send_bytes(buffer.getvalue(), f"acta_reunion_{reunion['fecha']}.pdf")
 # =======================
 # ===== CALLBACKS =====
 # =======================
+# Callback para cargar datos en caché al inicio
+# EN app.py, DENTRO DE @app.callback DE cargar_datos_cache
+
+@app.callback(
+    [Output('store-comidas', 'data'),
+     Output('store-eventos', 'data'),
+     Output('store-fiestas', 'data'),
+     Output('store-mantenimiento', 'data'),
+     Output('store-lista-compra', 'data'),
+     Output('store-cambios', 'data'),
+     Output('store-reuniones', 'data')],  # <-- Asegúrate que este Output está presente
+    [Input('url', 'pathname')]
+)
+def cargar_datos_cache(pathname):
+    """Cargar todos los datos una sola vez"""
+    return (
+        dm.get_data('comidas').to_dict('records'),
+        dm.get_data('eventos').to_dict('records'),
+        dm.get_data('fiestas').to_dict('records'),
+        dm.get_data('mantenimiento').to_dict('records'),
+        dm.get_data('lista_compra').to_dict('records'),
+        dm.get_data('cambios').to_dict('records'),
+        dm.get_data('reuniones').to_dict('records')  # <-- ESTA LÍNEA FALTABA EN TU RETURN
+    )
+
+@app.callback(
+    [Output('page-content', 'children', allow_duplicate=True),
+     Output('output-reunion', 'children')],
+    Input('btn-guardar-reunion', 'n_clicks'),
+    [State('reunion-fecha', 'date'),
+     State('reunion-temas', 'value'),
+     State('reunion-asistentes', 'value'),
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data'),
+     State('store-reuniones', 'data')],
+    prevent_initial_call=True
+)
+def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
+    if not n_clicks or not temas:
+        raise PreventUpdate
+    
+    dm.add_data('reuniones', (fecha, temas, asistentes, 'finalizada'))
+    
+    # Actualizar cache y recargar página
+    reuniones_df = dm.get_data('reuniones')
+    cache = {
+        'comidas': comidas or [],
+        'eventos': eventos or [],
+        'fiestas': fiestas or [],
+        'mantenimiento': mant or [],
+        'lista_compra': lista or [],
+        'cambios': cambios or [],
+        'reuniones': reuniones_df.to_dict('records')
+    }
+    
+    return create_reuniones_page(cache), dbc.Alert("✅ Reunión guardada", color="success", duration=3000)
 
 # ---- Router Principal ----
-@app.callback(Output('page-content', 'children'), [Input('url', 'pathname')])
-def display_page(pathname):
-    if pathname == '/comidas': return create_comidas_page()
-    elif pathname == '/lista-compra': return create_lista_compra_page()
-    elif pathname == '/eventos': return create_eventos_page()
-    elif pathname == '/fiestas': return create_fiestas_page()
-    elif pathname == '/mantenimiento': return create_mantenimiento_page()  # ← NUEVO
-    else: return create_home_page()
+@app.callback(
+    Output('page-content', 'children'),
+    [Input('url', 'pathname')],
+    [State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data'),
+     State('store-reuniones', 'data')]  # ← AGREGAR ESTA LÍNEA
+)
+def display_page(pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):  # ← AGREGAR 'reuniones'
+    # Crear diccionario con todos los datos cacheados
+    cache = {
+        'comidas': comidas or [],
+        'eventos': eventos or [],
+        'fiestas': fiestas or [],
+        'mantenimiento': mant or [],
+        'lista_compra': lista or [],
+        'cambios': cambios or [],
+        'reuniones': reuniones or []  # ← AGREGAR ESTA LÍNEA
+    }
+    
+    if pathname == '/comidas': return create_comidas_page(cache)
+    elif pathname == '/lista-compra': return create_lista_compra_page(cache)
+    elif pathname == '/eventos': return create_eventos_page(cache)
+    elif pathname == '/fiestas': return create_fiestas_page(cache)
+    elif pathname == '/mantenimiento': return create_mantenimiento_page(cache)
+    elif pathname == '/reuniones': return create_reuniones_page(cache)
+    else: return create_home_page(cache)
 
 # ---- Callbacks de Fiestas (Página Interactiva) ----
 
 @app.callback(
-    [Output('fiesta-menu', 'value'), Output('store-comensales-adultos', 'data'),
-     Output('store-comensales-niños', 'data'), Output('lista-adultos-visual', 'children'),
-     Output('lista-niños-visual', 'children'), Output('contador-adultos-nuevo', 'children'),
-     Output('contador-niños-nuevo', 'children')],
+    [Output('fiesta-menu', 'value'), Output('store-comensales-adultos', 'data', allow_duplicate=True),
+     Output('store-comensales-niños', 'data', allow_duplicate=True), Output('lista-adultos-visual', 'children', allow_duplicate=True),
+     Output('lista-niños-visual', 'children', allow_duplicate=True), Output('contador-adultos-nuevo', 'children', allow_duplicate=True),
+     Output('contador-niños-nuevo', 'children', allow_duplicate=True)],
     [Input('fiesta-dia-selector', 'value')],
     prevent_initial_call=True
 )
@@ -677,16 +1011,27 @@ def guardar_id_evento(n_clicks):
     Output('page-content', 'children', allow_duplicate=True),
     Input('confirm-eliminar-evento', 'submit_n_clicks'),
     [State('store-id-eliminar-evento', 'data'),
-     State('url', 'pathname')],
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
-def eliminar_evento_confirmado(submit, evento_id, pathname):
+def eliminar_evento_confirmado(submit, evento_id, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if submit and evento_id:
         eventos_df = dm.get_data('eventos')
         eventos_df = eventos_df[eventos_df['id'] != evento_id]
         dm.save_data('eventos', eventos_df)
         registrar_cambio('Eventos', f'Evento ID {evento_id} eliminado')
-        return create_eventos_page() if pathname == '/eventos' else dash.no_update
+        
+        cache = {
+            'comidas': comidas or [], 'eventos': eventos_df.to_dict('records'), 'fiestas': fiestas or [],
+            'mantenimiento': mant or [], 'lista_compra': lista or [], 'cambios': cambios or []
+        }
+        return create_eventos_page(cache) if pathname == '/eventos' else dash.no_update
     raise PreventUpdate
 
 # COMIDAS - Guardar ID y mostrar confirm
@@ -708,16 +1053,27 @@ def guardar_id_comida(n_clicks):
     Output('page-content', 'children', allow_duplicate=True),
     Input('confirm-eliminar-comida', 'submit_n_clicks'),
     [State('store-id-eliminar-comida', 'data'),
-     State('url', 'pathname')],
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
-def eliminar_comida_confirmada(submit, comida_id, pathname):
+def eliminar_comida_confirmada(submit, comida_id, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if submit and comida_id:
         comidas_df = dm.get_data('comidas')
         comidas_df = comidas_df[comidas_df['id'] != comida_id]
         dm.save_data('comidas', comidas_df)
         registrar_cambio('Comidas', f'Comida ID {comida_id} eliminada')
-        return create_comidas_page() if pathname == '/comidas' else dash.no_update
+        
+        cache = {
+            'comidas': comidas_df.to_dict('records'), 'eventos': eventos or [], 'fiestas': fiestas or [],
+            'mantenimiento': mant or [], 'lista_compra': lista or [], 'cambios': cambios or []
+        }
+        return create_comidas_page(cache) if pathname == '/comidas' else dash.no_update
     raise PreventUpdate
 
 # ITEMS COMPRA - Guardar ID y mostrar confirm
@@ -739,16 +1095,27 @@ def guardar_id_item(n_clicks):
     Output('page-content', 'children', allow_duplicate=True),
     Input('confirm-eliminar-item', 'submit_n_clicks'),
     [State('store-id-eliminar-item', 'data'),
-     State('url', 'pathname')],
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
-def eliminar_item_confirmado(submit, item_id, pathname):
+def eliminar_item_confirmado(submit, item_id, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if submit and item_id:
         lista_df = dm.get_data('lista_compra')
         lista_df = lista_df[lista_df['id'] != item_id]
         dm.save_data('lista_compra', lista_df)
         registrar_cambio('Lista', f'Item ID {item_id} eliminado')
-        return create_lista_compra_page() if pathname == '/lista-compra' else dash.no_update
+        
+        cache = {
+            'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
+            'mantenimiento': mant or [], 'lista_compra': lista_df.to_dict('records'), 'cambios': cambios or []
+        }
+        return create_lista_compra_page(cache) if pathname == '/lista-compra' else dash.no_update
     raise PreventUpdate
 
 
@@ -758,17 +1125,29 @@ def eliminar_item_confirmado(submit, item_id, pathname):
     Input('btn-agregar-lista', 'n_clicks'),
     [State('lista-nueva-fecha', 'date'),
      State('lista-nuevo-objeto', 'value'),
-     State('url', 'pathname')],
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
-def agregar_item_lista(n_clicks, fecha, objeto, pathname):
+def agregar_item_lista(n_clicks, fecha, objeto, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if not n_clicks or not objeto:
         raise PreventUpdate
     
     dm.add_data('lista_compra', (fecha, objeto))
     registrar_cambio('Lista Compra', f'Item añadido: {objeto}')
     
-    return create_lista_compra_page() if pathname == '/lista-compra' else dash.no_update, dbc.Alert(f"✅ '{objeto}' añadido", color="success", duration=3000)
+    lista_df = dm.get_data('lista_compra')
+    cache = {
+        'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
+        'mantenimiento': mant or [], 'lista_compra': lista_df.to_dict('records'), 'cambios': cambios or []
+    }
+    
+    return create_lista_compra_page(cache) if pathname == '/lista-compra' else dash.no_update, dbc.Alert(f"✅ '{objeto}' añadido", color="success", duration=3000)
 
 @app.callback(
     [Output('page-content', 'children', allow_duplicate=True),
@@ -777,17 +1156,29 @@ def agregar_item_lista(n_clicks, fecha, objeto, pathname):
     [State('evento-nueva-fecha', 'date'),
      State('evento-nuevo-nombre', 'value'),
      State('evento-nuevo-tipo', 'value'),
-     State('url', 'pathname')],
+     State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
-def agregar_evento(n_clicks, fecha, nombre, tipo, pathname):
+def agregar_evento(n_clicks, fecha, nombre, tipo, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if not n_clicks or not nombre:
         raise PreventUpdate
     
     dm.add_data('eventos', (fecha, nombre, tipo or ''))
     registrar_cambio('Eventos', f'Evento añadido: {nombre}')
     
-    return create_eventos_page() if pathname == '/eventos' else dash.no_update, dbc.Alert(f"✅ '{nombre}' añadido", color="success", duration=3000)
+    eventos_df = dm.get_data('eventos')
+    cache = {
+        'comidas': comidas or [], 'eventos': eventos_df.to_dict('records'), 'fiestas': fiestas or [],
+        'mantenimiento': mant or [], 'lista_compra': lista or [], 'cambios': cambios or []
+    }
+    
+    return create_eventos_page(cache) if pathname == '/eventos' else dash.no_update, dbc.Alert(f"✅ '{nombre}' añadido", color="success", duration=3000)
 
 # CALLBACK 1: Habilita y llena el dropdown de fechas cuando se elige un tipo de comida.
 @app.callback(
@@ -928,12 +1319,19 @@ def actualizar_cocineros_destino_intercambio(id_otra_comida):
      State('comida-eliminar-cocinero-select', 'value'),
      State('intercambio-cocinero-origen', 'value'),
      State('intercambio-cocinero-destino', 'value'),
-     State('intercambio-otra-comida-select', 'value')],
+     State('intercambio-otra-comida-select', 'value'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
     prevent_initial_call=True
 )
 def ejecutar_accion_comida(n_clicks, dia, fecha, accion,
                            nuevo_cocinero, cocinero_a_eliminar,
-                           cocinero_origen, cocinero_destino, id_otra_comida):
+                           cocinero_origen, cocinero_destino, id_otra_comida,
+                           comidas, eventos, fiestas, mant, lista, cambios):
     if not n_clicks:
         raise PreventUpdate
 
@@ -988,9 +1386,12 @@ def ejecutar_accion_comida(n_clicks, dia, fecha, accion,
     dm.save_data('comidas', comidas_df)
     registrar_cambio('Cocineros', msg)
     
-    dm.save_data('comidas', comidas_df)
-    registrar_cambio('Cocineros', msg)
-    return create_comidas_page(), dbc.Alert(f"✅ {msg}", color="success", duration=3000)
+    cache = {
+        'comidas': comidas_df.to_dict('records'), 'eventos': eventos or [], 'fiestas': fiestas or [],
+        'mantenimiento': mant or [], 'lista_compra': lista or [], 'cambios': cambios or []
+    }
+    
+    return create_comidas_page(cache), dbc.Alert(f"✅ {msg}", color="success", duration=3000)
 
 # Navegar años
 @app.callback(
@@ -1171,6 +1572,7 @@ def manejar_guardado_fiesta(n_guardar, n_confirm, fecha, menu, adultos, niños):
 # =======================
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
+    dcc.Download(id='download-pdf'),
     
     # Stores y Confirm Dialogs (componentes no visibles, sin cambios)
     dcc.Store(id='store-comensales-adultos', data=[]),
@@ -1178,7 +1580,17 @@ app.layout = html.Div([
     dcc.Store(id='store-id-eliminar-comida', data=None),
     dcc.Store(id='store-id-eliminar-item', data=None),
     dcc.Store(id='store-id-eliminar-evento', data=None),
+    dcc.Store(id='store-id-eliminar-reunion', data=None),
+    dcc.ConfirmDialog(id='confirm-eliminar-reunion', message='¿Seguro que quieres eliminar esta acta?'),
     dcc.ConfirmDialog(id='confirm-guardar', message='¿Guardar los cambios realizados?'),
+    dcc.Store(id='store-comidas', data=None, storage_type='session'),
+    dcc.Store(id='store-eventos', data=None, storage_type='session'),
+    dcc.Store(id='store-fiestas', data=None, storage_type='session'),
+    dcc.Store(id='store-mantenimiento', data=None, storage_type='session'),
+    dcc.Store(id='store-lista-compra', data=None, storage_type='session'),
+    dcc.Store(id='store-cambios', data=None, storage_type='session'),
+    dcc.Store(id='store-reuniones', data=None, storage_type='session'),
+
     
     # --- NUEVA ESTRUCTURA VISUAL ---
     create_modern_navbar(),
@@ -1223,4 +1635,4 @@ if __name__ == '__main__':
     print(f"🛠️ Modo Debug: {'Activado' if debug_mode else 'Desactivado'}")
     print("="*50)
     
-    app.run_server(debug=debug_mode, host='0.0.0.0', port=port)
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)

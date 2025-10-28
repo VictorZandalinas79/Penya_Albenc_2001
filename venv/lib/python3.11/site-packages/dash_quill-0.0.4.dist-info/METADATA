@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: dash-quill
+Version: 0.0.4
+Summary: A Quill-Based Rich Text Editor Component for Dash
+Home-page: UNKNOWN
+Author: Amien Johaadien <pandamodium@gmail.com>
+Author-email: UNKNOWN
+License: MIT
+Platform: UNKNOWN
+Classifier: Framework :: Dash
+Requires-Dist: dash
+
+UNKNOWN
+
+

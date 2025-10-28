@@ -1,6 +1,10 @@
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 class DataManager:
     """Gestor de datos usando PostgreSQL (Supabase)"""
@@ -8,8 +12,23 @@ class DataManager:
     def __init__(self):
         self.db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/penya')
         
-        # Conectar
-        self.engine = create_engine(self.db_url)
+        # Agregar SSL si es necesario (para Render u otros servicios remotos)
+        if 'localhost' not in self.db_url and '127.0.0.1' not in self.db_url:
+            # Es una base de datos remota, configurar SSL de forma flexible
+            # Usar 'prefer' en lugar de 'require' para mayor compatibilidad
+            connect_args = {
+                "sslmode": "prefer",
+                "connect_timeout": 10
+            }
+            self.engine = create_engine(
+                self.db_url, 
+                connect_args=connect_args,
+                pool_pre_ping=True  # Verifica conexiones antes de usarlas
+            )
+        else:
+            # Es local, sin SSL
+            self.engine = create_engine(self.db_url)
+        
         self.init_tables()
     
     def init_tables(self):
@@ -80,6 +99,17 @@ class DataManager:
                     usuario VARCHAR(100)
                 )
             """))
+
+            # Reuniones
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS reuniones (
+                    id SERIAL PRIMARY KEY,
+                    fecha VARCHAR(50),
+                    temas TEXT,
+                    asistentes TEXT,
+                    estado VARCHAR(20)
+                )
+            """))
             conn.commit()
         
         print("Tablas verificadas/creadas")
@@ -117,7 +147,8 @@ class DataManager:
             'mantenimiento': ['id', 'año', 'mantenimiento', 'cadafals'],
             'eventos': ['id', 'fecha', 'evento', 'tipo'],
             'fiestas': ['id', 'fecha', 'cocineros', 'menu', 'adultos', 'nombres_adultos', 'niños', 'nombres_niños', 'programa'],
-            'cambios': ['id', 'fecha', 'tipo_cambio', 'descripcion', 'usuario']
+            'cambios': ['id', 'fecha', 'tipo_cambio', 'descripcion', 'usuario'],
+            'reuniones': ['id', 'fecha', 'temas', 'asistentes', 'estado']  
         }
         
         columns = schemas.get(table, [])

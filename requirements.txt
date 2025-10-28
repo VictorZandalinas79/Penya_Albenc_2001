@@ -3,8 +3,9 @@ dash-table==5.0.0
 pandas==2.1.3
 plotly==5.18.0
 pyarrow==14.0.1
-fastparquet==2023.10.1
 gunicorn==21.2.0
 psycopg2-binary
 sqlalchemy
 dash-bootstrap-components
+python-dotenv
+reportlab
