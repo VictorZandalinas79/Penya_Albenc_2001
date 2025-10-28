@@ -916,8 +916,8 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
 # ---- Router Principal ----
 @app.callback(
     Output('page-content', 'children'),
-    [Input('store-data-loaded-signal', 'data')], # <-- NUEVO TRIGGER
-    [State('url', 'pathname'), # <-- La URL ahora es un State
+    [Input('store-data-loaded-signal', 'data')], # <-- NUEVO TRIGGER: Se activa al recibir la señal
+    [State('url', 'pathname'), # <-- La URL ahora es un State, no un Input
      State('store-comidas', 'data'),
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
@@ -928,9 +928,9 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
 )
 def display_page(data_loaded_signal, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
     if not data_loaded_signal:
-        # No hacer nada si la señal aún no se ha enviado
+        # Si la señal no ha llegado, no hagas nada. Evita errores al inicio.
         raise PreventUpdate
-    
+
     # El resto de tu función se queda exactamente igual
     cache = {
         'comidas': comidas or [],
@@ -941,7 +941,7 @@ def display_page(data_loaded_signal, pathname, comidas, eventos, fiestas, mant, 
         'cambios': cambios or [],
         'reuniones': reuniones or []
     }
-    
+
     if pathname == '/comidas': return create_comidas_page(cache)
     elif pathname == '/lista-compra': return create_lista_compra_page(cache)
     elif pathname == '/eventos': return create_eventos_page(cache)
