@@ -268,7 +268,8 @@ def create_modern_navbar():
                 className="d-flex align-items-center",
                 style={"textDecoration": "none"},
                 children=[
-                    html.Img(src='/assets/logo.png', style={'height': '45px', 'marginRight': '15px'}),
+                    html.Img(src='/assets/logo.png', style={'height': '45px', 'marginRight': '10px'}),
+                    html.H2("L'Albenc", className="d-block d-md-none m-0", style={"fontSize": "1.2rem", "color": "white"}),
                     html.H2("Penya L'Albenc", className="d-none d-md-block m-0", style={"fontSize": "1.5rem", "color": "white"})
                 ]
             ),
@@ -724,6 +725,70 @@ def marcar_reunion_eliminar(n_clicks):
     
     reunion_id = ctx.triggered_id['index']
     return reunion_id, True
+    
+# =============================================
+# ===== CALLBACK DE CARGA INICIAL =====
+# =============================================
+#     
+@app.callback(
+        [Output('store-comidas', 'data'),
+        Output('store-eventos', 'data'),
+        Output('store-fiestas', 'data'),
+        Output('store-lista-compra', 'data'),
+        Output('store-cambios', 'data'),
+        Output('store-reuniones', 'data'),
+        Output('store-mantenimiento', 'data'),
+        Output('loading-overlay', 'className')],
+        Input('url', 'pathname'),
+        prevent_initial_call=False
+    )
+def cargar_datos_iniciales(pathname):
+    """Carga todos los datos una sola vez al iniciar la app"""
+    print("🔄 Iniciando carga de datos...")
+        
+    try:
+        print("📊 Cargando comidas...")
+        comidas = dm.get_data('comidas').to_dict('records')
+        print(f"✅ Comidas cargadas: {len(comidas)} registros")
+            
+        print("📅 Cargando eventos...")
+        eventos = dm.get_data('eventos').to_dict('records')
+        print(f"✅ Eventos cargados: {len(eventos)} registros")
+            
+        print("🎉 Cargando fiestas...")
+        fiestas = dm.get_data('fiestas').to_dict('records')
+        print(f"✅ Fiestas cargadas: {len(fiestas)} registros")
+            
+        print("🛒 Cargando lista compra...")
+        lista_compra = dm.get_data('lista_compra').to_dict('records')
+        print(f"✅ Lista compra cargada: {len(lista_compra)} registros")
+            
+        print("🔔 Cargando cambios...")
+        cambios = dm.get_data('cambios').to_dict('records')
+        print(f"✅ Cambios cargados: {len(cambios)} registros")
+            
+        print("🤝 Cargando reuniones...")
+        reuniones = dm.get_data('reuniones').to_dict('records')
+        print(f"✅ Reuniones cargadas: {len(reuniones)} registros")
+            
+        print("🔧 Cargando mantenimiento...")
+        mantenimiento = dm.get_data('mantenimiento').to_dict('records')
+        print(f"✅ Mantenimiento cargado: {len(mantenimiento)} registros")
+            
+        print("✨ ¡Todos los datos cargados exitosamente!")
+        print("🎭 Ocultando overlay de carga...")
+            
+        # Ocultar el overlay
+        return comidas, eventos, fiestas, lista_compra, cambios, reuniones, mantenimiento, 'loading-overlay hidden'       
+        
+    except Exception as e:
+        print(f"❌ ERROR FATAL cargando datos: {e}")
+        print(f"❌ Tipo de error: {type(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+            
+        # Devolver datos vacíos pero ocultar el loading
+        return [], [], [], [], [], [], [], 'loading-overlay hidden'    
 
 @app.callback(
     Output('page-content', 'children', allow_duplicate=True),
@@ -849,32 +914,6 @@ def descargar_pdf_reunion(n_clicks, reuniones):
 # =======================
 # ===== CALLBACKS =====
 # =======================
-# Callback para cargar datos en caché al inicio
-# EN app.py, DENTRO DE @app.callback DE cargar_datos_cache
-
-@app.callback(
-    [Output('store-comidas', 'data'),
-     Output('store-eventos', 'data'),
-     Output('store-fiestas', 'data'),
-     Output('store-mantenimiento', 'data'),
-     Output('store-lista-compra', 'data'),
-     Output('store-cambios', 'data'),
-     Output('store-reuniones', 'data'),
-     Output('store-data-loaded-signal', 'data')], # <-- NUEVO OUTPUT
-    [Input('url', 'pathname')]
-)
-def cargar_datos_cache(pathname):
-    """Cargar todos los datos una sola vez y enviar señal"""
-    return (
-        dm.get_data('comidas').to_dict('records'),
-        dm.get_data('eventos').to_dict('records'),
-        dm.get_data('fiestas').to_dict('records'),
-        dm.get_data('mantenimiento').to_dict('records'),
-        dm.get_data('lista_compra').to_dict('records'),
-        dm.get_data('cambios').to_dict('records'),
-        dm.get_data('reuniones').to_dict('records'),
-        True # <-- NUEVA SEÑAL: "¡Datos cargados!"
-    )
 
 @app.callback(
     [Output('page-content', 'children', allow_duplicate=True),
@@ -916,9 +955,8 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
 # ---- Router Principal ----
 @app.callback(
     Output('page-content', 'children'),
-    [Input('store-data-loaded-signal', 'data')], # <-- NUEVO TRIGGER: Se activa al recibir la señal
-    [State('url', 'pathname'), # <-- La URL ahora es un State, no un Input
-     State('store-comidas', 'data'),
+    Input('url', 'pathname'),
+    [State('store-comidas', 'data'),
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
      State('store-mantenimiento', 'data'),
@@ -926,12 +964,12 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
      State('store-cambios', 'data'),
      State('store-reuniones', 'data')]
 )
-def display_page(data_loaded_signal, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
-    if not data_loaded_signal:
-        # Si la señal no ha llegado, no hagas nada. Evita errores al inicio.
-        raise PreventUpdate
-
-    # El resto de tu función se queda exactamente igual
+def display_page(pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
+    # Si los datos aún no están cargados, mostrar mensaje
+    if comidas is None or eventos is None:
+        return html.Div("Cargando...", style={"text-align": "center", "padding": "50px"})
+    
+    # Crear cache con todos los datos
     cache = {
         'comidas': comidas or [],
         'eventos': eventos or [],
@@ -941,15 +979,23 @@ def display_page(data_loaded_signal, pathname, comidas, eventos, fiestas, mant, 
         'cambios': cambios or [],
         'reuniones': reuniones or []
     }
-
-    if pathname == '/comidas': return create_comidas_page(cache)
-    elif pathname == '/lista-compra': return create_lista_compra_page(cache)
-    elif pathname == '/eventos': return create_eventos_page(cache)
-    elif pathname == '/fiestas': return create_fiestas_page(cache)
-    elif pathname == '/mantenimiento': return create_mantenimiento_page(cache)
-    elif pathname == '/reuniones': return create_reuniones_page(cache)
-    else: return create_home_page(cache)
-
+    
+    if pathname == '/' or pathname == '/dashboard':
+        return create_home_page(cache)
+    elif pathname == '/comidas':
+        return create_comidas_page(cache)
+    elif pathname == '/lista-compra':
+        return create_lista_compra_page(cache)
+    elif pathname == '/eventos':
+        return create_eventos_page(cache)
+    elif pathname == '/fiestas':
+        return create_fiestas_page(cache)
+    elif pathname == '/mantenimiento':
+        return create_mantenimiento_page(cache)
+    elif pathname == '/reuniones':
+        return create_reuniones_page(cache)
+    else:
+        return html.H3('404 - Página no encontrada', style={'textAlign': 'center', 'marginTop': '50px'})
 # ---- Callbacks de Fiestas (Página Interactiva) ----
 
 @app.callback(
@@ -1578,6 +1624,20 @@ def manejar_guardado_fiesta(n_guardar, n_confirm, fecha, menu, adultos, niños):
 # ===== APP LAYOUT =====
 # =======================
 app.layout = html.Div([
+    # ===== LOADING OVERLAY CON LOGO ANIMADO =====
+    html.Div(
+        id='loading-overlay',
+        className='loading-overlay',
+        children=[
+            html.Img(
+                src='/assets/logo.png',
+                className='logo-loading'
+            ),
+            html.Div('Cargando datos de la Penya...', className='loading-text'),
+            html.Div('●●●', className='loading-dots')
+        ]
+    ),
+
     dcc.Location(id='url', refresh=False),
     dcc.Download(id='download-pdf'),
     
