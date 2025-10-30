@@ -738,7 +738,8 @@ def marcar_reunion_eliminar(n_clicks):
         Output('store-cambios', 'data'),
         Output('store-reuniones', 'data'),
         Output('store-mantenimiento', 'data'),
-        Output('loading-overlay', 'className')],
+        Output('loading-overlay', 'className'),
+        Output('store-data-loaded-signal', 'data')], # <-- OUTPUT AÑADIDO
         Input('url', 'pathname'),
         prevent_initial_call=False
     )
@@ -778,8 +779,8 @@ def cargar_datos_iniciales(pathname):
         print("✨ ¡Todos los datos cargados exitosamente!")
         print("🎭 Ocultando overlay de carga...")
             
-        # Ocultar el overlay
-        return comidas, eventos, fiestas, lista_compra, cambios, reuniones, mantenimiento, 'loading-overlay hidden'       
+        # Ocultar el overlay y enviar la señal de éxito (1)
+        return comidas, eventos, fiestas, lista_compra, cambios, reuniones, mantenimiento, 'loading-overlay hidden', 1
         
     except Exception as e:
         print(f"❌ ERROR FATAL cargando datos: {e}")
@@ -787,8 +788,9 @@ def cargar_datos_iniciales(pathname):
         import traceback
         print(f"❌ Traceback: {traceback.format_exc()}")
             
-        # Devolver datos vacíos pero ocultar el loading
-        return [], [], [], [], [], [], [], 'loading-overlay hidden'    
+        # Devolver datos vacíos, ocultar el loading y enviar señal de fallo (None)
+        return [], [], [], [], [], [], [], 'loading-overlay hidden', None
+    
 
 @app.callback(
     Output('page-content', 'children', allow_duplicate=True),
@@ -955,8 +957,9 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
 # ---- Router Principal ----
 @app.callback(
     Output('page-content', 'children'),
-    Input('url', 'pathname'),
-    [State('store-comidas', 'data'),
+    Input('store-data-loaded-signal', 'data'), # <-- INPUT CAMBIADO
+    [State('url', 'pathname'),                 # <-- URL AHORA ES STATE
+     State('store-comidas', 'data'),
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
      State('store-mantenimiento', 'data'),
@@ -964,8 +967,11 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
      State('store-cambios', 'data'),
      State('store-reuniones', 'data')]
 )
-def display_page(pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
-    # Si los datos aún no están cargados, mostrar mensaje
+def display_page(signal, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones): # <-- PARÁMETROS CORREGIDOS
+    if signal is None: # Si la carga de datos falló o no se ha completado
+        return html.Div("Error al cargar los datos. Refresca la página.", style={"text-align": "center", "padding": "50px", "color": "red"})
+    
+    # Esta comprobación ya no es estrictamente necesaria, pero la dejamos como seguridad
     if comidas is None or eventos is None:
         return html.Div("Cargando...", style={"text-align": "center", "padding": "50px"})
     
