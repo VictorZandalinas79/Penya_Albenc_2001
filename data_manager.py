@@ -2,12 +2,13 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
 class DataManager:
-    """Gestor de datos usando PostgreSQL (Supabase)"""
+    """Gestor de datos usando PostgreSQL (Supabase) - VERSIÓN OPTIMIZADA"""
     
     def __init__(self):
         self.db_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/penya')
@@ -15,7 +16,6 @@ class DataManager:
         # Agregar SSL si es necesario (para Render u otros servicios remotos)
         if 'localhost' not in self.db_url and '127.0.0.1' not in self.db_url:
             # Es una base de datos remota, configurar SSL de forma flexible
-            # Usar 'prefer' en lugar de 'require' para mayor compatibilidad
             connect_args = {
                 "sslmode": "prefer",
                 "connect_timeout": 10
@@ -23,7 +23,9 @@ class DataManager:
             self.engine = create_engine(
                 self.db_url, 
                 connect_args=connect_args,
-                pool_pre_ping=True  # Verifica conexiones antes de usarlas
+                pool_pre_ping=True,  # Verifica conexiones antes de usarlas
+                pool_size=5,  # Tamaño del pool de conexiones
+                max_overflow=10  # Conexiones adicionales permitidas
             )
         else:
             # Es local, sin SSL
@@ -114,8 +116,12 @@ class DataManager:
         
         print("Tablas verificadas/creadas")
     
+    # ==========================================
+    # MÉTODOS ORIGINALES (mantener compatibilidad)
+    # ==========================================
+    
     def get_data(self, table):
-        """Leer datos de una tabla"""
+        """Leer datos de una tabla (método original)"""
         try:
             return pd.read_sql_table(table, self.engine)
         except Exception as e:
@@ -162,5 +168,105 @@ class DataManager:
         
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
         return self.save_data(table, df)
+    
+    # ==========================================
+    # NUEVOS MÉTODOS OPTIMIZADOS
+    # ==========================================
+    
+    def get_data_filtered(self, table, where_clause=None, order_by=None, limit=None):
+        """
+        Obtener datos con filtros SQL para consultas más rápidas
+        
+        Args:
+            table: nombre de la tabla
+            where_clause: condición SQL (ej: "fecha >= '2025-01-01'")
+            order_by: ordenamiento (ej: "fecha DESC")
+            limit: número máximo de registros
+        
+        Returns:
+            DataFrame con los resultados
+        """
+        try:
+            query = f"SELECT * FROM {table}"
+            
+            if where_clause:
+                query += f" WHERE {where_clause}"
+            
+            if order_by:
+                query += f" ORDER BY {order_by}"
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            return pd.read_sql(query, self.engine)
+        except Exception as e:
+            print(f"Error en consulta filtrada de {table}: {e}")
+            return pd.DataFrame()
+    
+    def get_comidas_recientes(self, limit=50):
+        """Obtener solo comidas del año actual"""
+        año_actual = datetime.now().year
+        return self.get_data_filtered(
+            'comidas',
+            where_clause=f"fecha >= '{año_actual}-01-01'",
+            order_by="fecha DESC",
+            limit=limit
+        )
+    
+    def get_eventos_proximos(self, limit=20):
+        """Obtener solo eventos futuros"""
+        hoy = datetime.now().strftime('%Y-%m-%d')
+        return self.get_data_filtered(
+            'eventos',
+            where_clause=f"fecha >= '{hoy}'",
+            order_by="fecha ASC",
+            limit=limit
+        )
+    
+    def get_cambios_recientes(self, limit=15):
+        """Obtener solo los últimos cambios"""
+        return self.get_data_filtered(
+            'cambios',
+            order_by="fecha DESC",
+            limit=limit
+        )
+    
+    def get_fiestas_agosto(self):
+        """Obtener solo fiestas de agosto 2025"""
+        return self.get_data_filtered(
+            'fiestas',
+            where_clause="fecha >= '2025-08-08' AND fecha <= '2025-08-17'",
+            order_by="fecha ASC"
+        )
+    
+    def get_reuniones_recientes(self, limit=20):
+        """Obtener reuniones recientes"""
+        return self.get_data_filtered(
+            'reuniones',
+            order_by="fecha DESC",
+            limit=limit
+        )
+    
+    def get_lista_compra_activa(self):
+        """Obtener lista de compra (normalmente es pequeña)"""
+        return self.get_data('lista_compra')
+    
+    def get_mantenimiento_actual(self):
+        """Obtener solo mantenimiento del año actual"""
+        año_actual = datetime.now().year
+        return self.get_data_filtered(
+            'mantenimiento',
+            where_clause=f"año = {año_actual}"
+        )
+    
+    def count_records(self, table):
+        """Contar registros en una tabla (más rápido que cargar todos)"""
+        try:
+            query = f"SELECT COUNT(*) as total FROM {table}"
+            result = pd.read_sql(query, self.engine)
+            return result['total'].iloc[0] if not result.empty else 0
+        except Exception as e:
+            print(f"Error contando registros de {table}: {e}")
+            return 0
 
 dm = DataManager()
