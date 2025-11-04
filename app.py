@@ -86,7 +86,7 @@ def get_proximos_eventos(limit=5):
     """Obtener próximos eventos desde las tablas de eventos y comidas."""
     try:
         eventos_df = dm.get_data('eventos')
-        comidas_df = dm.get_data('comidas')
+        comidas_df = dm.get_comidas_recientes(limit=100)
         
         eventos_lista = []
         
@@ -784,7 +784,7 @@ def cargar_datos_iniciales(pathname):
         print(f"✅ Reuniones cargadas: {len(reuniones)} registros")
             
         print("🔧 Cargando mantenimiento actual...")
-        mantenimiento = dm.get_mantenimiento_actual().to_dict('records')
+        mantenimiento = dm.get_data('mantenimiento').to_dict('records')
         print(f"✅ Mantenimiento cargado: {len(mantenimiento)} registros")
             
         print("✨ ¡Datos esenciales cargados RÁPIDAMENTE! ⚡")
@@ -1606,6 +1606,15 @@ def toggle_menu_collapse(n, style):
         else:
             return {"display": "none"}
     return style
+
+@app.callback(
+    Output("menu-dropdown", "style", allow_duplicate=True),
+    Input('url', 'pathname'),
+    prevent_initial_call=True
+)
+def cerrar_menu_al_navegar(pathname):
+    """Cerrar el menú automáticamente cuando se navega a una nueva página"""
+    return {"display": "none"}
 
 @app.callback(
     [Output('store-comensales-adultos', 'data', allow_duplicate=True), Output('store-comensales-niños', 'data', allow_duplicate=True),

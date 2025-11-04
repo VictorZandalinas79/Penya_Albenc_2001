@@ -204,12 +204,13 @@ class DataManager:
             return pd.DataFrame()
     
     def get_comidas_recientes(self, limit=50):
-        """Obtener solo comidas del año actual"""
+        """Obtener solo comidas del año actual y próximo año"""
         año_actual = datetime.now().year
+        año_siguiente = año_actual + 1
         return self.get_data_filtered(
             'comidas',
-            where_clause=f"fecha >= '{año_actual}-01-01'",
-            order_by="fecha DESC",
+            where_clause=f"fecha >= '{año_actual}-01-01' AND fecha < '{año_siguiente + 1}-01-01'",
+            order_by="fecha ASC",
             limit=limit
         )
     
