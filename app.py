@@ -1,4 +1,6 @@
-import telegram 
+
+import asyncio
+from telegram import Bot
 import os
 from datetime import datetime
 import pandas as pd
@@ -23,6 +25,12 @@ import base64
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
+
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
 
 
 # IMPORTAR DATA MANAGER
@@ -63,29 +71,40 @@ server = app.server
 # ================================
 # ===== FUNCIONES DE UTILIDAD =====
 # ================================
+
+
+
 def enviar_notificacion_telegram(mensaje):
-    """
-    Envía un mensaje FORMATEADO a un grupo de Telegram.
-    Carga la configuración de forma segura desde las variables de entorno.
-    """
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
+    print("--- DEBUG TELEGRAM ---")
+    print(f"Bot Token leído: {bot_token}")
+    print(f"Chat ID leído: {chat_id}")
+    print("----------------------")
+
     if not bot_token or not chat_id:
-        print("❌ ERROR: Variables de entorno de Telegram no configuradas en Render.")
+        print("❌ ERROR: Variables de entorno de Telegram no configuradas o nulas.")
         return False
+
     try:
-        bot = telegram.Bot(token=bot_token)
-        bot.send_message(
-            chat_id=chat_id,
-            text=mensaje,
-            parse_mode='Markdown' # Permite usar *negritas* e _itálicas_
-        )
+        bot = Bot(token=bot_token)
+
+        async def send():
+            await bot.send_message(chat_id=chat_id, text=mensaje, parse_mode='Markdown')
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(send())
+        except RuntimeError:
+            asyncio.run(send())
+
         print("✅ Mensaje enviado a Telegram.")
         return True
     except Exception as e:
         print(f"❌ ERROR al enviar a Telegram: {e}")
         return False
+
 
 def registrar_cambio(tipo_cambio, descripcion, usuario="Anónimo"):
     """Registrar un cambio en el sistema usando el data_manager."""
@@ -1287,21 +1306,28 @@ def agregar_item_lista(n_clicks, fecha, objeto, pathname, comidas, eventos, fies
     dm.add_data('lista_compra', (fecha, objeto))
     registrar_cambio('Lista Compra', f'Item añadido: {objeto}')
     
-    lista_df_actualizada = dm.get_data('lista_compra')
+    # --- INICIO DE LA CORRECCIÓN ---
+    # Obtenemos los datos y los guardamos en 'lista_df'
+    lista_df = dm.get_data('lista_compra')
+    
+    # Formateamos el mensaje para Telegram
     lista_str = "\n\n*Llista de la compra actual:* "
-    if not lista_df_actualizada.empty:
+    if not lista_df.empty:
         # Usamos enumerate para tener un índice numérico
-        for i, row in lista_df_actualizada.iterrows():
+        for i, row in lista_df.iterrows():
             lista_str += f"\n{i+1}. {row['objeto']}"
     else:
         lista_str += "\nLa llista està buida."
     
     mensaje_final = f"🛒 *Nou item a la compra!*\nS'ha afegit: *{objeto}*\n{lista_str}"
     enviar_notificacion_telegram(mensaje_final)
+    
+    # Ahora, cuando usamos 'lista_df' aquí, la variable SÍ existe
     cache = {
         'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
         'mantenimiento': mant or [], 'lista_compra': lista_df.to_dict('records'), 'cambios': cambios or []
     }
+    # --- FIN DE LA CORRECCIÓN ---
     
     return create_lista_compra_page(cache) if pathname == '/lista-compra' else dash.no_update, dbc.Alert(f"✅ '{objeto}' añadido", color="success", duration=3000)
 

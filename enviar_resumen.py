@@ -1,31 +1,24 @@
 import os
 import pandas as pd
 from datetime import datetime
-import telegram
+from telegram import Bot
 from data_manager import dm # Importamos nuestro gestor de datos existente
 
+
 def enviar_notificacion_telegram(mensaje):
-    """
-    Función para enviar el mensaje. Es una copia de la que está en app.py.
-    Carga la configuración de forma segura desde las variables de entorno.
-    """
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     chat_id = os.environ.get('TELEGRAM_CHAT_ID')
-
     if not bot_token or not chat_id:
         print("❌ ERROR: Variables de entorno de Telegram no configuradas.")
         return False
     try:
-        bot = telegram.Bot(token=bot_token)
-        bot.send_message(
-            chat_id=chat_id,
-            text=mensaje,
-            parse_mode='Markdown' # Permite usar *negritas* e _itálicas_
-        )
-        print("✅ Mensaje de resumen enviado a Telegram.")
+        bot = Bot(token=bot_token)
+        asyncio.run(bot.send_message(chat_id=chat_id, text=mensaje, parse_mode='Markdown'))
+        print("✅ Mensaje enviado a Telegram.")
         return True
     except Exception as e:
-        print(f"❌ ERROR al enviar el resumen a Telegram: {e}")
+        print(f"❌ ERROR al enviar a Telegram: {e}"
+
         return False
 
 def generar_y_enviar_resumen():
