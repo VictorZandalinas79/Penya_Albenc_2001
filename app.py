@@ -1,3 +1,7 @@
+import telegram 
+import os
+from datetime import datetime
+import pandas as pd
 import dash
 from dash import dcc, html, Input, Output, State, callback_context, dash_table, ALL
 from dash.exceptions import PreventUpdate
@@ -59,6 +63,29 @@ server = app.server
 # ================================
 # ===== FUNCIONES DE UTILIDAD =====
 # ================================
+def enviar_notificacion_telegram(mensaje):
+    """
+    Envía un mensaje FORMATEADO a un grupo de Telegram.
+    Carga la configuración de forma segura desde las variables de entorno.
+    """
+    bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+
+    if not bot_token or not chat_id:
+        print("❌ ERROR: Variables de entorno de Telegram no configuradas en Render.")
+        return False
+    try:
+        bot = telegram.Bot(token=bot_token)
+        bot.send_message(
+            chat_id=chat_id,
+            text=mensaje,
+            parse_mode='Markdown' # Permite usar *negritas* e _itálicas_
+        )
+        print("✅ Mensaje enviado a Telegram.")
+        return True
+    except Exception as e:
+        print(f"❌ ERROR al enviar a Telegram: {e}")
+        return False
 
 def registrar_cambio(tipo_cambio, descripcion, usuario="Anónimo"):
     """Registrar un cambio en el sistema usando el data_manager."""
@@ -1213,10 +1240,22 @@ def guardar_id_item(n_clicks):
 )
 def eliminar_item_confirmado(submit, item_id, pathname, comidas, eventos, fiestas, mant, lista, cambios):
     if submit and item_id:
+        lista_df_vieja = dm.get_data('lista_compra')
+        item_eliminado_fila = lista_df_vieja[lista_df_vieja['id'] == item_id]
+        nombre_item_eliminado = item_eliminado_fila.iloc[0]['objeto'] if not item_eliminado_fila.empty else "un item"
         lista_df = dm.get_data('lista_compra')
         lista_df = lista_df[lista_df['id'] != item_id]
         dm.save_data('lista_compra', lista_df)
         registrar_cambio('Lista', f'Item ID {item_id} eliminado')
+        lista_str = "\n\n*Llista de la compra actual:* "
+        if not lista_df.empty:
+            for i, row in lista_df.iterrows():
+                lista_str += f"\n{i+1}. {row['objeto']}"
+        else:
+            lista_str += "\nLa llista ha quedat buida."
+
+        mensaje_final = f"🛒 *Item eliminat de la compra!*\nS'ha eliminat: *{nombre_item_eliminado}*\n{lista_str}"
+        enviar_notificacion_telegram(mensaje_final)
         
         cache = {
             'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
@@ -1248,7 +1287,17 @@ def agregar_item_lista(n_clicks, fecha, objeto, pathname, comidas, eventos, fies
     dm.add_data('lista_compra', (fecha, objeto))
     registrar_cambio('Lista Compra', f'Item añadido: {objeto}')
     
-    lista_df = dm.get_data('lista_compra')
+    lista_df_actualizada = dm.get_data('lista_compra')
+    lista_str = "\n\n*Llista de la compra actual:* "
+    if not lista_df_actualizada.empty:
+        # Usamos enumerate para tener un índice numérico
+        for i, row in lista_df_actualizada.iterrows():
+            lista_str += f"\n{i+1}. {row['objeto']}"
+    else:
+        lista_str += "\nLa llista està buida."
+    
+    mensaje_final = f"🛒 *Nou item a la compra!*\nS'ha afegit: *{objeto}*\n{lista_str}"
+    enviar_notificacion_telegram(mensaje_final)
     cache = {
         'comidas': comidas or [], 'eventos': eventos or [], 'fiestas': fiestas or [],
         'mantenimiento': mant or [], 'lista_compra': lista_df.to_dict('records'), 'cambios': cambios or []
@@ -1491,7 +1540,24 @@ def ejecutar_accion_comida(n_clicks, dia, fecha, accion,
         return dash.no_update, dbc.Alert("Faltan datos para realizar la acción.", color="warning")
 
     dm.save_data('comidas', comidas_df)
-    registrar_cambio('Cocineros', msg)
+    registrar_cambio('Cocineros', msg) # Esto ya lo tenías, perfecto.
+
+    # 1. Obtener la lista actualizada de comidas del año actual
+    año_actual = datetime.now().year
+    comidas_df['año'] = pd.to_datetime(comidas_df['fecha']).dt.year
+    comidas_año_actual = comidas_df[comidas_df['año'] == año_actual].sort_values('fecha')
+
+    # 2. Formatear la lista para el mensaje
+    lista_comidas_str = f"\n\n*Resum de menjars per al {año_actual}:*"
+    for _, row in comidas_año_actual.iterrows():
+        fecha_formateada = pd.to_datetime(row['fecha']).strftime('%d/%m/%Y')
+        dia_formateado = row['dia'].replace('_', ' ').title()
+        lista_comidas_str += f"\n- *{fecha_formateada}* ({dia_formateado}): {row['cocineros']}"
+
+    # 3. Crear el mensaje final y enviarlo
+    mensaje_final = f"📢 *Canvi en els menjars!*\n_{msg}_\n{lista_comidas_str}"
+    enviar_notificacion_telegram(mensaje_final)
+
     
     cache = {
         'comidas': comidas_df.to_dict('records'), 'eventos': eventos or [], 'fiestas': fiestas or [],
