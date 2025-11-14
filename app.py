@@ -68,6 +68,29 @@ app.index_string = '''
 
 server = app.server
 
+# ===== ENDPOINTS DE HEALTH CHECK =====
+@server.route('/health')
+def health_check():
+    """Endpoint ligero para health checks"""
+    return {'status': 'ok', 'timestamp': datetime.now().isoformat()}, 200
+
+@server.route('/ping')
+def ping():
+    """Endpoint ultra-ligero para pings"""
+    return 'pong', 200
+
+@server.route('/status')
+def status():
+    """Endpoint con info básica del sistema"""
+    try:
+        return {
+            'status': 'ok',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'connected'
+        }, 200
+    except:
+        return {'status': 'error', 'database': 'disconnected'}, 500
+
 # ================================
 # ===== FUNCIONES DE UTILIDAD =====
 # ================================
