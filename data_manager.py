@@ -102,6 +102,19 @@ class DataManager:
                 )
             """))
 
+            # Noticias
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS noticias (
+                    id SERIAL PRIMARY KEY,
+                    fecha_scraping TIMESTAMP,
+                    titulo TEXT,
+                    link TEXT,
+                    imagen TEXT,
+                    resumen TEXT,
+                    origen TEXT
+                )
+            """))
+
             # Reuniones
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS reuniones (
@@ -115,6 +128,76 @@ class DataManager:
             conn.commit()
         
         print("Tablas verificadas/creadas")
+
+    # ==========================================
+    # GESTIÓN DE NOTICIAS (NUEVOS MÉTODOS)
+    # ==========================================
+
+    def get_noticias(self):
+        """Obtener noticias ordenadas por fecha de scraping reciente"""
+        return self.get_data_filtered(
+            'noticias',
+            order_by="fecha_scraping DESC"
+        )
+
+    def necesita_actualizar_noticias(self, dias=3):
+        """Comprueba si la última noticia es más antigua de 'dias'"""
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT MAX(fecha_scraping) FROM noticias"))
+                ultima_fecha = result.scalar()
+                
+            if not ultima_fecha:
+                return True # No hay datos, actualizar
+            
+            # Si es string, convertir a datetime
+            if isinstance(ultima_fecha, str):
+                ultima_fecha = datetime.strptime(ultima_fecha, '%Y-%m-%d %H:%M:%S')
+                
+            diferencia = datetime.now() - ultima_fecha
+            return diferencia.days >= dias
+        except Exception as e:
+            print(f"Error comprobando fecha noticias: {e}")
+            return True
+
+    def borrar_noticias_antiguas(self):
+        """Borra noticias con más de 30 días de antigüedad"""
+        try:
+            # PostgreSQL syntax para borrar cosas de hace más de 1 mes
+            with self.engine.connect() as conn:
+                conn.execute(text("DELETE FROM noticias WHERE fecha_scraping < NOW() - INTERVAL '30 days'"))
+                conn.commit()
+            print("🧹 Noticias antiguas (más de 30 días) eliminadas.")
+        except Exception as e:
+            print(f"❌ Error borrando noticias antiguas: {e}")
+
+    def guardar_noticias_nuevas(self, df_nuevas):
+        """Guarda nuevas noticias evitando duplicados por Link"""
+        try:
+            if df_nuevas.empty:
+                return False
+
+            # 1. Obtener links existentes para no duplicar
+            noticias_existentes = self.get_data('noticias')
+            links_existentes = []
+            if not noticias_existentes.empty and 'link' in noticias_existentes.columns:
+                links_existentes = noticias_existentes['link'].tolist()
+            
+            # 2. Filtrar el DF nuevo: solo las que NO estén ya en la base de datos
+            df_a_guardar = df_nuevas[~df_nuevas['link'].isin(links_existentes)]
+            
+            if not df_a_guardar.empty:
+                # 3. Usamos 'append' para añadir sin borrar lo anterior
+                df_a_guardar.to_sql('noticias', self.engine, if_exists='append', index=False)
+                print(f"💾 Guardadas {len(df_a_guardar)} noticias nuevas.")
+                return True
+            else:
+                print("👌 No hay noticias nuevas que guardar (ya existían).")
+                return False
+                
+        except Exception as e:
+            print(f"Error guardando noticias: {e}")
+            return False
     
     # ==========================================
     # MÉTODOS ORIGINALES (mantener compatibilidad)

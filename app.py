@@ -1,4 +1,5 @@
-
+import threading
+from scraper import scrapear_diadia # Importamos la función nueva
 import asyncio
 from telegram import Bot
 import os
@@ -368,14 +369,18 @@ def create_menu_dropdown():
     )
 
 def create_home_page(cache):
-    # Usar datos del caché
-    eventos_df = pd.DataFrame(cache['eventos'])
-    comidas_df = pd.DataFrame(cache['comidas'])
-    cambios_df = pd.DataFrame(cache['cambios'])
-    mantenimiento_df = pd.DataFrame(cache['mantenimiento'])
+    # --- 1. PREPARACIÓN DE DATOS ---
     
-    # Calcular próximos eventos desde el caché
+    # Convertir listas de diccionarios a DataFrames
+    eventos_df = pd.DataFrame(cache.get('eventos', []))
+    comidas_df = pd.DataFrame(cache.get('comidas', []))
+    mantenimiento_df = pd.DataFrame(cache.get('mantenimiento', []))
+    noticias_df = pd.DataFrame(cache.get('noticias', [])) 
+    
+    # --- Lógica de Próximos Eventos (Combinando Eventos y Comidas) ---
     eventos_lista = []
+    
+    # Procesar eventos manuales
     if not eventos_df.empty:
         for _, evento in eventos_df.iterrows():
             eventos_lista.append({
@@ -384,6 +389,7 @@ def create_home_page(cache):
                 'descripcion': evento.get('tipo', '')
             })
     
+    # Procesar comidas como eventos
     if not comidas_df.empty:
         for _, comida in comidas_df.iterrows():
             dia_formateado = (comida.get('dia') or 'Comida').replace('_', ' ').title()
@@ -393,31 +399,98 @@ def create_home_page(cache):
                 'descripcion': f"({comida.get('tipo_comida', '')}) Cocinan: {comida.get('cocineros', 'N/A')}"
             })
     
+    # Filtrar y ordenar eventos futuros
     proximos = pd.DataFrame()
     if eventos_lista:
         df_eventos = pd.DataFrame(eventos_lista)
         df_eventos['fecha_dt'] = pd.to_datetime(df_eventos['fecha'])
         hoy = pd.Timestamp.now().normalize()
         df_eventos = df_eventos[df_eventos['fecha_dt'] >= hoy]
-        proximos = df_eventos.sort_values('fecha_dt').head(5)
+        proximos = df_eventos.sort_values('fecha_dt').head(6) # Mostramos los 6 próximos
     
-    # Calcular últimos cambios desde el caché
-    cambios = pd.DataFrame()
-    if not cambios_df.empty:
-        cambios_df['fecha_dt'] = pd.to_datetime(cambios_df['fecha'])
-        cambios = cambios_df.sort_values('fecha_dt', ascending=False).head(8)
-    
+    # --- Lógica de Mantenimiento ---
     año_actual = datetime.now().year
     mant_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual] if not mantenimiento_df.empty else pd.DataFrame()
     
-    # --- El layout se reconstruye con componentes Bootstrap y clases CSS modernas ---
+    # --- Lógica de Noticias (VISUALIZACIÓN CON ZOOM) ---
+    items_noticias = []
+    
+    if not noticias_df.empty:
+        # Ordenamos por fecha de scraping
+        if 'fecha_scraping' in noticias_df.columns:
+            noticias_df['fecha_dt'] = pd.to_datetime(noticias_df['fecha_scraping'])
+            noticias_df = noticias_df.sort_values('fecha_dt', ascending=False)
+
+        # Iteramos usando enumerate para tener un índice único 'i'
+        for i, row in enumerate(noticias_df.to_dict('records')):
+            # Imagen por defecto si falla la carga o viene vacía
+            img_src = row.get('imagen') if row.get('imagen') else '/assets/logo.png'
+            
+            # Crear tarjeta horizontal para cada noticia
+            card_noticia = dbc.Card(className="mb-3 border-0 shadow-sm", children=[
+                dbc.Row(className="g-0", children=[
+                    # Columna Imagen (Clickable para Zoom)
+                    dbc.Col(md=4, xs=12, children=[
+                        html.Div(
+                            id={'type': 'btn-zoom-img', 'index': i}, # ID para el callback de zoom
+                            style={
+                                "backgroundImage": f"url('{img_src}')",
+                                "backgroundSize": "cover",
+                                "backgroundPosition": "center",
+                                "height": "100%",
+                                "minHeight": "160px",
+                                "cursor": "pointer",
+                                "borderTopLeftRadius": "5px",
+                                "borderBottomLeftRadius": "5px"
+                            },
+                            # Guardamos la URL en un atributo data para leerla en el callback
+                            **{'data-src': img_src}
+                        )
+                    ]),
+                    # Columna Texto
+                    dbc.Col(md=8, xs=12, children=[
+                        dbc.CardBody([
+                            html.H5(
+                                html.A(row['titulo'], href=row['link'], target="_blank", 
+                                       style={"textDecoration": "none", "color": "#2c3e50"}),
+                                className="card-title fw-bold m-0", 
+                                style={"fontSize": "1rem", "lineHeight": "1.3"}
+                            ),
+                            html.P(
+                                row['resumen'][:110] + "..." if len(row['resumen']) > 110 else row['resumen'],
+                                className="card-text text-muted small mt-2 mb-2",
+                                style={"fontSize": "0.85rem"}
+                            ),
+                            html.Div([
+                                dbc.Badge(row.get('origen', 'Web'), color="info", className="me-2"),
+                                html.Small("🔍 Click en foto para ampliar", className="text-muted fst-italic", style={"fontSize": "0.7rem"})
+                            ], className="d-flex justify-content-between align-items-center mt-1")
+                        ], className="p-3")
+                    ])
+                ])
+            ])
+            items_noticias.append(card_noticia)
+    else:
+        items_noticias.append(
+            html.Div([
+                html.P("📭 Buscando noticias recientes...", className="text-center text-muted mt-3"),
+                # CORRECCIÓN AQUÍ: Envolvemos el Spinner en un Div para usar className
+                html.Div(
+                    dbc.Spinner(color="primary", size="sm"), 
+                    className="d-flex justify-content-center mb-2"
+                ),
+                html.Small("El sistema actualiza cada 3 días.", className="d-block text-center text-muted")
+            ])
+        )
+
+    # --- 2. CONSTRUCCIÓN DEL LAYOUT ---
     return dbc.Container([
-        # 1. Logo (sin cambios)
+        # 1. Logo
         html.Div(className="text-center mb-4", children=[
             html.Img(src='/assets/logo2.png', style={'height': '120px', 'filter': 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))'})
         ]),
         
-        # 2. Tarjeta de Mantenimiento (sin cambios)
+        # 2. Tarjeta de Mantenimiento
         dbc.Card(className="mb-4 glass-container", children=[
             dbc.CardHeader(html.H4(f"🔧 Mantenimiento {año_actual}", className="m-0 fw-bold")),
             dbc.CardBody([
@@ -426,14 +499,13 @@ def create_home_page(cache):
             ])
         ]),
         
-        # 3. Fila responsiva para las dos listas mejoradas
+        # 3. Fila Principal: Eventos (Izq) vs Noticias (Der)
         dbc.Row([
-            # Columna para Próximos Eventos
+            # COLUMNA IZQUIERDA: Próximos Eventos
             dbc.Col(md=6, children=[
                 dbc.Card(className="mb-4 glass-container", children=[
                     dbc.CardHeader(html.H4("📅 Próximos Eventos", className="m-0 fw-bold")),
                     dbc.ListGroup(
-                        # --- INICIO DE LA SECCIÓN CORREGIDA ---
                         [
                             dbc.ListGroupItem(
                                 html.Div(className="d-flex w-100 align-items-center", children=[
@@ -441,41 +513,36 @@ def create_home_page(cache):
                                     html.Div([
                                         html.H6(row['tipo'], className="mb-1 fw-bold"),
                                         html.P(row['descripcion'], className="mb-1 text-muted small"),
-                                        # Error corregido: Se ha completado la función de formato de fecha
                                         html.Small(f"Fecha: {datetime.strptime(row['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y')}", className="text-muted"),
                                     ]),
                                 ]),
                                 action=True
-                            ) for _, row in proximos.iterrows() # Error corregido: Se ha añadido el bucle
-                        ] if not proximos.empty else [dbc.ListGroupItem("No hay eventos próximos.", className="text-muted")], # Error corregido: Se ha añadido la condición else
-                        flush=True
-                    )
-                ])
-            ]), # <-- Error corregido: Faltaba el paréntesis de cierre de dbc.Col
-            
-            # Columna para Últimos Cambios
-            dbc.Col(md=6, children=[
-                dbc.Card(className="mb-4 glass-container", children=[
-                    dbc.CardHeader(html.H4("🔔 Últimos Cambios", className="m-0 fw-bold")),
-                    dbc.ListGroup(
-                        [
-                            dbc.ListGroupItem(
-                                html.Div(className="d-flex w-100 align-items-center", children=[
-                                    html.Div("🔔", className="me-3 fs-4 text-success"),
-                                    html.Div([
-                                        html.H6(row['tipo_cambio'], className="mb-1 fw-bold"),
-                                        html.P(row['descripcion'], className="mb-1 text-muted small"),
-                                        html.Small(datetime.strptime(row['fecha'], '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%y %H:%M'), className="text-muted"),
-                                    ]),
-                                ]),
-                                action=True
-                            ) for _, row in cambios.iterrows()
-                        ] if not cambios.empty else [dbc.ListGroupItem("No hay cambios registrados.", className="text-muted")],
+                            ) for _, row in proximos.iterrows()
+                        ] if not proximos.empty else [dbc.ListGroupItem("No hay eventos próximos.", className="text-muted")],
                         flush=True
                     )
                 ])
             ]),
-            # --- FIN DE LA SECCIÓN CORREGIDA ---
+            
+            # COLUMNA DERECHA: Noticias Filtradas
+            dbc.Col(md=6, children=[
+                dbc.Card(className="mb-4 glass-container", children=[
+                    dbc.CardHeader(html.Div([
+                        html.H4("📰 Noticias Destacadas", className="m-0 fw-bold"),
+                        html.Small("Festa, Toros, Eventos...", className="text-white-50")
+                    ], className="d-flex justify-content-between align-items-center")),
+                    
+                    dbc.CardBody(
+                        items_noticias,
+                        style={
+                            "maxHeight": "600px", # Altura máxima fija
+                            "overflowY": "auto",  # Scroll si hay muchas noticias
+                            "padding": "10px",
+                            "backgroundColor": "#f8f9fa"
+                        }
+                    )
+                ])
+            ]),
         ]),
     ])
 
@@ -819,57 +886,120 @@ def marcar_reunion_eliminar(n_clicks):
         Output('store-reuniones', 'data'),
         Output('store-mantenimiento', 'data'),
         Output('loading-overlay', 'className'),
-        Output('store-data-loaded-signal', 'data')], # <-- OUTPUT AÑADIDO
+        Output('store-data-loaded-signal', 'data'),
+        Output('store-noticias', 'data')], # <--- Este es el output nº 10
         Input('url', 'pathname'),
         prevent_initial_call=False
     )
+
 def cargar_datos_iniciales(pathname):
-    """Carga SOLO los datos esenciales para inicio RÁPIDO - VERSIÓN OPTIMIZADA"""
     print("🔄 Iniciando carga OPTIMIZADA de datos...")
+    
+    # Lógica de scraping y LIMPIEZA en segundo plano
+    def ejecutar_scraping_background():
+        print("🕵️ Gestionando noticias en segundo plano...")
         
+        # 1. Limpieza Mensual
+        dm.borrar_noticias_antiguas()
+        
+        # 2. Scraping si hace falta (cada 3 días)
+        if dm.necesita_actualizar_noticias(dias=1):
+            print("⏳ Buscando noticias nuevas...")
+            df_nuevas = scrapear_diadia()
+            if not df_nuevas.empty:
+                dm.guardar_noticias_nuevas(df_nuevas)
+            else:
+                print("⚠️ No se encontraron noticias nuevas.")
+        else:
+            print("👌 Noticias actualizadas.")
+
+    threading.Thread(target=ejecutar_scraping_background).start()
+    
     try:
-        print("📊 Cargando comidas recientes (solo año actual)...")
+
+        print("📊 Cargando comidas recientes...")
         comidas = dm.get_comidas_recientes(limit=50).to_dict('records')
-        print(f"✅ Comidas cargadas: {len(comidas)} registros")
             
         print("📅 Cargando eventos próximos...")
         eventos = dm.get_eventos_proximos(limit=20).to_dict('records')
-        print(f"✅ Eventos cargados: {len(eventos)} registros")
             
-        print("🎉 Cargando fiestas (solo agosto)...")
+        print("🎉 Cargando fiestas...")
         fiestas = dm.get_fiestas_agosto().to_dict('records')
-        print(f"✅ Fiestas cargadas: {len(fiestas)} registros")
             
         print("🛒 Cargando lista compra...")
         lista_compra = dm.get_lista_compra_activa().to_dict('records')
-        print(f"✅ Lista compra cargada: {len(lista_compra)} registros")
             
         print("🔔 Cargando últimos cambios...")
         cambios = dm.get_cambios_recientes(limit=15).to_dict('records')
-        print(f"✅ Cambios cargados: {len(cambios)} registros")
             
         print("🤝 Cargando reuniones recientes...")
         reuniones = dm.get_reuniones_recientes(limit=20).to_dict('records')
-        print(f"✅ Reuniones cargadas: {len(reuniones)} registros")
             
         print("🔧 Cargando mantenimiento actual...")
         mantenimiento = dm.get_data('mantenimiento').to_dict('records')
-        print(f"✅ Mantenimiento cargado: {len(mantenimiento)} registros")
+
+        print("📰 Cargando noticias...")
+        noticias_df = dm.get_noticias()
+        # Convertir a dict
+        noticias = noticias_df.to_dict('records') if not noticias_df.empty else []
             
-        print("✨ ¡Datos esenciales cargados RÁPIDAMENTE! ⚡")
-        print("🎭 Ocultando overlay de carga...")
+        print("✨ ¡Datos cargados! Ocultando overlay...")
             
-        # Ocultar el overlay y enviar la señal de éxito (1)
-        return comidas, eventos, fiestas, lista_compra, cambios, reuniones, mantenimiento, 'loading-overlay hidden', 1
+        # --- CORRECCIÓN AQUÍ: AÑADIR 'noticias' AL FINAL ---
+        return (
+            comidas, 
+            eventos, 
+            fiestas, 
+            lista_compra, 
+            cambios, 
+            reuniones, 
+            mantenimiento, 
+            'loading-overlay hidden', 
+            1, 
+            noticias  # <--- FALTABA ESTO
+        )
         
     except Exception as e:
         print(f"❌ ERROR FATAL cargando datos: {e}")
-        print(f"❌ Tipo de error: {type(e)}")
         import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
+        print(traceback.format_exc())
             
-        # Devolver datos vacíos, ocultar el loading y enviar señal de fallo (None)
-        return [], [], [], [], [], [], [], 'loading-overlay hidden', None
+        # --- CORRECCIÓN AQUÍ TAMBIÉN: AÑADIR UN ARRAY VACÍO AL FINAL ---
+        return [], [], [], [], [], [], [], 'loading-overlay hidden', None, []
+
+@app.callback(
+    [Output('store-noticias', 'data', allow_duplicate=True),
+     Output('interval-check-noticias', 'disabled')],
+    [Input('interval-check-noticias', 'n_intervals')],
+    [State('store-noticias', 'data')],
+    prevent_initial_call=True
+)
+def verificar_llegada_noticias(n, noticias_actuales):
+    """
+    Este proceso se ejecuta cada 4 segundos.
+    Revisa si ya hay noticias en la base de datos.
+    Si las encuentra, actualiza la web y detiene el reloj.
+    """
+    if n > 5: # Si tras 20 segundos (5 intentos) no hay nada, paramos para no saturar
+        return dash.no_update, True
+
+    try:
+        # Consultamos la base de datos
+        noticias_df = dm.get_noticias()
+        
+        # Si la base de datos tiene noticias...
+        if not noticias_df.empty:
+            nuevas_noticias = noticias_df.to_dict('records')
+            
+            # Si lo que tenemos en pantalla está vacío o es diferente a la DB, actualizamos
+            if not noticias_actuales or len(nuevas_noticias) != len(noticias_actuales):
+                print(f"✅ ¡Noticias encontradas! Actualizando vista ({len(nuevas_noticias)} items)")
+                return nuevas_noticias, True # Actualiza datos y DESACTIVA el intervalo (True)
+    except Exception as e:
+        print(f"Error revisando noticias: {e}")
+
+    # Si aún no hay noticias, no hacemos nada (dash.no_update) y seguimos buscando (False)
+    return dash.no_update, False
     
 
 # =============================================
@@ -936,6 +1066,52 @@ def eliminar_reunion_confirmado(submit, reunion_id, pathname, comidas, eventos, 
         }
         return create_reuniones_page(cache)
     raise PreventUpdate
+
+@app.callback(
+    [Output("modal-foto-noticia", "is_open"),
+     Output("imagen-modal-zoom", "src")],
+    [Input({'type': 'btn-zoom-img', 'index': ALL}, 'n_clicks'),
+     Input("btn-cerrar-modal-zoom", "n_clicks")], 
+    [State({'type': 'btn-zoom-img', 'index': ALL}, 'data-src'),
+     State("modal-foto-noticia", "is_open")], 
+    prevent_initial_call=True
+)
+def toggle_modal_zoom(n_clicks_img, n_clicks_close, src_list, is_open):
+    ctx = callback_context
+    if not ctx.triggered:
+        return False, ""
+    
+    # Obtenemos quién disparó el evento
+    trigger_info = ctx.triggered[0]
+    trigger_id_str = trigger_info['prop_id'].split('.')[0]
+    
+    # 1. Si se pulsa el botón de cerrar
+    if trigger_id_str == "btn-cerrar-modal-zoom":
+        return False, ""
+    
+    # 2. Si el evento viene de una imagen (Pattern Matching)
+    if "btn-zoom-img" in trigger_id_str:
+        # --- CORRECCIÓN CLAVE ---
+        # Verificamos si es un click real.
+        # Si 'value' es None o 0, es que el componente se acaba de crear, no se ha pulsado.
+        clicks_actuales = trigger_info['value']
+        if not clicks_actuales: 
+            return False, "" # No hacemos nada si no hay clicks reales
+        # ------------------------
+
+        try:
+            triggered_id_dict = ctx.triggered_id
+            if triggered_id_dict and 'index' in triggered_id_dict:
+                idx = triggered_id_dict['index']
+                # Buscamos la URL correspondiente en la lista de sources
+                # Nota: src_list está ordenado igual que los índices generados por ALL
+                if idx < len(src_list):
+                    return True, src_list[idx]
+        except Exception as e:
+            print(f"Error abriendo modal: {e}")
+            return False, ""
+                
+    return is_open, "" # Mantener estado si no es ninguno de los anteriores
 
 @app.callback(
     [Output('modal-editar-reunion', 'is_open'),
@@ -1072,10 +1248,12 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
     return create_reuniones_page(cache), dbc.Alert("✅ Reunión guardada", color="success", duration=3000)
 
 # ---- Router Principal ----
+# ---- Router Principal ----
 @app.callback(
     Output('page-content', 'children'),
-    Input('store-data-loaded-signal', 'data'), # <-- INPUT CAMBIADO
-    [State('url', 'pathname'),                 # <-- URL AHORA ES STATE
+    [Input('store-data-loaded-signal', 'data'),
+     Input('store-noticias', 'data')], # <--- Input 2 (Noticias)
+    [State('url', 'pathname'),
      State('store-comidas', 'data'),
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
@@ -1084,13 +1262,11 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
      State('store-cambios', 'data'),
      State('store-reuniones', 'data')]
 )
-def display_page(signal, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones): # <-- PARÁMETROS CORREGIDOS
-    if signal is None: # Si la carga de datos falló o no se ha completado
-        return html.Div("Error al cargar los datos. Refresca la página.", style={"text-align": "center", "padding": "50px", "color": "red"})
+def display_page(signal, noticias, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones): 
+    # CORRECCIÓN: Se ha añadido 'noticias' como segundo argumento para coincidir con los Inputs
     
-    # Esta comprobación ya no es estrictamente necesaria, pero la dejamos como seguridad
-    if comidas is None or eventos is None:
-        return html.Div("Cargando...", style={"text-align": "center", "padding": "50px"})
+    if signal is None: 
+        return html.Div("Error al cargar los datos. Refresca la página.", style={"text-align": "center", "padding": "50px", "color": "red"})
     
     # Crear cache con todos los datos
     cache = {
@@ -1100,7 +1276,8 @@ def display_page(signal, pathname, comidas, eventos, fiestas, mant, lista, cambi
         'mantenimiento': mant or [],
         'lista_compra': lista or [],
         'cambios': cambios or [],
-        'reuniones': reuniones or []
+        'reuniones': reuniones or [],
+        'noticias': noticias or [] # <--- Añadimos las noticias al caché
     }
     
     if pathname == '/' or pathname == '/dashboard':
@@ -1119,6 +1296,7 @@ def display_page(signal, pathname, comidas, eventos, fiestas, mant, lista, cambi
         return create_reuniones_page(cache)
     else:
         return html.H3('404 - Página no encontrada', style={'textAlign': 'center', 'marginTop': '50px'})
+
 # ---- Callbacks de Fiestas (Página Interactiva) ----
 
 @app.callback(
@@ -1836,6 +2014,24 @@ app.layout = html.Div([
     dcc.Store(id='store-cambios', data=None, storage_type='session'),
     dcc.Store(id='store-reuniones', data=None, storage_type='session'),
     dcc.Store(id='store-data-loaded-signal'),
+    dcc.Store(id='store-noticias', data=None, storage_type='session'),
+    dcc.Interval(id='interval-check-noticias', interval=4000, n_intervals=0),
+
+    dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("📸 Detalle de la imagen"), close_button=True),
+            dbc.ModalBody(html.Img(id='imagen-modal-zoom', src='', style={'width': '100%'})),
+            # AÑADIMOS PIE DE PÁGINA CON BOTÓN CERRAR
+            dbc.ModalFooter(
+                dbc.Button("Cerrar", id="btn-cerrar-modal-zoom", className="ms-auto", n_clicks=0)
+            )
+        ],
+        id="modal-foto-noticia",
+        size="lg",
+        is_open=False,
+        centered=True,
+        zIndex=1050, # Asegura que quede por encima de todo
+    ),
 
     
     # --- NUEVA ESTRUCTURA VISUAL ---
