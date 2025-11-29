@@ -7,14 +7,20 @@ import re
 def scrapear_diadia():
     url = "https://diadia.cat/"
     
-    # Palabras clave (usaremos regex para buscar palabra exacta)
-    # Ejemplo: que "festa" no salte con "manifesta"
+    # Palabras clave
     keywords = [
         "festa", "fiesta", "festes", "tardeo", "toros", "bous",
-        "orquesta", "discomobil", "discomovil", "fira", "feria", 
-        "sant antoni", "sopar", "dinar", "actes", "entrades", "vacances", "agenda", "cultural", "nadal", "navidad", "festes"
+        "orquesta", "discomobil", "discomovil", "fira", "feria", "patron",
+        "sant antoni", "sopar", "dinar", "actes", "entrades", 
+        "vacances", "agenda", "cultural", "nadal", "navidad", "tardeo", "kintos", "quintos", "sant", "tributo", "fiestas",
     ]
     
+    # Construimos una ÚNICA expresión regular optimizada.
+    # \b: Límite de palabra (asegura que 'festa' no salte con 'manifesta')
+    # | : O (esto O lo otro)
+    # map(re.escape, keywords): Escapa caracteres especiales si los hubiera
+    patron_regex = re.compile(r'\b(?:' + '|'.join(map(re.escape, keywords)) + r')\b', re.IGNORECASE)
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
@@ -33,7 +39,9 @@ def scrapear_diadia():
         
         articulos = soup.find_all('div', class_=re.compile(r'td_module_|td-block-span'))
         
+        # Usamos dos conjuntos para evitar duplicados estrictamente
         seen_links = set()
+        seen_titles = set()
 
         for art in articulos:
             try:
@@ -47,27 +55,29 @@ def scrapear_diadia():
                 titulo = link_tag.get('title', '').strip()
                 if not titulo: titulo = link_tag.get_text(strip=True)
                 
-                link = link_tag.get('href', '')
-                if link in seen_links: continue
-                seen_links.add(link)
-
+                raw_link = link_tag.get('href', '')
+                
+                # LIMPIEZA DE URL: Quitamos parámetros extra (?utm_source...) para comparar mejor
+                link_limpio = raw_link.split('?')[0]
+                
+                # COMPROBACIÓN DE DUPLICADOS (Link O Título)
+                if link_limpio in seen_links or titulo in seen_titles:
+                    continue
+                
                 # 2. Resumen
                 excerpt_tag = art.find('div', class_='td-excerpt')
                 resumen = excerpt_tag.get_text(strip=True) if excerpt_tag else ""
                 
-                # 3. Filtrado por PALABRA EXACTA (Regex)
-                texto_completo = (titulo + " " + resumen).lower()
+                # 3. Filtrado por PALABRA EXACTA (Usando el Regex compilado arriba)
+                texto_completo = f"{titulo} {resumen}"
                 
-                match_found = False
-                for kw in keywords:
-                    # \b significa "borde de palabra". 
-                    # Busca 'festa' pero no 'manifesta', busca 'bous' pero no 'lobous'
-                    if re.search(r'\b' + re.escape(kw) + r'\b', texto_completo):
-                        match_found = True
-                        break
-                
-                if not match_found:
+                # .search busca en cualquier parte del texto respetando los límites \b
+                if not patron_regex.search(texto_completo):
                     continue
+                
+                # Si pasa el filtro, añadimos a "vistos" para no repetir
+                seen_links.add(link_limpio)
+                seen_titles.add(titulo)
 
                 # 4. Imagen
                 imagen = ""
@@ -86,12 +96,13 @@ def scrapear_diadia():
                         elif img_tag_normal.has_attr('data-src'): imagen = img_tag_normal['data-src']
 
                 if not imagen: imagen = "/assets/logo.png"
+                # Limpiar tamaño de imagen de WordPress para obtener la original
                 if '-696x' in imagen: imagen = re.sub(r'-\d+x\d+(?=\.\w+$)', '', imagen)
 
                 noticias.append({
                     'fecha_scraping': datetime.now(),
                     'titulo': titulo,
-                    'link': link,
+                    'link': link_limpio, # Guardamos el link limpio
                     'imagen': imagen,
                     'resumen': resumen,
                     'origen': 'DiaDia'

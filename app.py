@@ -75,10 +75,42 @@ def health_check():
     """Endpoint ligero para health checks"""
     return {'status': 'ok', 'timestamp': datetime.now().isoformat()}, 200
 
+# --- BUSCA ESTA PARTE EN TU app.py Y REEMPLÁZALA ---
+
 @server.route('/ping')
 def ping():
-    """Endpoint ultra-ligero para pings"""
-    return 'pong', 200
+    """
+    Endpoint doble propósito:
+    1. Responde 'pong' para que cron-job.org sepa que el servidor está vivo.
+    2. En segundo plano, comprueba si hay que buscar noticias.
+    """
+    def tarea_background():
+        try:
+            # Configura aquí cada cuánto quieres buscar noticias realmente.
+            # dias=0.25 equivale a cada 6 horas aprox.
+            # dias=0.04 equivale a cada 1 hora aprox.
+            if dm.necesita_actualizar_noticias(dias=0.25): 
+                print("⏰ Cron /ping: Toca buscar noticias nuevas...")
+                df_nuevas = scrapear_diadia()
+                
+                if not df_nuevas.empty:
+                    nuevas_guardadas = dm.guardar_noticias_nuevas(df_nuevas)
+                    if nuevas_guardadas:
+                        # Opcional: Avisar por Telegram si se encontraron cosas nuevas
+                        mensaje = f"📰 *Noticias actualizadas automáticamente*\nSe han encontrado {len(df_nuevas)} noticias nuevas."
+                        enviar_notificacion_telegram(mensaje)
+                else:
+                    print("⏰ Cron /ping: No se encontraron noticias nuevas en la web.")
+            else:
+                # Si no toca actualizar, no hacemos nada (consumo 0 de recursos)
+                pass
+        except Exception as e:
+            print(f"❌ Error en tarea background del ping: {e}")
+
+    # Lanzamos la tarea en un hilo paralelo para responder rápido al Cron Job
+    threading.Thread(target=tarea_background).start()
+
+    return 'pong - keepalive & check', 200
 
 @server.route('/status')
 def status():
