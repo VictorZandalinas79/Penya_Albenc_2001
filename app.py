@@ -825,8 +825,10 @@ def create_lista_compra_page(cache):
                                 html.H6(row['objeto'], className="mb-1 fw-bold"),
                                 html.Small(f"Fecha: {row['fecha']}", className="text-muted"),
                             ]),
+                            dbc.Button("✏️", id={'type': 'btn-editar-item', 'index': row['id']}, 
+               color="warning", size="sm", outline=True, className="me-1"),
                             dbc.Button("✕", id={'type': 'btn-eliminar-item', 'index': row['id']}, 
-                                     color="danger", size="sm", outline=True)
+               color="danger", size="sm", outline=True)
                         ])
                     ], action=True) for _, row in lista_df.iterrows()
                 ] if not lista_df.empty else [dbc.ListGroupItem("La lista está vacía.", className="text-muted")],
@@ -861,8 +863,10 @@ def create_eventos_page(cache):
                                 html.P(f"Tipo: {row['tipo']}", className="mb-1 text-muted small"),
                                 html.Small(f"Fecha: {row['fecha']}", className="text-muted"),
                             ]),
+                            dbc.Button("✏️", id={'type': 'btn-editar-evento', 'index': row['id']}, 
+                                           color="warning", size="sm", outline=True, className="me-1"),
                             dbc.Button("✕", id={'type': 'btn-eliminar-evento', 'index': row['id']}, 
-                                     color="danger", size="sm", outline=True)
+                                           color="danger", size="sm", outline=True)    
                         ])
                     ], action=True) for _, row in eventos_df.iterrows()
                 ] if not eventos_df.empty else [dbc.ListGroupItem("No hay eventos.", className="text-muted")],
@@ -1586,6 +1590,10 @@ def agregar_evento(n_clicks, fecha, nombre, tipo, pathname, comidas, eventos, fi
     
     dm.add_data('eventos', (fecha, nombre, tipo or ''))
     registrar_cambio('Eventos', f'Evento añadido: {nombre}')
+
+    # Formatear mensaje para Telegram
+    mensaje = f"📅 *Nou event afegit!*\n\n*{nombre}*\nData: {fecha}\nTipus: {tipo or 'No especificat'}"
+    enviar_notificacion_telegram(mensaje)
     
     eventos_df = dm.get_data('eventos')
     cache = {
@@ -1932,6 +1940,166 @@ def toggle_menu_collapse(n, style):
             return {"display": "none"}
     return style
 
+# Callback para abrir modal y cargar datos actuales
+@app.callback(
+    [Output('modal-editar-item', 'is_open'),
+     Output('editar-item-objeto', 'value'),
+     Output('editar-item-fecha', 'date'),
+     Output('store-id-editar-item', 'data')],
+    [Input({'type': 'btn-editar-item', 'index': ALL}, 'n_clicks'),
+     Input('btn-cancelar-edicion-item', 'n_clicks')],
+    [State('store-lista-compra', 'data')],
+    prevent_initial_call=True
+)
+def abrir_modal_editar_item(n_editar, n_cancelar, lista):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered_id
+    
+    # Si es cancelar, cerrar modal
+    if trigger == 'btn-cancelar-edicion-item':
+        return False, "", None, None
+    
+    # Si es botón de editar, verificar que hubo click real
+    if isinstance(trigger, dict) and trigger['type'] == 'btn-editar-item':
+        # Verificar que realmente se hizo click (no solo render inicial)
+        if not any(n_editar):
+            raise PreventUpdate
+            
+        item_id = trigger['index']
+        item = next((i for i in lista if i['id'] == item_id), None)
+        if item:
+            return True, item['objeto'], item['fecha'], item_id
+    
+    raise PreventUpdate
+
+# Callback para guardar la edición
+@app.callback(
+    [Output('page-content', 'children', allow_duplicate=True),
+     Output('modal-editar-item', 'is_open', allow_duplicate=True)],
+    Input('btn-guardar-edicion-item', 'n_clicks'),
+    [State('store-id-editar-item', 'data'),
+     State('editar-item-objeto', 'value'),
+     State('editar-item-fecha', 'date'),
+     State('store-lista-compra', 'data'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-cambios', 'data')],
+    prevent_initial_call=True
+)
+def guardar_edicion_item(n_clicks, item_id, nuevo_objeto, nueva_fecha, lista, comidas, eventos, fiestas, mant, cambios):
+    if not n_clicks or not item_id:
+        raise PreventUpdate
+    
+    # Actualizar en base de datos
+    lista_df = dm.get_data('lista_compra')
+    idx = lista_df.index[lista_df['id'] == item_id].tolist()
+    if idx:
+        lista_df.loc[idx[0], 'objeto'] = nuevo_objeto
+        lista_df.loc[idx[0], 'fecha'] = nueva_fecha
+        dm.save_data('lista_compra', lista_df)
+        registrar_cambio('Lista', f'Item editado: {nuevo_objeto}')
+        
+        # Enviar Telegram
+        enviar_notificacion_telegram(f"✏️ *Item editat:* {nuevo_objeto}")
+    
+    # Reconstruir página con cache actualizado
+    cache = {
+        'comidas': comidas or [],
+        'eventos': eventos or [],
+        'fiestas': fiestas or [],
+        'mantenimiento': mant or [],
+        'lista_compra': lista_df.to_dict('records'),
+        'cambios': cambios or []
+    }
+    return create_lista_compra_page(cache), False
+
+# Callback para abrir modal de editar evento
+@app.callback(
+    [Output('modal-editar-evento', 'is_open'),
+     Output('editar-evento-nombre', 'value'),
+     Output('editar-evento-tipo', 'value'),
+     Output('editar-evento-fecha', 'date'),
+     Output('store-id-editar-evento', 'data')],
+    [Input({'type': 'btn-editar-evento', 'index': ALL}, 'n_clicks'),
+     Input('btn-cancelar-edicion-evento', 'n_clicks')],
+    [State('store-eventos', 'data')],
+    prevent_initial_call=True
+)
+def abrir_modal_editar_evento(n_editar, n_cancelar, eventos):
+    ctx = callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    
+    trigger = ctx.triggered_id
+    
+    # Si es cancelar, cerrar modal
+    if trigger == 'btn-cancelar-edicion-evento':
+        return False, "", "", None, None
+    
+    # Si es botón de editar, verificar que hubo click real
+    if isinstance(trigger, dict) and trigger['type'] == 'btn-editar-evento':
+        if not any(n_editar):
+            raise PreventUpdate
+            
+        evento_id = trigger['index']
+        evento = next((e for e in eventos if e['id'] == evento_id), None)
+        if evento:
+            return True, evento['evento'], evento.get('tipo', ''), evento['fecha'], evento_id
+    
+    raise PreventUpdate
+
+
+# Callback para guardar la edición de evento
+@app.callback(
+    [Output('page-content', 'children', allow_duplicate=True),
+     Output('modal-editar-evento', 'is_open', allow_duplicate=True)],
+    Input('btn-guardar-edicion-evento', 'n_clicks'),
+    [State('store-id-editar-evento', 'data'),
+     State('editar-evento-nombre', 'value'),
+     State('editar-evento-tipo', 'value'),
+     State('editar-evento-fecha', 'date'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data')],
+    prevent_initial_call=True
+)
+def guardar_edicion_evento(n_clicks, evento_id, nuevo_nombre, nuevo_tipo, nueva_fecha, 
+                           comidas, eventos, fiestas, mant, lista, cambios):
+    if not n_clicks or not evento_id:
+        raise PreventUpdate
+    
+    # Actualizar en base de datos
+    eventos_df = dm.get_data('eventos')
+    idx = eventos_df.index[eventos_df['id'] == evento_id].tolist()
+    if idx:
+        eventos_df.loc[idx[0], 'evento'] = nuevo_nombre
+        eventos_df.loc[idx[0], 'tipo'] = nuevo_tipo
+        eventos_df.loc[idx[0], 'fecha'] = nueva_fecha
+        dm.save_data('eventos', eventos_df)
+        registrar_cambio('Eventos', f'Evento editado: {nuevo_nombre}')
+        
+        # Enviar Telegram
+        enviar_notificacion_telegram(f"✏️ *Event editat:* {nuevo_nombre}\nData: {nueva_fecha}")
+    
+    # Reconstruir página con cache actualizado
+    cache = {
+        'comidas': comidas or [],
+        'eventos': eventos_df.to_dict('records'),
+        'fiestas': fiestas or [],
+        'mantenimiento': mant or [],
+        'lista_compra': lista or [],
+        'cambios': cambios or []
+    }
+    return create_eventos_page(cache), False
+    
 @app.callback(
     Output("menu-dropdown", "style", allow_duplicate=True),
     Input('url', 'pathname'),
@@ -2062,12 +2230,43 @@ app.layout = html.Div([
         size="lg",
         is_open=False,
         centered=True,
-        zIndex=1050, # Asegura que quede por encima de todo
+        zIndex=1050,
     ),
 
-    
-    # --- NUEVA ESTRUCTURA VISUAL ---
+    # Modal para editar item de compra  <-- AÑADIR AQUÍ
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("✏️ Editar Item")),
+        dbc.ModalBody([
+            dbc.Input(id='editar-item-objeto', placeholder="Nombre del objeto"),
+            dcc.DatePickerSingle(id='editar-item-fecha', className="mt-2")
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Guardar", id='btn-guardar-edicion-item', color="success"),
+            dbc.Button("Cancelar", id='btn-cancelar-edicion-item', color="secondary")
+        ])
+    ], id='modal-editar-item', is_open=False),
+
+dcc.Store(id='store-id-editar-item', data=None),
+
+# Modal para editar evento  <-- AÑADIR ESTO
+dbc.Modal([
+    dbc.ModalHeader(dbc.ModalTitle("✏️ Editar Evento")),
+    dbc.ModalBody([
+        dbc.Input(id='editar-evento-nombre', placeholder="Nombre del evento", className="mb-2"),
+        dbc.Input(id='editar-evento-tipo', placeholder="Tipo/Descripción", className="mb-2"),
+        dcc.DatePickerSingle(id='editar-evento-fecha', className="mt-2")
+    ]),
+    dbc.ModalFooter([
+        dbc.Button("Guardar", id='btn-guardar-edicion-evento', color="success"),
+        dbc.Button("Cancelar", id='btn-cancelar-edicion-evento', color="secondary")
+    ])
+], id='modal-editar-evento', is_open=False),
+
+dcc.Store(id='store-id-editar-evento', data=None),
+
+# --- NUEVA ESTRUCTURA VISUAL ---
     create_modern_navbar(),
+
     create_menu_dropdown(),
     
     # Contenedor principal para el contenido de la página
