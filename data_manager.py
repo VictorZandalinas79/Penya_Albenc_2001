@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
+
 # Cargar variables de entorno desde .env
 load_dotenv()
 
@@ -35,103 +36,53 @@ class DataManager:
     
     def init_tables(self):
         """Crear tablas si no existen"""
-        with self.engine.connect() as conn:
-            # Comidas
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS comidas (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    dia VARCHAR(50),
-                    tipo_comida VARCHAR(100),
-                    cocineros TEXT
-                )
-            """))
-            
-            # Lista compra
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS lista_compra (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    objeto TEXT
-                )
-            """))
-            
-            # Mantenimiento
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS mantenimiento (
-                    id SERIAL PRIMARY KEY,
-                    año INTEGER,
-                    mantenimiento TEXT,
-                    cadafals TEXT
-                )
-            """))
-            
-            # Eventos
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS eventos (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    evento VARCHAR(200),
-                    tipo TEXT
-                )
-            """))
-            
-            # Fiestas
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS fiestas (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    cocineros TEXT,
-                    menu TEXT,
-                    adultos INTEGER,
-                    nombres_adultos TEXT,
-                    niños INTEGER,
-                    nombres_niños TEXT,
-                    programa TEXT
-                )
-            """))
-            
-            # Cambios
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS cambios (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    tipo_cambio VARCHAR(100),
-                    descripcion TEXT,
-                    usuario VARCHAR(100)
-                )
-            """))
+        try:
+            with self.engine.connect() as conn:
+                # 1. ELIMINAMOS LA LÍNEA DEL DROP (Ya no hace falta borrarla más)
+                # conn.execute(text("DROP TABLE IF EXISTS agenda CASCADE")) 
 
-            # Noticias
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS noticias (
-                    id SERIAL PRIMARY KEY,
-                    fecha_scraping TIMESTAMP,
-                    titulo TEXT,
-                    link TEXT,
-                    imagen TEXT,
-                    resumen TEXT,
-                    origen TEXT
-                )
-            """))
+                tablas = {
+                    "comidas": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), dia VARCHAR(50), tipo_comida VARCHAR(100), cocineros TEXT",
+                    "lista_compra": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), objeto TEXT",
+                    "mantenimiento": "id SERIAL PRIMARY KEY, año INTEGER, mantenimiento TEXT, cadafals TEXT",
+                    "eventos": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), evento VARCHAR(200), tipo TEXT",
+                    "fiestas": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), cocineros TEXT, menu TEXT, adultos INTEGER, nombres_adultos TEXT, niños INTEGER, nombres_niños TEXT, programa TEXT",
+                    "cambios": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), tipo_cambio VARCHAR(100), descripcion TEXT, usuario VARCHAR(100)",
+                    "noticias": "id SERIAL PRIMARY KEY, fecha_scraping TIMESTAMP, titulo TEXT, link TEXT, imagen TEXT, resumen TEXT, origen TEXT",
+                    "reuniones": "id SERIAL PRIMARY KEY, fecha VARCHAR(50), temas TEXT, asistentes TEXT, estado VARCHAR(20)",
+                    "agenda": "id SERIAL PRIMARY KEY, fecha_scraping TIMESTAMP, fecha_evento TEXT, titulo TEXT, lugar TEXT, precio TEXT, link TEXT, imagen TEXT, tipo TEXT, origen TEXT"
+                }
 
-            # Reuniones
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS reuniones (
-                    id SERIAL PRIMARY KEY,
-                    fecha VARCHAR(50),
-                    temas TEXT,
-                    asistentes TEXT,
-                    estado VARCHAR(20)
-                )
-            """))
-            conn.commit()
-        
-        print("Tablas verificadas/creadas")
+                for nombre, schema in tablas.items():
+                    conn.execute(text(f"CREATE TABLE IF NOT EXISTS {nombre} ({schema})"))
+                
+                conn.commit()
+            print("✅ [DATABASE] Tablas verificadas.")
+        except Exception as e:
+            print(f"❌ [DATABASE] Error: {e}")
 
     # ==========================================
     # GESTIÓN DE NOTICIAS (NUEVOS MÉTODOS)
     # ==========================================
+    def get_agenda(self):
+        """Obtener agenda ordenada por fecha"""
+        try:
+            # Quitamos el ORDER BY de la consulta SQL por si acaso y ordenamos en Python
+            df = self.get_data('agenda')
+            return df if not df.empty else pd.DataFrame()
+        except:
+            return pd.DataFrame()
+
+    def borrar_agenda_antigua(self):
+        """Borra eventos de la agenda con más de 15 días de antigüedad"""
+        try:
+            with self.engine.connect() as conn:
+                # Cambiamos 30 días por 15 días
+                conn.execute(text("DELETE FROM agenda WHERE fecha_scraping < NOW() - INTERVAL '15 days'"))
+                conn.commit()
+            print("🧹 Agenda antigua (15 días) eliminada.")
+        except Exception as e:
+            print(f"❌ Error borrando agenda antigua: {e}")
 
     def get_noticias(self):
         """Obtener noticias ordenadas por fecha de scraping reciente"""
@@ -172,32 +123,36 @@ class DataManager:
             print(f"❌ Error borrando noticias antiguas: {e}")
 
     def guardar_noticias_nuevas(self, df_nuevas):
-        """Guarda nuevas noticias evitando duplicados por Link"""
+        if df_nuevas.empty: return [] # Devolvemos lista vacía
         try:
-            if df_nuevas.empty:
-                return False
-
-            # 1. Obtener links existentes para no duplicar
-            noticias_existentes = self.get_data('noticias')
-            links_existentes = []
-            if not noticias_existentes.empty and 'link' in noticias_existentes.columns:
-                links_existentes = noticias_existentes['link'].tolist()
-            
-            # 2. Filtrar el DF nuevo: solo las que NO estén ya en la base de datos
+            existentes = self.get_data('noticias')
+            links_existentes = existentes['link'].tolist() if not existentes.empty else []
             df_a_guardar = df_nuevas[~df_nuevas['link'].isin(links_existentes)]
             
             if not df_a_guardar.empty:
-                # 3. Usamos 'append' para añadir sin borrar lo anterior
                 df_a_guardar.to_sql('noticias', self.engine, if_exists='append', index=False)
-                print(f"💾 Guardadas {len(df_a_guardar)} noticias nuevas.")
-                return True
+                return df_a_guardar['titulo'].tolist() # DEVOLVEMOS LOS TÍTULOS
+            return []
+        except: return []
+
+    def guardar_agenda_nueva(self, df_nuevas):
+        if df_nuevas.empty: return [] # Devolvemos lista vacía
+        try:
+            existentes = self.get_data('agenda')
+            if not existentes.empty:
+                existentes['check'] = existentes['titulo'].astype(str) + existentes['fecha_evento'].astype(str)
+                df_nuevas['check'] = df_nuevas['titulo'].astype(str) + df_nuevas['fecha_evento'].astype(str)
+                df_a_guardar = df_nuevas[~df_nuevas['check'].isin(existentes['check'])].copy()
+                df_a_guardar.drop(columns=['check'], inplace=True)
             else:
-                print("👌 No hay noticias nuevas que guardar (ya existían).")
-                return False
-                
-        except Exception as e:
-            print(f"Error guardando noticias: {e}")
-            return False
+                df_a_guardar = df_nuevas
+
+            if not df_a_guardar.empty:
+                df_a_guardar.to_sql('agenda', self.engine, if_exists='append', index=False)
+                # DEVOLVEMOS LISTA DE "FECHA - TITULO"
+                return (df_a_guardar['fecha_evento'] + ": " + df_a_guardar['titulo']).tolist()
+            return []
+        except: return []
     
     # ==========================================
     # MÉTODOS ORIGINALES (mantener compatibilidad)

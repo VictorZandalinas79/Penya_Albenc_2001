@@ -85,32 +85,31 @@ def ping():
     2. En segundo plano, comprueba si hay que buscar noticias.
     """
     def tarea_background():
+        print("⏳ Forzando búsqueda para probar Telegram...")
         try:
-            # Configura aquí cada cuánto quieres buscar noticias realmente.
-            # dias=0.25 equivale a cada 6 horas aprox.
-            # dias=0.04 equivale a cada 1 hora aprox.
-            if dm.necesita_actualizar_noticias(dias=0.25): 
-                print("⏰ Cron /ping: Toca buscar noticias nuevas...")
-                df_nuevas = scrapear_diadia()
-                
-                if not df_nuevas.empty:
-                    nuevas_guardadas = dm.guardar_noticias_nuevas(df_nuevas)
-                    if nuevas_guardadas:
-                        # Opcional: Avisar por Telegram si se encontraron cosas nuevas
-                        mensaje = f"📰 *Noticias actualizadas automáticamente*\nSe han encontrado {len(df_nuevas)} noticias nuevas."
-                        enviar_notificacion_telegram(mensaje)
-                else:
-                    print("⏰ Cron /ping: No se encontraron noticias nuevas en la web.")
-            else:
-                # Si no toca actualizar, no hacemos nada (consumo 0 de recursos)
-                pass
+            import time
+            time.sleep(2) 
+            dm.borrar_noticias_antiguas()
+            dm.borrar_agenda_antigua()
+
+            if dm.necesita_actualizar_noticias(dias=0.25):
+                # 1. NOTICIAS
+                df_n = scrapear_diadia()
+                titulos_noticias = dm.guardar_noticias_nuevas(df_n)
+                if titulos_noticias:
+                    mensaje = "📰 *Noves Notícies DiaDia:*\n" + "\n".join([f"• {t}" for t in titulos_noticias])
+                    enviar_notificacion_telegram(mensaje)
+
+                # 2. AGENDA
+                from scraper import scrapear_eventos_externos
+                df_agenda = scrapear_eventos_externos()
+                eventos_nuevos = dm.guardar_agenda_nueva(df_agenda)
+                if eventos_nuevos:
+                    mensaje = "🎸 *Nous Events i Concerts:*\n" + "\n".join([f"• {e}" for e in eventos_nuevos])
+                    enviar_notificacion_telegram(mensaje)
+
         except Exception as e:
-            print(f"❌ Error en tarea background del ping: {e}")
-
-    # Lanzamos la tarea en un hilo paralelo para responder rápido al Cron Job
-    threading.Thread(target=tarea_background).start()
-
-    return 'pong - keepalive & check', 200
+            print(f"❌ Error en tarea background: {e}")
 
 @server.route('/status')
 def status():
@@ -134,33 +133,31 @@ def enviar_notificacion_telegram(mensaje):
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
     chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
-    print("--- DEBUG TELEGRAM ---")
-    print(f"Bot Token leído: {bot_token}")
-    print(f"Chat ID leído: {chat_id}")
-    print("----------------------")
-
     if not bot_token or not chat_id:
-        print("❌ ERROR: Variables de entorno de Telegram no configuradas o nulas.")
+        print("❌ ERROR: Variables de entorno no encontradas.")
         return False
 
-    try:
-        bot = Bot(token=bot_token)
-
-        async def send():
-            await bot.send_message(chat_id=chat_id, text=mensaje, parse_mode='Markdown')
-
+    async def enviar():
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(send())
-        except RuntimeError:
-            asyncio.run(send())
+            bot = Bot(token=bot_token)
+            await bot.send_message(chat_id=chat_id, text=mensaje, parse_mode='Markdown')
+            print("✅ Telegram enviado.")
+        except Exception as e:
+            print(f"❌ Error enviando a Telegram: {e}")
 
-        print("✅ Mensaje enviado a Telegram.")
-        return True
+    # Lógica para ejecutar corrutinas desde un entorno síncrono
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(enviar())
+        loop.close()
     except Exception as e:
-        print(f"❌ ERROR al enviar a Telegram: {e}")
-        return False
-
+        # Si ya hay un loop (común en local), usamos este método
+        try:
+            asyncio.run(enviar())
+        except:
+            print("❌ No se pudo crear el loop de asyncio")
+    return True
 
 def registrar_cambio(tipo_cambio, descripcion, usuario="Anónimo"):
     """Registrar un cambio en el sistema usando el data_manager."""
@@ -401,181 +398,137 @@ def create_menu_dropdown():
     )
 
 def create_home_page(cache):
-    # --- 1. PREPARACIÓN DE DATOS ---
-    
-    # Convertir listas de diccionarios a DataFrames
+    # 1. Preparación de datos
     eventos_df = pd.DataFrame(cache.get('eventos', []))
     comidas_df = pd.DataFrame(cache.get('comidas', []))
     mantenimiento_df = pd.DataFrame(cache.get('mantenimiento', []))
     noticias_df = pd.DataFrame(cache.get('noticias', [])) 
+    agenda_df = pd.DataFrame(cache.get('agenda', []))
     
-    # --- Lógica de Próximos Eventos (Combinando Eventos y Comidas) ---
+    # 2. Lógica de Próximos Eventos
     eventos_lista = []
-    
-    # Procesar eventos manuales
     if not eventos_df.empty:
-        for _, evento in eventos_df.iterrows():
-            eventos_lista.append({
-                'fecha': evento['fecha'],
-                'tipo': evento['evento'],
-                'descripcion': evento.get('tipo', '')
-            })
+        for _, ev in eventos_df.iterrows():
+            eventos_lista.append({'fecha': ev['fecha'], 'tipo': ev['evento'], 'descripcion': ev.get('tipo', '')})
     
-    # Procesar comidas como eventos
     if not comidas_df.empty:
-        for _, comida in comidas_df.iterrows():
-            dia_formateado = (comida.get('dia') or 'Comida').replace('_', ' ').title()
-            eventos_lista.append({
-                'fecha': comida['fecha'],
-                'tipo': dia_formateado,
-                'descripcion': f"({comida.get('tipo_comida', '')}) Cocinan: {comida.get('cocineros', 'N/A')}"
-            })
+        for _, com in comidas_df.iterrows():
+            dia = (com.get('dia') or 'Comida').replace('_', ' ').title()
+            eventos_lista.append({'fecha': com['fecha'], 'tipo': dia, 'descripcion': f"Cocinan: {com.get('cocineros', 'N/A')}"})
     
-    # Filtrar y ordenar eventos futuros
     proximos = pd.DataFrame()
     if eventos_lista:
-        df_eventos = pd.DataFrame(eventos_lista)
-        df_eventos['fecha_dt'] = pd.to_datetime(df_eventos['fecha'])
-        hoy = pd.Timestamp.now().normalize()
-        df_eventos = df_eventos[df_eventos['fecha_dt'] >= hoy]
-        proximos = df_eventos.sort_values('fecha_dt').head(6) # Mostramos los 6 próximos
-    
-    # --- Lógica de Mantenimiento ---
-    año_actual = datetime.now().year
-    mant_actual = mantenimiento_df[mantenimiento_df['año'] == año_actual] if not mantenimiento_df.empty else pd.DataFrame()
-    
-    # --- Lógica de Noticias (VISUALIZACIÓN CON ZOOM) ---
+        df_ev = pd.DataFrame(eventos_lista)
+        df_ev['fecha_dt'] = pd.to_datetime(df_ev['fecha'])
+        proximos = df_ev[df_ev['fecha_dt'] >= pd.Timestamp.now().normalize()].sort_values('fecha_dt').head(6)
+
+    # 3. Diseño de Noticias
     items_noticias = []
-    
-    if not noticias_df.empty:
-        # Ordenamos por fecha de scraping
-        if 'fecha_scraping' in noticias_df.columns:
-            noticias_df['fecha_dt'] = pd.to_datetime(noticias_df['fecha_scraping'])
-            noticias_df = noticias_df.sort_values('fecha_dt', ascending=False)
+    for i, row in enumerate(noticias_df.to_dict('records')):
+        items_noticias.append(dbc.Card(className="mb-3 border-0 shadow-sm", children=[
+            dbc.Row(className="g-0", children=[
+                dbc.Col(xs=4, children=[
+                    html.Div(style={"backgroundImage": f"url('{row.get('imagen')}')", "backgroundSize": "cover", "height": "80px"})
+                ]),
+                dbc.Col(xs=8, children=[
+                    dbc.CardBody([
+                        html.A(row['titulo'], href=row['link'], target="_blank", style={"fontSize": "0.85rem", "fontWeight": "bold", "color": "#2c3e50"}),
+                    ], className="p-2")
+                ])
+            ])
+        ]))
 
-        # Iteramos usando enumerate para tener un índice único 'i'
-        for i, row in enumerate(noticias_df.to_dict('records')):
-            # Imagen por defecto si falla la carga o viene vacía
-            img_src = row.get('imagen') if row.get('imagen') else '/assets/logo.png'
+    # --- 4. Lógica de AGENDA (Ordenación por Fecha y Hora) ---
+    items_agenda = []
+    if not agenda_df.empty:
+        def limpiar_fecha_orden(fecha_str):
+            if not fecha_str: return pd.Timestamp.max
+            try:
+                # 1. Limpieza básica
+                f = fecha_str.strip().lower()
+                # 2. Intentar parsear formato con hora "20/12/2025 - 12:30" o "20/12/25 - 12:30"
+                # Usamos dateutil vía pandas para que sea flexible con el año (25 vs 2025)
+                if ' - ' in f:
+                    return pd.to_datetime(f, dayfirst=True)
+                else:
+                    # 3. Si no tiene hora, le asignamos las 00:00 para que vaya al principio del día
+                    return pd.to_datetime(f, dayfirst=True).replace(hour=0, minute=0)
+            except:
+                return pd.Timestamp.max # Si falla, al final de la lista
+
+        # Aplicamos la limpieza para ordenar
+        agenda_df['f_orden'] = agenda_df['fecha_evento'].apply(limpiar_fecha_orden)
+        
+        # Filtramos eventos de ayer hacia atrás y ordenamos por fecha y hora
+        hoy = pd.Timestamp.now().normalize()
+        agenda_df = agenda_df[agenda_df['f_orden'] >= hoy].sort_values('f_orden', ascending=True)
+        
+        for row in agenda_df.to_dict('records'):
+            # Color por tipo: Concierto (Rojo), Agenda (Naranja)
+            color = "#ff4d4d" if row['tipo'] == 'concierto' else "#ffa500"
             
-            # Crear tarjeta horizontal para cada noticia
-            card_noticia = dbc.Card(className="mb-3 border-0 shadow-sm", children=[
-                dbc.Row(className="g-0", children=[
-                    # Columna Imagen (Clickable para Zoom)
-                    dbc.Col(md=4, xs=12, children=[
-                        html.Div(
-                            id={'type': 'btn-zoom-img', 'index': i}, # ID para el callback de zoom
-                            style={
-                                "backgroundImage": f"url('{img_src}')",
-                                "backgroundSize": "cover",
-                                "backgroundPosition": "center",
-                                "height": "100%",
-                                "minHeight": "160px",
-                                "cursor": "pointer",
-                                "borderTopLeftRadius": "5px",
-                                "borderBottomLeftRadius": "5px"
-                            },
-                            # Guardamos la URL en un atributo data para leerla en el callback
-                            **{'data-src': img_src}
-                        )
+            # Separar fecha y hora para diseño (si existe el separador)
+            partes_fecha = row['fecha_evento'].split(' - ')
+            solo_fecha = partes_fecha[0]
+            solo_hora = f" 🕒 {partes_fecha[1]}" if len(partes_fecha) > 1 else ""
+
+            items_agenda.append(dbc.ListGroupItem([
+                html.Div([
+                    html.Span([
+                        html.B(solo_fecha, style={"color": color}),
+                        html.Small(solo_hora, className="ms-2 text-muted fw-bold"),
                     ]),
-                    # Columna Texto
-                    dbc.Col(md=8, xs=12, children=[
-                        dbc.CardBody([
-                            html.H5(
-                                html.A(row['titulo'], href=row['link'], target="_blank", 
-                                       style={"textDecoration": "none", "color": "#2c3e50"}),
-                                className="card-title fw-bold m-0", 
-                                style={"fontSize": "1rem", "lineHeight": "1.3"}
-                            ),
-                            html.P(
-                                row['resumen'][:110] + "..." if len(row['resumen']) > 110 else row['resumen'],
-                                className="card-text text-muted small mt-2 mb-2",
-                                style={"fontSize": "0.85rem"}
-                            ),
-                            html.Div([
-                                dbc.Badge(row.get('origen', 'Web'), color="info", className="me-2"),
-                                html.Small("🔍 Click en foto para ampliar", className="text-muted fst-italic", style={"fontSize": "0.7rem"})
-                            ], className="d-flex justify-content-between align-items-center mt-1")
-                        ], className="p-3")
-                    ])
-                ])
-            ])
-            items_noticias.append(card_noticia)
-    else:
-        items_noticias.append(
-            html.Div([
-                html.P("📭 Buscando noticias recientes...", className="text-center text-muted mt-3"),
-                # CORRECCIÓN AQUÍ: Envolvemos el Spinner en un Div para usar className
+                    dbc.Badge(row['origen'], color="light", text_color="dark", className="small border"),
+                ], className="d-flex justify-content-between align-items-center"),
+                
+                html.Div(row['titulo'], style={"fontWeight": "800", "marginTop": "8px", "fontSize": "1rem"}),
+                html.Div([
+                    html.Span("📍 ", style={"filter": "grayscale(1)"}),
+                    html.Span(row['lugar'], className="small text-muted")
+                ], className="mt-1"),
+                
                 html.Div(
-                    dbc.Spinner(color="primary", size="sm"), 
-                    className="d-flex justify-content-center mb-2"
-                ),
-                html.Small("El sistema actualiza cada 3 días.", className="d-block text-center text-muted")
-            ])
-        )
+                    html.A("🔗 Més informació i entrades", href=row['link'], target="_blank", 
+                           className="btn-link small mt-2 d-inline-block", 
+                           style={"color": color, "textDecoration": "none", "fontWeight": "600"}),
+                    className="text-end"
+                )
+            ], className="border-start border-4 mb-3 shadow-sm bg-white", 
+               style={"borderLeftColor": f"{color} !important", "borderRadius": "8px"}))
 
-    # --- 2. CONSTRUCCIÓN DEL LAYOUT ---
+    # 5. Construcción final
+    año_actual = datetime.now().year
     return dbc.Container([
-        # 1. Logo
-        html.Div(className="text-center mb-4", children=[
-            html.Img(src='/assets/logo2.png', style={'height': '120px', 'filter': 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))'})
-        ]),
+        html.Div(className="text-center mb-4", children=[html.Img(src='/assets/logo2.png', style={'height': '80px'})]),
         
-        # 2. Tarjeta de Mantenimiento
-        dbc.Card(className="mb-4 glass-container", children=[
-            dbc.CardHeader(html.H4(f"🔧 Mantenimiento {año_actual}", className="m-0 fw-bold")),
-            dbc.CardBody([
-                html.P(f"Mantenimiento: {mant_actual.iloc[0]['mantenimiento'] if not mant_actual.empty else 'Sin datos'}"),
-                html.P(f"Cadafals: {mant_actual.iloc[0]['cadafals'] if not mant_actual.empty else 'Sin datos'}", className="mb-0"),
-            ])
-        ]),
-        
-        # 3. Fila Principal: Eventos (Izq) vs Noticias (Der)
         dbc.Row([
-            # COLUMNA IZQUIERDA: Próximos Eventos
             dbc.Col(md=6, children=[
                 dbc.Card(className="mb-4 glass-container", children=[
-                    dbc.CardHeader(html.H4("📅 Próximos Eventos", className="m-0 fw-bold")),
-                    dbc.ListGroup(
-                        [
-                            dbc.ListGroupItem(
-                                html.Div(className="d-flex w-100 align-items-center", children=[
-                                    html.Div("📅", className="me-3 fs-4 text-primary"),
-                                    html.Div([
-                                        html.H6(row['tipo'], className="mb-1 fw-bold"),
-                                        html.P(row['descripcion'], className="mb-1 text-muted small"),
-                                        html.Small(f"Fecha: {datetime.strptime(row['fecha'], '%Y-%m-%d').strftime('%d/%m/%Y')}", className="text-muted"),
-                                    ]),
-                                ]),
-                                action=True
-                            ) for _, row in proximos.iterrows()
-                        ] if not proximos.empty else [dbc.ListGroupItem("No hay eventos próximos.", className="text-muted")],
-                        flush=True
-                    )
+                    dbc.CardHeader(html.H4("📅 Penya: Pròxims Events", className="m-0")),
+                    dbc.ListGroup([
+                        dbc.ListGroupItem([
+                            html.H6(row['tipo'], className="mb-0 fw-bold"),
+                            html.Small(f"{row['fecha']} - {row['descripcion']}")
+                        ]) for _, row in proximos.iterrows()
+                    ] if not proximos.empty else [dbc.ListGroupItem("No hay eventos")], flush=True)
                 ])
             ]),
-            
-            # COLUMNA DERECHA: Noticias Filtradas
             dbc.Col(md=6, children=[
                 dbc.Card(className="mb-4 glass-container", children=[
-                    dbc.CardHeader(html.Div([
-                        html.H4("📰 Noticias Destacadas", className="m-0 fw-bold"),
-                        html.Small("Festa, Toros, Eventos...", className="text-white-50")
-                    ], className="d-flex justify-content-between align-items-center")),
-                    
-                    dbc.CardBody(
-                        items_noticias,
-                        style={
-                            "maxHeight": "600px", # Altura máxima fija
-                            "overflowY": "auto",  # Scroll si hay muchas noticias
-                            "padding": "10px",
-                            "backgroundColor": "#f8f9fa"
-                        }
-                    )
+                    dbc.CardHeader(html.H4("📰 Notícies DiaDia", className="m-0")),
+                    dbc.CardBody(items_noticias, style={"maxHeight": "300px", "overflowY": "auto"})
                 ])
             ]),
         ]),
+
+        dbc.Row([
+            dbc.Col(width=12, children=[
+                dbc.Card(className="mb-4 glass-container", children=[
+                    dbc.CardHeader(html.H4("🎸 Conciertos y Agenda Castellón", className="m-0")),
+                    dbc.CardBody(items_agenda, style={"maxHeight": "500px", "overflowY": "auto"})
+                ])
+            ])
+        ])
     ])
 
 def create_reuniones_page(cache):
@@ -901,141 +854,146 @@ def marcar_reunion_eliminar(n_clicks):
 # =============================================
 # ===== CALLBACK DE CARGA INICIAL OPTIMIZADA =====
 # =============================================
-# 
-# OPTIMIZACIONES IMPLEMENTADAS:
-# 1. Solo carga comidas del año actual (no históricas)
-# 2. Solo carga próximos 20 eventos (no pasados)
-# 3. Solo últimos 15 cambios (no todo el historial)
-# 4. Usa consultas SQL filtradas (más rápido que cargar todo)
-# 5. Reduce tiempo de carga de 5-10s a 1-2s ⚡
-#
-# Si necesitas MÁS datos en alguna página específica:
-# - Puedes usar dm.get_data('tabla') para cargar TODO
-# - O crear callbacks lazy que carguen al visitar esa página
-#     
+# --- 1. CARGA INICIAL (Corregido: ahora devuelve 11 elementos) ---
 @app.callback(
-        [Output('store-comidas', 'data'),
-        Output('store-eventos', 'data'),
-        Output('store-fiestas', 'data'),
-        Output('store-lista-compra', 'data'),
-        Output('store-cambios', 'data'),
-        Output('store-reuniones', 'data'),
-        Output('store-mantenimiento', 'data'),
-        Output('loading-overlay', 'className'),
-        Output('store-data-loaded-signal', 'data'),
-        Output('store-noticias', 'data')], # <--- Este es el output nº 10
-        Input('url', 'pathname'),
-        prevent_initial_call=False
-    )
-
+    [Output('store-comidas', 'data'),
+    Output('store-eventos', 'data'),
+    Output('store-fiestas', 'data'),
+    Output('store-lista-compra', 'data'),
+    Output('store-cambios', 'data'),
+    Output('store-reuniones', 'data'),
+    Output('store-mantenimiento', 'data'),
+    Output('loading-overlay', 'className'),
+    Output('store-data-loaded-signal', 'data'),
+    Output('store-noticias', 'data'),
+    Output('store-agenda', 'data')], # <--- 11 Salidas
+    Input('url', 'pathname'),
+    prevent_initial_call=False
+)
 def cargar_datos_iniciales(pathname):
     print("🔄 Iniciando carga OPTIMIZADA de datos...")
     
-    # Lógica de scraping y LIMPIEZA en segundo plano
     def ejecutar_scraping_background():
-        print("🕵️ Gestionando noticias en segundo plano...")
-        
-        # 1. Limpieza Mensual
+        print("🕵️ Gestionando noticias y agenda en segundo plano...")
         dm.borrar_noticias_antiguas()
-        
-        # 2. Scraping si hace falta (cada 3 días)
-        if dm.necesita_actualizar_noticias(dias=1):
-            print("⏳ Buscando noticias nuevas...")
+        if dm.necesita_actualizar_noticias(dias=0.25):
+            # Scraping Noticias
             df_nuevas = scrapear_diadia()
-            if not df_nuevas.empty:
-                dm.guardar_noticias_nuevas(df_nuevas)
-            else:
-                print("⚠️ No se encontraron noticias nuevas.")
+            if not df_nuevas.empty: dm.guardar_noticias_nuevas(df_nuevas)
+            # Scraping Agenda
+            from scraper import scrapear_eventos_externos
+            df_agenda = scrapear_eventos_externos()
+            if not df_agenda.empty: dm.guardar_agenda_nueva(df_agenda)
         else:
-            print("👌 Noticias actualizadas.")
+            print("👌 Datos actualizados.")
 
     threading.Thread(target=ejecutar_scraping_background).start()
     
     try:
-
-        print("📊 Cargando comidas recientes...")
         comidas = dm.get_comidas_recientes(limit=50).to_dict('records')
-            
-        print("📅 Cargando eventos próximos...")
         eventos = dm.get_eventos_proximos(limit=20).to_dict('records')
-            
-        print("🎉 Cargando fiestas...")
         fiestas = dm.get_fiestas_agosto().to_dict('records')
-            
-        print("🛒 Cargando lista compra...")
         lista_compra = dm.get_lista_compra_activa().to_dict('records')
-            
-        print("🔔 Cargando últimos cambios...")
         cambios = dm.get_cambios_recientes(limit=15).to_dict('records')
-            
-        print("🤝 Cargando reuniones recientes...")
         reuniones = dm.get_reuniones_recientes(limit=20).to_dict('records')
-            
-        print("🔧 Cargando mantenimiento actual...")
         mantenimiento = dm.get_data('mantenimiento').to_dict('records')
-
         print("📰 Cargando noticias...")
-        noticias_df = dm.get_noticias()
-        # Convertir a dict
-        noticias = noticias_df.to_dict('records') if not noticias_df.empty else []
+        noticias = dm.get_noticias().to_dict('records')
+
+        print("🎸 Cargando agenda...")
+        try:
+            agenda_df = dm.get_agenda()
+            agenda = agenda_df.to_dict('records') if not agenda_df.empty else []
+        except Exception as e:
+            print(f"⚠️ Agenda aún no disponible: {e}")
+            agenda = []
             
         print("✨ ¡Datos cargados! Ocultando overlay...")
-            
-        # --- CORRECCIÓN AQUÍ: AÑADIR 'noticias' AL FINAL ---
-        return (
-            comidas, 
-            eventos, 
-            fiestas, 
-            lista_compra, 
-            cambios, 
-            reuniones, 
-            mantenimiento, 
-            'loading-overlay hidden', 
-            1, 
-            noticias  # <--- FALTABA ESTO
-        )
+        # DEVOLVEMOS LOS 11 ELEMENTOS
+        return (comidas, eventos, fiestas, lista_compra, cambios, reuniones, 
+                mantenimiento, 'loading-overlay hidden', 1, noticias, agenda)
         
     except Exception as e:
-        print(f"❌ ERROR FATAL cargando datos: {e}")
-        import traceback
-        print(traceback.format_exc())
-            
-        # --- CORRECCIÓN AQUÍ TAMBIÉN: AÑADIR UN ARRAY VACÍO AL FINAL ---
-        return [], [], [], [], [], [], [], 'loading-overlay hidden', None, []
+        print(f"❌ ERROR FATAL: {e}")
+        # DEVOLVEMOS 11 ELEMENTOS VACÍOS EN CASO DE ERROR
+        return [], [], [], [], [], [], [], 'loading-overlay hidden', None, [], []
+
+# --- 2. ROUTER PRINCIPAL (Añadido Input de Agenda) ---
+@app.callback(
+    Output('page-content', 'children', allow_duplicate=True), # <--- AÑADIR allow_duplicate=True
+    [Input('store-data-loaded-signal', 'data'),
+     Input('store-noticias', 'data'),
+     Input('store-agenda', 'data')], 
+    [State('url', 'pathname'),
+     State('store-comidas', 'data'),
+     State('store-eventos', 'data'),
+     State('store-fiestas', 'data'),
+     State('store-mantenimiento', 'data'),
+     State('store-lista-compra', 'data'),
+     State('store-cambios', 'data'),
+     State('store-reuniones', 'data')],
+    prevent_initial_call=True # <--- OBLIGATORIO cuando se usa allow_duplicate
+)
+def display_page(signal, noticias, agenda, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones):
+    # El resto de la función se queda exactamente igual a como la tienes...
+    if signal is None: 
+        return html.Div("Cargando...", style={"text-align": "center", "padding": "50px"})
+    
+    cache = {
+        'comidas': comidas or [],
+        'eventos': eventos or [],
+        'fiestas': fiestas or [],
+        'mantenimiento': mant or [],
+        'lista_compra': lista or [],
+        'cambios': cambios or [],
+        'reuniones': reuniones or [],
+        'noticias': noticias or [],
+        'agenda': agenda or []
+    }
+    
+    if pathname == '/' or pathname == '/dashboard':
+        return create_home_page(cache)
+    elif pathname == '/comidas': return create_comidas_page(cache)
+    elif pathname == '/lista-compra': return create_lista_compra_page(cache)
+    elif pathname == '/eventos': return create_eventos_page(cache)
+    elif pathname == '/fiestas': return create_fiestas_page(cache)
+    elif pathname == '/mantenimiento': return create_mantenimiento_page(cache)
+    elif pathname == '/reuniones': return create_reuniones_page(cache)
+    else: return html.H3('404 - No encontrado')
 
 @app.callback(
     [Output('store-noticias', 'data', allow_duplicate=True),
+     Output('store-agenda', 'data', allow_duplicate=True),
      Output('interval-check-noticias', 'disabled')],
     [Input('interval-check-noticias', 'n_intervals')],
-    [State('store-noticias', 'data')],
+    [State('store-noticias', 'data'),
+     State('store-agenda', 'data')],
     prevent_initial_call=True
 )
-def verificar_llegada_noticias(n, noticias_actuales):
-    """
-    Este proceso se ejecuta cada 4 segundos.
-    Revisa si ya hay noticias en la base de datos.
-    Si las encuentra, actualiza la web y detiene el reloj.
-    """
-    if n > 5: # Si tras 20 segundos (5 intentos) no hay nada, paramos para no saturar
-        return dash.no_update, True
+def verificar_llegada_noticias(n, noticias_actuales, agenda_actual):
+    # Si después de 15 intentos (1 minuto) no hay nada, paramos para no saturar
+    if n > 15: return dash.no_update, dash.no_update, True
 
     try:
-        # Consultamos la base de datos
         noticias_df = dm.get_noticias()
+        agenda_df = dm.get_agenda()
         
-        # Si la base de datos tiene noticias...
-        if not noticias_df.empty:
-            nuevas_noticias = noticias_df.to_dict('records')
-            
-            # Si lo que tenemos en pantalla está vacío o es diferente a la DB, actualizamos
-            if not noticias_actuales or len(nuevas_noticias) != len(noticias_actuales):
-                print(f"✅ ¡Noticias encontradas! Actualizando vista ({len(nuevas_noticias)} items)")
-                return nuevas_noticias, True # Actualiza datos y DESACTIVA el intervalo (True)
-    except Exception as e:
-        print(f"Error revisando noticias: {e}")
+        noticias_data = noticias_df.to_dict('records') if not noticias_df.empty else []
+        agenda_data = agenda_df.to_dict('records') if not agenda_df.empty else []
 
-    # Si aún no hay noticias, no hacemos nada (dash.no_update) y seguimos buscando (False)
-    return dash.no_update, False
+        # CAMBIO CLAVE: Comparamos si la base de datos tiene MÁS datos de los que hay ahora en pantalla
+        hay_novedades_noticias = len(noticias_data) != len(noticias_actuales or [])
+        hay_novedades_agenda = len(agenda_data) != len(agenda_actual or [])
+
+        if hay_novedades_noticias or hay_novedades_agenda:
+            print(f"🔔 [REFRESCO] ¡Novedades detectadas! Actualizando interfaz...")
+            # Devolvemos los datos y NO desactivamos el intervalo aún por si entran más
+            return noticias_data, agenda_data, False
+            
+    except Exception as e:
+        print(f"Error en refresco: {e}")
+        
+    return dash.no_update, dash.no_update, False
     
 
 # =============================================
@@ -1416,6 +1374,7 @@ def eliminar_evento_confirmado(submit, evento_id, pathname, comidas, eventos, fi
         eventos_df = eventos_df[eventos_df['id'] != evento_id]
         dm.save_data('eventos', eventos_df)
         registrar_cambio('Eventos', f'Evento ID {evento_id} eliminado')
+        enviar_notificacion_telegram(f"🗑️ *Event eliminat:* S'ha borrat l'event ID {evento_id}")
         
         cache = {
             'comidas': comidas or [], 'eventos': eventos_df.to_dict('records'), 'fiestas': fiestas or [],
@@ -1988,35 +1947,46 @@ def abrir_modal_editar_item(n_editar, n_cancelar, lista):
      State('store-eventos', 'data'),
      State('store-fiestas', 'data'),
      State('store-mantenimiento', 'data'),
-     State('store-cambios', 'data')],
+     State('store-cambios', 'data'),
+     State('store-noticias', 'data'), # <--- Importante mantenerlos en el cache
+     State('store-agenda', 'data')],   # <--- Importante mantenerlos en el cache
     prevent_initial_call=True
 )
-def guardar_edicion_item(n_clicks, item_id, nuevo_objeto, nueva_fecha, lista, comidas, eventos, fiestas, mant, cambios):
+def guardar_edicion_item(n_clicks, item_id, nuevo_objeto, nueva_fecha, lista, comidas, eventos, fiestas, mant, cambios, noticias, agenda):
     if not n_clicks or not item_id:
         raise PreventUpdate
     
-    # Actualizar en base de datos
+    # 1. Actualizar en base de datos
     lista_df = dm.get_data('lista_compra')
     idx = lista_df.index[lista_df['id'] == item_id].tolist()
+    
     if idx:
         lista_df.loc[idx[0], 'objeto'] = nuevo_objeto
         lista_df.loc[idx[0], 'fecha'] = nueva_fecha
         dm.save_data('lista_compra', lista_df)
+        
+        # 2. Registro histórico interno
         registrar_cambio('Lista', f'Item editado: {nuevo_objeto}')
         
-        # Enviar Telegram
-        enviar_notificacion_telegram(f"✏️ *Item editat:* {nuevo_objeto}")
+        # 3. Notificación única a Telegram
+        mensaje_telegram = f"🛒 *Llista de la compra modificada*\nS'ha editat l'item: *{nuevo_objeto}*\nNova data prevista: {nueva_fecha}"
+        enviar_notificacion_telegram(mensaje_telegram)
     
-    # Reconstruir página con cache actualizado
-    cache = {
+    # 4. Reconstruir el objeto cache para la función de la página
+    # Esto evita que los componentes pierdan datos al refrescar la vista
+    cache_actualizado = {
         'comidas': comidas or [],
         'eventos': eventos or [],
         'fiestas': fiestas or [],
         'mantenimiento': mant or [],
         'lista_compra': lista_df.to_dict('records'),
-        'cambios': cambios or []
+        'cambios': cambios or [],
+        'noticias': noticias or [],
+        'agenda': agenda or []
     }
-    return create_lista_compra_page(cache), False
+    
+    # 5. Retornar la página de lista de compra actualizada y cerrar el modal
+    return create_lista_compra_page(cache_actualizado), False
 
 # Callback para abrir modal de editar evento
 @app.callback(
@@ -2084,6 +2054,7 @@ def guardar_edicion_evento(n_clicks, evento_id, nuevo_nombre, nuevo_tipo, nueva_
         eventos_df.loc[idx[0], 'tipo'] = nuevo_tipo
         eventos_df.loc[idx[0], 'fecha'] = nueva_fecha
         dm.save_data('eventos', eventos_df)
+        
         registrar_cambio('Eventos', f'Evento editado: {nuevo_nombre}')
         
         # Enviar Telegram
@@ -2169,8 +2140,10 @@ def manejar_guardado_fiesta(n_guardar, n_confirm, fecha, menu, adultos, niños):
 
             dm.save_data('fiestas', fiestas_df)
             registrar_cambio('Fiestas', f'Actualizado día {fecha}')
+            enviar_notificacion_telegram(f"🎉 *Fiestas Agosto:* S'han actualitzat les dades (menú/assistents) del dia *{fecha}*")
             return False, f"✅ Día {fecha} actualizado exitosamente!", generar_tarjetas_fiestas()
         except Exception as e:
+            enviar_notificacion_telegram(f"🎉 *Fiestas Agosto:* S'ha actualitzat el menú/asistents del dia *{fecha}*")
             return False, f"❌ Error al guardar: {e}", generar_tarjetas_fiestas()
             
     raise PreventUpdate
@@ -2215,6 +2188,7 @@ app.layout = html.Div([
     dcc.Store(id='store-reuniones', data=None, storage_type='session'),
     dcc.Store(id='store-data-loaded-signal'),
     dcc.Store(id='store-noticias', data=None, storage_type='session'),
+    dcc.Store(id='store-agenda', data=None, storage_type='session'),
     dcc.Interval(id='interval-check-noticias', interval=4000, n_intervals=0),
 
     dbc.Modal(
