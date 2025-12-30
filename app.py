@@ -80,12 +80,12 @@ def health_check():
 @server.route('/ping')
 def ping():
     """
-    Endpoint doble propósito:
-    1. Responde 'pong' para que cron-job.org sepa que el servidor está vivo.
-    2. En segundo plano, comprueba si hay que buscar noticias.
+    Endpoint corregido:
+    1. Responde 'pong' para que Render y UptimeRobot vean que está vivo.
+    2. Ejecuta el scraping en un hilo aparte para no bloquear nada.
     """
     def tarea_background():
-        print("⏳ Forzando búsqueda para probar Telegram...")
+        print("⏳ Ejecutando limpieza y scraping desde PING...")
         try:
             import time
             time.sleep(2) 
@@ -107,9 +107,13 @@ def ping():
                 if eventos_nuevos:
                     mensaje = "🎸 *Nous Events i Concerts:*\n" + "\n".join([f"• {e}" for e in eventos_nuevos])
                     enviar_notificacion_telegram(mensaje)
-
         except Exception as e:
             print(f"❌ Error en tarea background: {e}")
+
+    # --- ESTAS DOS LÍNEAS SON LAS QUE FALTABAN ---
+    threading.Thread(target=tarea_background).start()
+    return "pong", 200 
+    # ---------------------------------------------
 
 @server.route('/status')
 def status():
@@ -1241,56 +1245,7 @@ def guardar_reunion(n_clicks, fecha, temas, asistentes, pathname, comidas, event
     
     return create_reuniones_page(cache), dbc.Alert("✅ Reunión guardada", color="success", duration=3000)
 
-# ---- Router Principal ----
-# ---- Router Principal ----
-@app.callback(
-    Output('page-content', 'children'),
-    [Input('store-data-loaded-signal', 'data'),
-     Input('store-noticias', 'data')], # <--- Input 2 (Noticias)
-    [State('url', 'pathname'),
-     State('store-comidas', 'data'),
-     State('store-eventos', 'data'),
-     State('store-fiestas', 'data'),
-     State('store-mantenimiento', 'data'),
-     State('store-lista-compra', 'data'),
-     State('store-cambios', 'data'),
-     State('store-reuniones', 'data')]
-)
-def display_page(signal, noticias, pathname, comidas, eventos, fiestas, mant, lista, cambios, reuniones): 
-    # CORRECCIÓN: Se ha añadido 'noticias' como segundo argumento para coincidir con los Inputs
-    
-    if signal is None: 
-        return html.Div("Error al cargar los datos. Refresca la página.", style={"text-align": "center", "padding": "50px", "color": "red"})
-    
-    # Crear cache con todos los datos
-    cache = {
-        'comidas': comidas or [],
-        'eventos': eventos or [],
-        'fiestas': fiestas or [],
-        'mantenimiento': mant or [],
-        'lista_compra': lista or [],
-        'cambios': cambios or [],
-        'reuniones': reuniones or [],
-        'noticias': noticias or [] # <--- Añadimos las noticias al caché
-    }
-    
-    if pathname == '/' or pathname == '/dashboard':
-        return create_home_page(cache)
-    elif pathname == '/comidas':
-        return create_comidas_page(cache)
-    elif pathname == '/lista-compra':
-        return create_lista_compra_page(cache)
-    elif pathname == '/eventos':
-        return create_eventos_page(cache)
-    elif pathname == '/fiestas':
-        return create_fiestas_page(cache)
-    elif pathname == '/mantenimiento':
-        return create_mantenimiento_page(cache)
-    elif pathname == '/reuniones':
-        return create_reuniones_page(cache)
-    else:
-        return html.H3('404 - Página no encontrada', style={'textAlign': 'center', 'marginTop': '50px'})
-
+# ---- Router Principal ---
 # ---- Callbacks de Fiestas (Página Interactiva) ----
 
 @app.callback(
