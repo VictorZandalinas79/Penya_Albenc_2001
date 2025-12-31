@@ -16,7 +16,6 @@ from data_manager import dm
 import os
 from datetime import datetime, date, timedelta
 import calendar
-import dash_bootstrap_components as dbc
 from dash import ALL, callback_context, dash_table, dcc, html
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -408,6 +407,14 @@ def create_home_page(cache):
     mantenimiento_df = pd.DataFrame(cache.get('mantenimiento', []))
     noticias_df = pd.DataFrame(cache.get('noticias', [])) 
     agenda_df = pd.DataFrame(cache.get('agenda', []))
+
+    # Obtener mantenimiento del año actual
+    año_actual = datetime.now().year
+    mant_actual = None
+    if not mantenimiento_df.empty:
+        mant_año = mantenimiento_df[mantenimiento_df['año'] == año_actual]
+        if not mant_año.empty:
+            mant_actual = mant_año.iloc[0]
     
     # 2. Lógica de Próximos Eventos
     eventos_lista = []
@@ -501,9 +508,50 @@ def create_home_page(cache):
                style={"borderLeftColor": f"{color} !important", "borderRadius": "8px"}))
 
     # 5. Construcción final
-    año_actual = datetime.now().year
     return dbc.Container([
-        html.Div(className="text-center mb-4", children=[html.Img(src='/assets/logo2.png', style={'height': '80px'})]),
+        # Cabecera: Logo izquierda + Mantenimiento derecha
+        dbc.Row(className="align-items-center mb-4 p-3", children=[
+            # Logo a la izquierda
+            dbc.Col(xs=4, md=3, className="text-center text-md-start", children=[
+                html.Img(src='/assets/logo2.png', style={'height': '80px'})
+            ]),
+            
+            # Mantenimiento a la derecha
+            dbc.Col(xs=8, md=9, children=[
+                dbc.Card(className="border-0 shadow-sm", style={"background": "linear-gradient(135deg, #667eea15 0%, #764ba215 100%)"}, children=[
+                    dbc.CardBody(className="py-2 px-3", children=[
+                        html.Div(className="d-flex flex-wrap align-items-center gap-3", children=[
+                            # Mantenimiento
+                            html.Div(className="d-flex align-items-center gap-2", children=[
+                                html.Span("🔧", style={"fontSize": "1.3rem"}),
+                                html.Div([
+                                    html.Small(f"Manteniment {año_actual}", className="text-muted d-block", style={"fontSize": "0.7rem"}),
+                                    html.Strong(
+                                        mant_actual['mantenimiento'] if mant_actual is not None else "No assignat",
+                                        style={"color": "#667eea", "fontSize": "0.95rem"}
+                                    ),
+                                ]),
+                            ]),
+                            
+                            # Separador vertical (oculto en móvil)
+                            html.Div(className="d-none d-md-block", style={"borderLeft": "2px solid #ddd", "height": "35px"}),
+                            
+                            # Cadafals
+                            html.Div(className="d-flex align-items-center gap-2", children=[
+                                html.Span("🏗️", style={"fontSize": "1.3rem"}),
+                                html.Div([
+                                    html.Small("Cadafals", className="text-muted d-block", style={"fontSize": "0.7rem"}),
+                                    html.Strong(
+                                        mant_actual['cadafals'] if mant_actual is not None else "No assignat",
+                                        style={"color": "#764ba2", "fontSize": "0.95rem"}
+                                    ),
+                                ]),
+                            ]),
+                        ])
+                    ])
+                ]) if mant_actual is not None else dbc.Alert(f"⚠️ No hi ha manteniment assignat per a {año_actual}", color="warning", className="mb-0 py-2")
+            ]),
+        ]),
         
         dbc.Row([
             dbc.Col(md=6, children=[
@@ -528,7 +576,7 @@ def create_home_page(cache):
         dbc.Row([
             dbc.Col(width=12, children=[
                 dbc.Card(className="mb-4 glass-container", children=[
-                    dbc.CardHeader(html.H4("🎸 Conciertos y Agenda Castellón", className="m-0")),
+                    dbc.CardHeader(html.H4("🎸 Concerts i Agenda Castello", className="m-0")),
                     dbc.CardBody(items_agenda, style={"maxHeight": "500px", "overflowY": "auto"})
                 ])
             ])
@@ -1270,30 +1318,6 @@ def cargar_datos_fiesta(fecha_seleccionada):
     adultos = [n.strip() for n in nombres_adultos_str.split(',') if n.strip()]
     niños = [n.strip() for n in nombres_niños_str.split(',') if n.strip()]
     
-    # --- ESTA ES LA FUNCIÓN CORREGIDA ---
-    def crear_lista_visual_moderna(nombres, tipo, emoji):
-        if not nombres:
-            return [html.P("Sin comensales", className="text-muted fst-italic m-2")]
-        
-        return [
-            html.Div([
-                f"{emoji} {nombre}",
-                dbc.Button("❌", 
-                           id={'type': 'btn-eliminar-comensal', 'index': i, 'nombre': nombre, 'categoria': tipo},
-                           size="sm", color="danger", outline=True, className="ms-auto")
-            ], className="d-flex align-items-center p-1 border-bottom")
-            for i, nombre in enumerate(nombres)
-        ]
-
-    return (
-        dia.get('menu', ''), 
-        adultos, 
-        niños, 
-        crear_lista_visual_moderna(adultos, 'adulto', '👤'), 
-        crear_lista_visual_moderna(niños, 'niño', '👶'), 
-        f"({len(adultos)})", 
-        f"({len(niños)})"
-    )
 
 # EVENTOS - Guardar ID y mostrar confirm
 @app.callback(
@@ -1813,9 +1837,7 @@ def actualizar_lista_comidas(año):
 def agregar_adulto(n_clicks, nombre, lista_actual):
     if not nombre or not nombre.strip(): raise PreventUpdate
     nueva_lista = lista_actual + [nombre.strip()]
-    def crear_lista_visual(nombres, tipo):
-        return [html.Div([f"👤 {nombre}", html.Button("❌", id={'type': 'btn-eliminar-comensal', 'index': i, 'nombre': nombre, 'categoria': tipo})]) for i, nombre in enumerate(nombres)]
-    return nueva_lista, crear_lista_visual(nueva_lista, 'adulto'), f"({len(nueva_lista)})", ""
+    return nueva_lista, crear_lista_visual(nueva_lista, 'adulto', '👤'), f"({len(nueva_lista)})", ""
 
 @app.callback(
     [Output('store-comensales-niños', 'data', allow_duplicate=True), Output('lista-niños-visual', 'children', allow_duplicate=True),
@@ -1827,9 +1849,7 @@ def agregar_adulto(n_clicks, nombre, lista_actual):
 def agregar_niño(n_clicks, nombre, lista_actual):
     if not nombre or not nombre.strip(): raise PreventUpdate
     nueva_lista = lista_actual + [nombre.strip()]
-    def crear_lista_visual(nombres, tipo):
-        return [html.Div([f"👶 {nombre}", html.Button("❌", id={'type': 'btn-eliminar-comensal', 'index': i, 'nombre': nombre, 'categoria': tipo})]) for i, nombre in enumerate(nombres)]
-    return nueva_lista, crear_lista_visual(nueva_lista, 'niño'), f"({len(nueva_lista)})", ""
+    return nueva_lista, crear_lista_visual(nueva_lista, 'niño', '👶'), f"({len(nueva_lista)})", ""
 
 # ---- Callback para el menú desplegable moderno ----
 @app.callback(
@@ -2054,9 +2074,6 @@ def eliminar_comensal(n_clicks, adultos, niños):
     if categoria == 'adulto' and nombre_a_eliminar in adultos: adultos.remove(nombre_a_eliminar)
     if categoria == 'niño' and nombre_a_eliminar in niños: niños.remove(nombre_a_eliminar)
 
-    def crear_lista_visual(nombres, tipo, emoji):
-        return [html.Div([f"{emoji} {nombre}", html.Button("❌", id={'type': 'btn-eliminar-comensal', 'index': i, 'nombre': nombre, 'categoria': tipo})]) for i, nombre in enumerate(nombres)]
-        
     return adultos, niños, crear_lista_visual(adultos, 'adulto', '👤'), crear_lista_visual(niños, 'niño', '👶'), f"({len(adultos)})", f"({len(niños)})"
 
 @app.callback(
