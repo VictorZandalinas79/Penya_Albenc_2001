@@ -29,6 +29,13 @@ from reportlab.lib.units import inch
 from dotenv import load_dotenv
 load_dotenv()
 
+# Control de scraping para evitar ejecuciones simultáneas
+_scraping_in_progress = False
+_last_scraping_time = None
+
+# Control de resumen mensual (día 1 de cada mes)
+_ultimo_resumen_mensual = None
+
 
 
 
@@ -87,25 +94,22 @@ def ping():
         print("⏳ Ejecutando limpieza y scraping desde PING...")
         try:
             import time
-            time.sleep(2) 
+            time.sleep(2)
             dm.borrar_noticias_antiguas()
             dm.borrar_agenda_antigua()
 
-            if dm.necesita_actualizar_noticias(dias=0.25):
-                # 1. NOTICIAS
-                df_n = scrapear_diadia()
-                titulos_noticias = dm.guardar_noticias_nuevas(df_n)
-                if titulos_noticias:
-                    mensaje = "📰 *Noves Notícies DiaDia:*\n" + "\n".join([f"• {t}" for t in titulos_noticias])
-                    enviar_notificacion_telegram(mensaje)
+            # Verificar si es día 1 para enviar resumen mensual
+            enviar_resumen_mensual()
 
-                # 2. AGENDA
+            if dm.necesita_actualizar_noticias(dias=0.25):
+                # 1. NOTICIAS (sin notificación Telegram)
+                df_n = scrapear_diadia()
+                dm.guardar_noticias_nuevas(df_n)
+
+                # 2. AGENDA (sin notificación Telegram)
                 from scraper import scrapear_eventos_externos
                 df_agenda = scrapear_eventos_externos()
-                eventos_nuevos = dm.guardar_agenda_nueva(df_agenda)
-                if eventos_nuevos:
-                    mensaje = "🎸 *Nous Events i Concerts:*\n" + "\n".join([f"• {e}" for e in eventos_nuevos])
-                    enviar_notificacion_telegram(mensaje)
+                dm.guardar_agenda_nueva(df_agenda)
         except Exception as e:
             print(f"❌ Error en tarea background: {e}")
 
@@ -161,6 +165,100 @@ def enviar_notificacion_telegram(mensaje):
         except:
             print("❌ No se pudo crear el loop de asyncio")
     return True
+
+def enviar_resumen_mensual():
+    """Genera y envía el resumen mensual por Telegram (eventos, comidas, lista compra)"""
+    global _ultimo_resumen_mensual
+
+    hoy = date.today()
+
+    # Solo enviar el día 1 y si no se ha enviado este mes
+    if hoy.day != 1:
+        return False
+
+    if _ultimo_resumen_mensual and _ultimo_resumen_mensual.month == hoy.month and _ultimo_resumen_mensual.year == hoy.year:
+        print("📅 Resumen mensual ya enviado este mes")
+        return False
+
+    try:
+        # Obtener nombre del mes en catalán
+        meses_catalan = ['Gener', 'Febrer', 'Març', 'Abril', 'Maig', 'Juny',
+                         'Juliol', 'Agost', 'Setembre', 'Octubre', 'Novembre', 'Desembre']
+        mes_nombre = meses_catalan[hoy.month - 1]
+
+        mensaje = f"📆 *RESUM MENSUAL - {mes_nombre} {hoy.year}*\n"
+        mensaje += "=" * 30 + "\n\n"
+
+        # 1. EVENTOS del mes
+        eventos_df = dm.get_eventos_proximos(limit=50)
+        if not eventos_df.empty:
+            eventos_mes = []
+            for _, evento in eventos_df.iterrows():
+                try:
+                    fecha_evento = pd.to_datetime(evento.get('fecha', ''), dayfirst=True)
+                    if fecha_evento.month == hoy.month and fecha_evento.year == hoy.year:
+                        nombre = evento.get('nombre', 'Sense nom')
+                        fecha_str = fecha_evento.strftime('%d/%m')
+                        eventos_mes.append(f"  • {fecha_str}: {nombre}")
+                except:
+                    pass
+
+            if eventos_mes:
+                mensaje += f"🎉 *EVENTS ({len(eventos_mes)}):*\n"
+                mensaje += "\n".join(eventos_mes[:10])  # Máximo 10
+                mensaje += "\n\n"
+
+        # 2. COMIDAS del mes
+        comidas_df = dm.get_comidas_recientes(limit=50)
+        if not comidas_df.empty:
+            comidas_mes = []
+            for _, comida in comidas_df.iterrows():
+                try:
+                    fecha_comida = pd.to_datetime(comida.get('fecha', ''), dayfirst=True)
+                    if fecha_comida.month == hoy.month and fecha_comida.year == hoy.year:
+                        # Formatear el día (ej: sant_antoni -> Sant Antoni)
+                        dia_raw = comida.get('dia', '')
+                        dia_formateado = dia_raw.replace('_', ' ').title() if dia_raw else ''
+                        tipo_comida = comida.get('tipo_comida', '')
+                        cocineros = comida.get('cocineros', comida.get('cocinero', 'Sense cuiner'))
+                        fecha_str = fecha_comida.strftime('%d/%m')
+
+                        # Formato: fecha - Día (tipo): cocineros
+                        if dia_formateado and tipo_comida:
+                            comidas_mes.append(f"  • {fecha_str} - {dia_formateado} ({tipo_comida}): {cocineros}")
+                        elif dia_formateado:
+                            comidas_mes.append(f"  • {fecha_str} - {dia_formateado}: {cocineros}")
+                        else:
+                            comidas_mes.append(f"  • {fecha_str}: {cocineros}")
+                except:
+                    pass
+
+            if comidas_mes:
+                mensaje += f"🍳 *MENJARS ({len(comidas_mes)}):*\n"
+                mensaje += "\n".join(comidas_mes[:10])  # Máximo 10
+                mensaje += "\n\n"
+
+        # 3. LISTA DE COMPRA activa
+        lista_df = dm.get_lista_compra_activa()
+        if not lista_df.empty:
+            items = lista_df['objeto'].tolist()[:10]  # Máximo 10
+            mensaje += f"🛒 *LLISTA COMPRA ({len(lista_df)} items):*\n"
+            for item in items:
+                mensaje += f"  • {item}\n"
+            if len(lista_df) > 10:
+                mensaje += f"  _...i {len(lista_df) - 10} més_\n"
+
+        mensaje += "\n🤖 _Resum automàtic de Penya L'Albenc_"
+
+        # Enviar
+        enviar_notificacion_telegram(mensaje)
+        _ultimo_resumen_mensual = hoy
+        print(f"📨 Resumen mensual de {mes_nombre} enviado correctamente")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error generando resumen mensual: {e}")
+        return False
 
 def registrar_cambio(tipo_cambio, descripcion, usuario="Anónimo"):
     """Registrar un cambio en el sistema usando el data_manager."""
@@ -923,23 +1021,40 @@ def marcar_reunion_eliminar(n_clicks):
     prevent_initial_call=False
 )
 def cargar_datos_iniciales(pathname):
+    global _scraping_in_progress, _last_scraping_time
     print("🔄 Iniciando carga OPTIMIZADA de datos...")
-    
-    def ejecutar_scraping_background():
-        print("🕵️ Gestionando noticias y agenda en segundo plano...")
-        dm.borrar_noticias_antiguas()
-        if dm.necesita_actualizar_noticias(dias=0.25):
-            # Scraping Noticias
-            df_nuevas = scrapear_diadia()
-            if not df_nuevas.empty: dm.guardar_noticias_nuevas(df_nuevas)
-            # Scraping Agenda
-            from scraper import scrapear_eventos_externos
-            df_agenda = scrapear_eventos_externos()
-            if not df_agenda.empty: dm.guardar_agenda_nueva(df_agenda)
-        else:
-            print("👌 Datos actualizados.")
 
-    threading.Thread(target=ejecutar_scraping_background).start()
+    def ejecutar_scraping_background():
+        global _scraping_in_progress, _last_scraping_time
+        try:
+            print("🕵️ Gestionando noticias y agenda en segundo plano...")
+            dm.borrar_noticias_antiguas()
+            if dm.necesita_actualizar_noticias(dias=0.25):
+                # Scraping Noticias
+                df_nuevas = scrapear_diadia()
+                if not df_nuevas.empty: dm.guardar_noticias_nuevas(df_nuevas)
+                # Scraping Agenda
+                from scraper import scrapear_eventos_externos
+                df_agenda = scrapear_eventos_externos()
+                if not df_agenda.empty: dm.guardar_agenda_nueva(df_agenda)
+            else:
+                print("👌 Datos actualizados.")
+        finally:
+            _scraping_in_progress = False
+            _last_scraping_time = datetime.now()
+
+    # Solo iniciar scraping si no hay uno en progreso y han pasado al menos 5 minutos
+    tiempo_minimo = timedelta(minutes=5)
+    puede_ejecutar = not _scraping_in_progress and (
+        _last_scraping_time is None or
+        (datetime.now() - _last_scraping_time) > tiempo_minimo
+    )
+
+    if puede_ejecutar:
+        _scraping_in_progress = True
+        threading.Thread(target=ejecutar_scraping_background).start()
+    else:
+        print("⏳ Scraping omitido (ya en progreso o ejecutado recientemente)")
     
     try:
         comidas = dm.get_comidas_recientes(limit=50).to_dict('records')
@@ -2161,7 +2276,7 @@ app.layout = html.Div([
     dcc.Store(id='store-data-loaded-signal'),
     dcc.Store(id='store-noticias', data=None, storage_type='session'),
     dcc.Store(id='store-agenda', data=None, storage_type='session'),
-    dcc.Interval(id='interval-check-noticias', interval=4000, n_intervals=0),
+    dcc.Interval(id='interval-check-noticias', interval=30000, n_intervals=0),  # 30 segundos para reducir carga
 
     dbc.Modal(
         [
