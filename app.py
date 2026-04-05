@@ -2224,21 +2224,18 @@ def guardar_edicion_evento(n_clicks, evento_id, nuevo_nombre, nuevo_tipo, nueva_
     if not n_clicks or not evento_id:
         raise PreventUpdate
     
-    # Actualizar en base de datos
+    # Actualizar en base de datos con UPDATE directo (seguro con múltiples workers)
+    dm.update_data('eventos', evento_id, {
+        'evento': nuevo_nombre,
+        'tipo': nuevo_tipo,
+        'fecha': nueva_fecha
+    })
+
+    registrar_cambio('Eventos', f'Evento editado: {nuevo_nombre}')
+    enviar_notificacion_telegram(f"✏️ *Event editat:* {nuevo_nombre}\nData: {nueva_fecha}")
+
+    # Reconstruir página con datos frescos de la BD
     eventos_df = dm.get_data('eventos')
-    idx = eventos_df.index[eventos_df['id'] == evento_id].tolist()
-    if idx:
-        eventos_df.loc[idx[0], 'evento'] = nuevo_nombre
-        eventos_df.loc[idx[0], 'tipo'] = nuevo_tipo
-        eventos_df.loc[idx[0], 'fecha'] = nueva_fecha
-        dm.save_data('eventos', eventos_df)
-        
-        registrar_cambio('Eventos', f'Evento editado: {nuevo_nombre}')
-        
-        # Enviar Telegram
-        enviar_notificacion_telegram(f"✏️ *Event editat:* {nuevo_nombre}\nData: {nueva_fecha}")
-    
-    # Reconstruir página con cache actualizado
     cache = {
         'comidas': comidas or [],
         'eventos': eventos_df.to_dict('records'),

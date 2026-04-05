@@ -212,10 +212,24 @@ class DataManager:
             print(f"Error insertando en {table}: {e}")
             return False
     
+    def update_data(self, table, record_id, fields):
+        """Actualizar un registro por ID usando UPDATE directo (seguro con múltiples workers)"""
+        set_clause = ', '.join([f'{k} = :{k}' for k in fields.keys()])
+        query = text(f"UPDATE {table} SET {set_clause} WHERE id = :_id")
+        params = {**fields, '_id': record_id}
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(query, params)
+                conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error actualizando {table} id={record_id}: {e}")
+            return False
+
     # ==========================================
     # NUEVOS MÉTODOS OPTIMIZADOS
     # ==========================================
-    
+
     def get_data_filtered(self, table, where_clause=None, order_by=None, limit=None):
         """
         Obtener datos con filtros SQL para consultas más rápidas
