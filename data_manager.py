@@ -74,13 +74,12 @@ class DataManager:
             return pd.DataFrame()
 
     def borrar_agenda_antigua(self):
-        """Borra eventos de la agenda con más de 15 días de antigüedad"""
+        """Borra eventos pasados de la agenda"""
         try:
             with self.engine.connect() as conn:
-                # Cambiamos 30 días por 15 días
-                conn.execute(text("DELETE FROM agenda WHERE fecha_scraping < NOW() - INTERVAL '15 days'"))
+                conn.execute(text("DELETE FROM agenda WHERE fecha_scraping < NOW() - INTERVAL '1 day'"))
                 conn.commit()
-            print("🧹 Agenda antigua (15 días) eliminada.")
+            print("🧹 Agenda antigua eliminada de la base de datos.")
         except Exception as e:
             print(f"❌ Error borrando agenda antigua: {e}")
 

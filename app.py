@@ -603,8 +603,10 @@ def create_home_page(cache):
         # Aplicamos la limpieza para ordenar
         agenda_df['f_orden'] = agenda_df['fecha_evento'].apply(limpiar_fecha_orden)
         
-        # Filtramos eventos de ayer hacia atrás y ordenamos por fecha y hora
-        hoy = pd.Timestamp.now().normalize()
+        # Filtramos eventos pasados y ordenamos por fecha y hora
+        ahora = pd.Timestamp.now()
+        hoy = ahora.normalize()
+        # Mantenemos sólo eventos con fecha igual o posterior al día actual (y si tienen hora/fecha válida)
         agenda_df = agenda_df[agenda_df['f_orden'] >= hoy].sort_values('f_orden', ascending=True)
         
         for row in agenda_df.to_dict('records'):
@@ -639,6 +641,9 @@ def create_home_page(cache):
                 )
             ], className="border-start border-4 mb-3 shadow-sm bg-white", 
                style={"borderLeftColor": f"{color} !important", "borderRadius": "8px"}))
+
+    if not items_agenda:
+        items_agenda = [html.P("No hi ha esdeveniments pròxims a l'agenda.", className="text-muted text-center py-3 mb-0")]
 
     # 5. Construcción final
     return dbc.Container([
@@ -884,8 +889,15 @@ def create_comidas_page(cache):
     comidas_df = pd.DataFrame(cache['comidas'])
     año_actual = datetime.now().year
     
-    # Para el selector de días: TODAS las comidas (todos los años)
-    dias_unicos = comidas_df['dia'].unique() if not comidas_df.empty else []
+    # Para el selector de días: sólo comidas futuras o del día actual
+    if not comidas_df.empty:
+        comidas_df['fecha_dt'] = pd.to_datetime(comidas_df['fecha'])
+        hoy = pd.Timestamp.now().normalize()
+        comidas_futuras_df = comidas_df[comidas_df['fecha_dt'] >= hoy]
+        dias_unicos = comidas_futuras_df['dia'].unique()
+    else:
+        dias_unicos = []
+        
     opciones_dias = [{'label': dia.replace('_', ' ').title(), 'value': dia} for dia in sorted(dias_unicos)]
 
     return dbc.Container([
@@ -2000,14 +2012,17 @@ def actualizar_lista_comidas(año):
     comidas_df = dm.get_data('comidas')
     
     if not comidas_df.empty:
-        comidas_df['año'] = pd.to_datetime(comidas_df['fecha']).dt.year
-        comidas_año = comidas_df[comidas_df['año'] == año].sort_values('fecha')
+        comidas_df['fecha_dt'] = pd.to_datetime(comidas_df['fecha'])
+        comidas_df['año'] = comidas_df['fecha_dt'].dt.year
+        hoy = pd.Timestamp.now().normalize()
+        # Filtramos por el año seleccionado y descartamos fechas pasadas
+        comidas_año = comidas_df[(comidas_df['año'] == año) & (comidas_df['fecha_dt'] >= hoy)].sort_values('fecha')
     else:
         comidas_año = pd.DataFrame()
     
     if comidas_año.empty:
         return dbc.ListGroup([
-            dbc.ListGroupItem(f"No hay comidas registradas para {año}.", className="text-muted")
+            dbc.ListGroupItem(f"No hay comidas próximas registradas para {año}.", className="text-muted")
         ], flush=True)
     
     return dbc.ListGroup([
